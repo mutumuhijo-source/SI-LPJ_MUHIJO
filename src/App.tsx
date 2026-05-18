@@ -115,7 +115,7 @@ const LoginPage = () => (
       <div className="bg-natural-primary w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg shadow-natural-primary/10">
         <FileText className="text-white w-9 h-9" />
       </div>
-      <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight mb-2">E-Lapor Sekolah</h2>
+      <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight mb-2">E-Lapor Muhijo</h2>
       <p className="text-natural-secondary mb-10 text-sm uppercase tracking-widest font-light">Sistem Pelaporan Dana Unit Kerja</p>
       
       <button 
