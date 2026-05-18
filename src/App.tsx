@@ -223,15 +223,15 @@ const LoginPage = () => {
   );
 };
 
-const ReportForm = ({ onCancel, onSuccess, user }: { onCancel: () => void, onSuccess: () => void, user: AppUser }) => {
+const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () => void, onSuccess: () => void, user: AppUser, editReport?: Report }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    unitId: '',
-    unitName: '',
-    activityName: '',
-    executionDate: new Date().toISOString().split('T')[0],
-    amountReceived: 0,
-    details: [{ description: '', amount: 0 }]
+    unitId: editReport?.unitId || '',
+    unitName: editReport?.unitName || '',
+    activityName: editReport?.activityName || '',
+    executionDate: editReport?.executionDate || new Date().toISOString().split('T')[0],
+    amountReceived: editReport?.amountReceived || 0,
+    details: editReport?.details || [{ description: '', amount: 0 }]
   });
 
   const [units, setUnits] = useState<Unit[]>([]);
@@ -240,13 +240,19 @@ const ReportForm = ({ onCancel, onSuccess, user }: { onCancel: () => void, onSuc
     const fetchUnits = async () => {
       try {
         const snap = await getDocs(collection(db, 'units'));
-        setUnits(snap.docs.map(d => ({ id: d.id, ...d.data() } as Unit)));
+        const unitData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Unit));
+        setUnits(unitData);
+        
+        if (!editReport && !formData.unitId) {
+          const matched = unitData.find(u => u.name === user.unitName);
+          if (matched) setFormData(prev => ({ ...prev, unitId: matched.id, unitName: matched.name }));
+        }
       } catch (err) {
         console.error("Error fetching units", err);
       }
     };
     fetchUnits();
-  }, []);
+  }, [user.unitName, editReport]);
 
   const addDetail = () => {
     setFormData({ ...formData, details: [...formData.details, { description: '', amount: 0 }] });
@@ -267,23 +273,28 @@ const ReportForm = ({ onCancel, onSuccess, user }: { onCancel: () => void, onSuc
     setLoading(true);
     try {
       const selectedUnit = units.find(u => u.id === formData.unitId);
-      const report: Report = {
+      const payload = {
         unitId: formData.unitId,
-        unitName: selectedUnit?.name || 'Unknown',
+        unitName: selectedUnit?.name || formData.unitName || 'Unknown',
         activityName: formData.activityName,
         executionDate: formData.executionDate,
         amountReceived: formData.amountReceived,
         totalSpent: totalSpent,
         details: formData.details,
-        status: ReportStatus.PENDING,
-        submittedAt: serverTimestamp(),
-        submittedBy: user.uid,
+        status: editReport?.status || ReportStatus.PENDING,
+        submittedAt: editReport?.submittedAt || serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        submittedBy: editReport?.submittedBy || user.uid,
       };
 
-      await addDoc(collection(db, 'reports'), report as any);
+      if (editReport?.id) {
+        await setDoc(doc(db, 'reports', editReport.id), payload as any, { merge: true });
+      } else {
+        await addDoc(collection(db, 'reports'), payload as any);
+      }
       onSuccess();
     } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, 'reports');
+      handleFirestoreError(err, editReport?.id ? OperationType.UPDATE : OperationType.CREATE, editReport?.id ? `reports/${editReport.id}` : 'reports');
     } finally {
       setLoading(false);
     }
@@ -443,7 +454,7 @@ const ReportForm = ({ onCancel, onSuccess, user }: { onCancel: () => void, onSuc
   );
 };
 
-const ReportDetail = ({ report, onBack, isAdmin }: { report: Report, onBack: () => void, isAdmin: boolean }) => {
+const ReportDetail = ({ report, onBack, isAdmin, onEdit }: { report: Report, onBack: () => void, isAdmin: boolean, onEdit: () => void }) => {
   const [notes, setNotes] = useState(report.treasurerNotes || '');
   const [updating, setUpdating] = useState(false);
 
@@ -508,6 +519,14 @@ const ReportDetail = ({ report, onBack, isAdmin }: { report: Report, onBack: () 
             <h3 className="font-serif italic text-2xl text-natural-primary">Rincian Laporan</h3>
             <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-1">Itemized Expense Report</p>
           </div>
+          {!isAdmin && report.status === ReportStatus.PENDING && (
+            <button 
+              onClick={onEdit}
+              className="bg-natural-primary text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-natural-primary/90 transition-all shadow-md"
+            >
+              Lengkapi / Edit Rincian
+            </button>
+          )}
         </div>
         <div className="p-0">
           <table className="w-full text-left">
@@ -580,11 +599,86 @@ const ReportDetail = ({ report, onBack, isAdmin }: { report: Report, onBack: () 
   );
 };
 
+const DashboardStats = ({ reports }: { reports: Report[] }) => {
+  const pending = reports.filter(r => r.status === ReportStatus.PENDING).length;
+  const approved = reports.filter(r => r.status === ReportStatus.APPROVED).length;
+  const belumDilaporkan = reports.filter(r => r.status === ReportStatus.PENDING && r.totalSpent === 0).length;
+  const totalDana = reports.reduce((sum, r) => sum + r.amountReceived, 0);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-sm">
+        <div className="flex items-center gap-3 mb-2">
+          <Clock className="w-5 h-5 text-amber-500" />
+          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Menunggu Review</p>
+        </div>
+        <p className="text-3xl font-serif italic font-bold text-natural-primary">{pending}</p>
+      </div>
+      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-sm">
+        <div className="flex items-center gap-3 mb-2">
+          <AlertCircle className="w-5 h-5 text-red-500" />
+          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Belum Dilaporkan</p>
+        </div>
+        <p className="text-3xl font-serif italic font-bold text-natural-primary">{belumDilaporkan}</p>
+      </div>
+      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-sm">
+        <div className="flex items-center gap-3 mb-2">
+          <CheckCircle2 className="w-5 h-5 text-green-500" />
+          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Laporan Sah</p>
+        </div>
+        <p className="text-3xl font-serif italic font-bold text-natural-primary">{approved}</p>
+      </div>
+      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-sm col-span-1 md:col-span-1">
+        <div className="flex items-center gap-3 mb-2">
+          <FileText className="w-5 h-5 text-blue-500" />
+          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Total Anggaran</p>
+        </div>
+        <p className="text-xl font-mono font-bold text-natural-primary">Rp {totalDana.toLocaleString('id-ID')}</p>
+      </div>
+    </div>
+  );
+};
+
+const UserList = () => (
+  <div className="bg-white rounded-[40px] border border-natural-border shadow-sm overflow-hidden">
+    <div className="px-10 py-8 border-b border-natural-bg">
+      <h3 className="font-serif italic text-2xl text-natural-primary">Daftar Akun Pengguna</h3>
+      <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-1">Gunakan informasi ini untuk koordinasi internal</p>
+    </div>
+    <div className="overflow-x-auto">
+      <table className="w-full text-left">
+        <thead>
+          <tr className="bg-natural-bg/30">
+            <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Unit Kerja</th>
+            <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Username</th>
+            <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Password</th>
+            <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Role</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-natural-bg/50">
+          {Object.entries(USER_DB).map(([username, data]) => (
+            <tr key={username} className="hover:bg-natural-input transition-colors">
+              <td className="px-10 py-6 text-natural-primary font-bold">{data.displayName}</td>
+              <td className="px-10 py-6 text-natural-text font-mono">{username}</td>
+              <td className="px-10 py-6 text-natural-text font-mono">{data.pass}</td>
+              <td className="px-10 py-6">
+                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${data.role === 'admin' ? 'bg-natural-primary text-white' : 'bg-natural-secondary/20 text-natural-secondary'}`}>
+                  {data.role}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
 const MainDashboard = () => {
   const { user, isAdmin, logout } = useContext(AuthContext);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'list' | 'create' | 'detail'>('list');
+  const [view, setView] = useState<'dashboard' | 'list' | 'create' | 'detail' | 'users'>('dashboard');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
   useEffect(() => {
@@ -594,7 +688,8 @@ const MainDashboard = () => {
     if (isAdmin) {
       q = query(collection(db, 'reports'));
     } else {
-      q = query(collection(db, 'reports'), where('submittedBy', '==', user.uid));
+      // Units see reports assigned to their unit name
+      q = query(collection(db, 'reports'), where('unitName', '==', user.unitName));
     }
 
     const unsubscribe = onSnapshot(q, (snap) => {
@@ -615,95 +710,179 @@ const MainDashboard = () => {
   if (loading) return <LoadingScreen />;
 
   return (
-    <div className="min-h-screen bg-natural-bg">
+    <div className="min-h-screen bg-natural-bg flex flex-col">
       <Navbar onLogout={logout} />
       
-      <main className="max-w-7xl mx-auto px-8 py-12">
-        <AnimatePresence mode="wait">
-          {view === 'list' && (
-            <motion.div 
-              key="list"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-                <div>
-                  <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Arsip Aktivitas</h2>
-                  <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">
-                    {isAdmin ? 'Verifikasi pertanggungjawaban unit kerja' : 'Riwayat penggunaan anggaran unit kerja anda'}
-                  </p>
+      <div className="flex-1 flex flex-col md:flex-row max-w-7xl mx-auto w-full">
+        {/* Simple Sidebar for Nav */}
+        <div className="w-full md:w-64 p-8 md:border-r border-natural-border flex-shrink-0 space-y-4">
+          <button 
+            onClick={() => setView('dashboard')}
+            className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'dashboard' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            Dashboard
+          </button>
+          <button 
+            onClick={() => setView('list')}
+            className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'list' || view === 'detail' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+          >
+            <FileText className="w-4 h-4" />
+            Arsip Laporan
+          </button>
+          {isAdmin && (
+            <>
+              <button 
+                onClick={() => setView('create')}
+                className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'create' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              >
+                <PlusCircle className="w-4 h-4" />
+                Input Anggaran
+              </button>
+              <button 
+                onClick={() => setView('users')}
+                className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'users' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              >
+                <UserCircle2 className="w-4 h-4" />
+                Daftar Akun
+              </button>
+            </>
+          )}
+        </div>
+
+        <main className="flex-1 px-8 py-12">
+          <AnimatePresence mode="wait">
+            {view === 'dashboard' && (
+              <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="mb-12">
+                  <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Ringkasan Sistem</h2>
+                  <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Gambaran umum aktivitas keuangan sekolah</p>
                 </div>
-                {!isAdmin && (
-                  <button 
-                    onClick={() => setView('create')}
-                    className="bg-natural-primary text-white px-8 py-4 rounded-full font-serif italic text-lg hover:bg-natural-primary/90 transition-all flex items-center gap-2 shadow-xl shadow-natural-primary/20 active:scale-[0.98]"
-                  >
-                    <PlusCircle className="w-5 h-5 flex-shrink-0" />
-                    Buat Laporan Baru
-                  </button>
-                )}
-              </div>
+                <DashboardStats reports={reports} />
+                <div className="bg-white p-10 rounded-[40px] border border-natural-border">
+                   <h3 className="font-serif italic text-2xl text-natural-primary mb-6">Informasi Hari Ini</h3>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <p className="text-natural-text italic leading-relaxed text-sm">
+                          Selamat datang di Dashboard E-Lapor. {isAdmin ? 'Sebagai Bendahara Utama, Anda bertanggung jawab memantau setiap pengajuan dana dari unit kerja.' : `Anda masuk sebagai Unit Kerja ${user?.unitName}. Silakan ajukan laporan pertanggungjawaban untuk setiap dana yang telah diterima.`}
+                        </p>
+                        <div className="p-4 bg-natural-bg rounded-2xl text-[11px] font-bold text-natural-secondary uppercase tracking-wider italic">
+                          Database Terhubung: AIS_SERVER_MUHIJO_01
+                        </div>
+                      </div>
+                      <div className="flex flex-col justify-center gap-4 bg-natural-input p-6 rounded-3xl border border-natural-border/50">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-natural-secondary font-bold">Waktu Server</span>
+                          <span className="font-mono text-natural-primary">{new Date().toLocaleString('id-ID', { hour12: false })}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-natural-secondary font-bold">Laporan Pending</span>
+                          <span className="font-mono font-bold text-amber-600">{reports.filter(r => r.status === ReportStatus.PENDING).length}</span>
+                        </div>
+                      </div>
+                   </div>
+                </div>
+              </motion.div>
+            )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {reports.length === 0 ? (
-                  <div className="col-span-full py-32 text-center bg-white rounded-[40px] border border-dashed border-natural-border shadow-inner">
-                    <div className="bg-natural-bg w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <FileText className="w-10 h-10 text-natural-secondary/40" />
-                    </div>
-                    <p className="text-natural-secondary font-serif italic text-xl">Belum ada aktivitas pelaporan.</p>
+            {view === 'list' && (
+              <motion.div 
+                key="list"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                  <div>
+                    <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Arsip Aktivitas</h2>
+                    <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">
+                      {isAdmin ? 'Verifikasi pertanggungjawaban unit kerja' : 'Riwayat penggunaan anggaran unit kerja anda'}
+                    </p>
                   </div>
-                ) : (
-                  reports.map(report => (
-                    <motion.div 
-                      key={report.id}
-                      whileHover={{ y: -6, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
-                      onClick={() => { setSelectedReport(report); setView('detail'); }}
-                      className="bg-white p-8 rounded-[32px] border border-natural-border shadow-sm transition-all cursor-pointer flex flex-col h-full group"
+                  {!isAdmin && (
+                    <button 
+                      onClick={() => setView('create')}
+                      className="bg-natural-primary text-white px-8 py-4 rounded-full font-serif italic text-lg hover:bg-natural-primary/90 transition-all flex items-center gap-2 shadow-xl shadow-natural-primary/20 active:scale-[0.98]"
                     >
-                      <div className="flex justify-between items-start mb-6">
-                        <StatusBadge status={report.status} />
-                        <span className="text-[10px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">
-                          {report.submittedAt?.toDate ? report.submittedAt.toDate().toLocaleDateString('id-ID') : 'Draft'}
-                        </span>
-                      </div>
-                      <h3 className="text-xl font-serif italic text-natural-primary leading-tight mb-2 group-hover:text-natural-secondary transition-colors underline decoration-natural-border/50 underline-offset-4">{report.activityName}</h3>
-                      <p className="text-[11px] font-bold text-natural-secondary uppercase tracking-widest">{report.unitName}</p>
-                      
-                      <div className="mt-8 pt-6 border-t border-natural-bg space-y-4">
-                        <div className="flex justify-between items-end">
-                          <span className="text-[10px] font-bold text-natural-secondary/40 uppercase tracking-widest">Total Dana</span>
-                          <span className="font-mono font-bold text-natural-primary text-xl tracking-tight">Rp {report.totalSpent.toLocaleString('id-ID')}</span>
-                        </div>
-                        <div className="flex justify-between items-center bg-natural-bg/30 p-2 rounded-full px-4 group-hover:bg-natural-primary group-hover:text-white transition-all">
-                          <span className="text-[9px] font-bold uppercase tracking-[0.3em]">Buka Detail Laporan</span>
-                          <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))
-                )}
-              </div>
-            </motion.div>
-          )}
+                      <PlusCircle className="w-5 h-5 flex-shrink-0" />
+                      Buat Laporan Baru
+                    </button>
+                  )}
+                </div>
 
-          {view === 'create' && user && (
-            <ReportForm 
-              user={user} 
-              onCancel={() => setView('list')} 
-              onSuccess={() => setView('list')} 
-            />
-          )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {reports.length === 0 ? (
+                    <div className="col-span-full py-32 text-center bg-white rounded-[40px] border border-dashed border-natural-border shadow-inner">
+                      <div className="bg-natural-bg w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <FileText className="w-10 h-10 text-natural-secondary/40" />
+                      </div>
+                      <p className="text-natural-secondary font-serif italic text-xl">Belum ada aktivitas pelaporan.</p>
+                    </div>
+                  ) : (
+                    reports.map(report => (
+                      <motion.div 
+                        key={report.id}
+                        whileHover={{ y: -6, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
+                        onClick={() => { setSelectedReport(report); setView('detail'); }}
+                        className="bg-white p-8 rounded-[32px] border border-natural-border shadow-sm transition-all cursor-pointer flex flex-col h-full group"
+                      >
+                        <div className="flex justify-between items-start mb-6">
+                          <StatusBadge status={report.status} />
+                          <span className="text-[10px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">
+                            {report.submittedAt?.toDate ? report.submittedAt.toDate().toLocaleDateString('id-ID') : 'Draft'}
+                          </span>
+                        </div>
+                        <h3 className="text-xl font-serif italic text-natural-primary leading-tight mb-2 group-hover:text-natural-secondary transition-colors underline decoration-natural-border/50 underline-offset-4">{report.activityName}</h3>
+                        <p className="text-[11px] font-bold text-natural-secondary uppercase tracking-widest">{report.unitName}</p>
+                        
+                        <div className="mt-8 pt-6 border-t border-natural-bg space-y-4">
+                          <div className="flex justify-between items-end">
+                            <span className="text-[10px] font-bold text-natural-secondary/40 uppercase tracking-widest">Total Dana</span>
+                            <span className="font-mono font-bold text-natural-primary text-xl tracking-tight">Rp {report.totalSpent.toLocaleString('id-ID')}</span>
+                          </div>
+                          <div className="flex justify-between items-center bg-natural-bg/30 p-2 rounded-full px-4 group-hover:bg-natural-primary group-hover:text-white transition-all">
+                            <span className="text-[9px] font-bold uppercase tracking-[0.3em]">Buka Detail Laporan</span>
+                            <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            )}
 
-          {view === 'detail' && selectedReport && (
-            <ReportDetail 
-              report={selectedReport} 
-              isAdmin={isAdmin}
-              onBack={() => { setView('list'); setSelectedReport(null); }} 
-            />
-          )}
-        </AnimatePresence>
-      </main>
+            {view === 'create' && user && (
+              <ReportForm 
+                user={user} 
+                editReport={selectedReport || undefined}
+                onCancel={() => { setView('dashboard'); setSelectedReport(null); }} 
+                onSuccess={() => { setView('list'); setSelectedReport(null); }} 
+              />
+            )}
+
+            {view === 'detail' && selectedReport && (
+              <ReportDetail 
+                report={selectedReport} 
+                isAdmin={isAdmin}
+                onBack={() => { setView('list'); setSelectedReport(null); }} 
+                onEdit={() => setView('create')}
+              />
+            )}
+
+            {view === 'users' && isAdmin && (
+              <motion.div key="users" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <UserList />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
+      </div>
+
+      <footer className="h-10 bg-[#f0eee4] px-8 flex items-center justify-between text-[10px] text-[#a5a58d] font-bold border-t border-natural-border italic">
+        <span>SISTEM INFORMASI KEUANGAN MUHIJO • VER 2.0</span>
+        <span>{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+      </footer>
     </div>
   );
 };
