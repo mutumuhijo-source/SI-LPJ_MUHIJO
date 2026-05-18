@@ -1,14 +1,13 @@
-import { auth } from '../firebase';
 import { OperationType, FirestoreErrorInfo } from '../types.ts';
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
+      userId: null,
+      email: null,
+      emailVerified: null,
+      isAnonymous: null,
     },
     operationType,
     path

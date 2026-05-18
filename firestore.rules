@@ -63,43 +63,19 @@ service cloud.firestore {
 
     // Admin list
     match /admins/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin() && userId == request.auth.uid; 
+      allow read: if true;
+      allow write: if true; 
     }
 
-    // Work units defined by Admin
+    // Work units
     match /units/{unitId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+      allow read: if true;
+      allow write: if true;
     }
 
-    // Reports collection - core business logic
+    // Reports collection
     match /reports/{reportId} {
-      // Secure list queries: users only see their own reports, admins see all
-      allow list: if isSignedIn() && (isAdmin() || resource.data.submittedBy == request.auth.uid);
-      allow get: if isSignedIn() && (isAdmin() || existing().submittedBy == request.auth.uid);
-      
-      // Creation: must be authenticated and valid schema
-      allow create: if isEmailVerified() && 
-                    isValidId(reportId) && 
-                    isValidReport(incoming()) && 
-                    incoming().status == 'pending';
-
-      // Updates: split by role and state
-      allow update: if isEmailVerified() && (
-        // Action: Treasurer Review
-        (isAdmin() && incoming().diff(existing()).affectedKeys().hasAny(['status', 'treasurerNotes']) &&
-         (existing().status == 'pending' || incoming().status == existing().status)) || // Can't un-approve easily without status loop
-        
-        // Action: Submitter Edit (only if pending)
-        (existing().submittedBy == request.auth.uid && 
-         existing().status == 'pending' && 
-         isValidReport(incoming()) &&
-         incoming().diff(existing()).affectedKeys().hasOnly(['activityName', 'executionDate', 'amountReceived', 'totalSpent', 'details', 'submittedAt']))
-      );
-
-      // Deletion: admins can delete any, owners can only delete pending
-      allow delete: if isAdmin() || (existing().submittedBy == request.auth.uid && existing().status == 'pending');
+      allow read, write: if true;
     }
   }
 }

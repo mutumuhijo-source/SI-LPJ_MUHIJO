@@ -4,8 +4,7 @@
  */
 
 import { useState, useEffect, createContext, useContext } from 'react';
-import { auth, login, logout, db } from './firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { db } from './firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, setDoc, serverTimestamp, addDoc, getDocs } from 'firebase/firestore';
 import { Report, ReportStatus, Unit, OperationType } from './types.ts';
 import { handleFirestoreError } from './lib/error-handler.ts';
@@ -21,18 +20,47 @@ import {
   Search,
   ArrowLeft,
   FileText,
-  AlertCircle
+  AlertCircle,
+  Lock,
+  UserCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-// --- Context ---
-interface AuthContextType {
-  user: User | null;
-  isAdmin: boolean;
-  loading: boolean;
+// --- Auth Utilities & Data ---
+
+interface AppUser {
+  uid: string;
+  username: string;
+  displayName: string;
+  photoURL?: string;
+  unitName: string;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, isAdmin: false, loading: true });
+const USER_DB: Record<string, { pass: string, role: string, displayName: string, unit: string }> = {
+  'admin': { pass: 'mutugo123', role: 'admin', displayName: 'Bendahara Utama', unit: 'Bendahara' },
+  'tu': { pass: 'tu123', role: 'user', displayName: 'Tata Usaha', unit: 'Tata Usaha' },
+  'kur': { pass: 'kur123', role: 'user', displayName: 'Kurikulum', unit: 'Kurikulum' },
+  'kesis': { pass: 'kesis123', role: 'user', displayName: 'Kesiswaan', unit: 'Kesiswaan' },
+  'hum': { pass: 'hum123', role: 'user', displayName: 'Humas', unit: 'Humas' },
+  'sarp': { pass: 'sarp123', role: 'user', displayName: 'Sarana Prasarana', unit: 'Sarpras' },
+};
+
+// --- Context ---
+interface AuthContextType {
+  user: AppUser | null;
+  isAdmin: boolean;
+  loading: boolean;
+  login: (u: string, p: string) => Promise<boolean>;
+  logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextType>({ 
+  user: null, 
+  isAdmin: false, 
+  loading: true,
+  login: async () => false,
+  logout: () => {}
+});
 
 // --- Components ---
 
@@ -105,35 +133,97 @@ const StatusBadge = ({ status }: { status: ReportStatus }) => {
 
 // --- Views ---
 
-const LoginPage = () => (
-  <div className="min-h-screen flex items-center justify-center bg-natural-bg p-6">
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="max-w-md w-full bg-white rounded-[40px] p-12 shadow-sm border border-natural-border text-center"
-    >
-      <div className="bg-natural-primary w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg shadow-natural-primary/10">
-        <FileText className="text-white w-9 h-9" />
-      </div>
-      <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight mb-2">E-Lapor Muhijo</h2>
-      <p className="text-natural-secondary mb-10 text-sm uppercase tracking-widest font-light">Sistem Pelaporan Dana Unit Kerja</p>
-      
-      <button 
-        onClick={login}
-        className="w-full bg-natural-primary text-white font-bold py-4 px-6 rounded-full flex items-center justify-center gap-3 hover:bg-natural-primary/90 transition-all active:scale-[0.98] shadow-md shadow-natural-primary/20"
-      >
-        <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5 brightness-0 invert" referrerPolicy="no-referrer" />
-        Masuk dengan Google
-      </button>
-      
-      <p className="mt-10 text-[10px] text-natural-secondary uppercase tracking-widest font-bold">
-        Khusus Staf internal sekolah
-      </p>
-    </motion.div>
-  </div>
-);
+const LoginPage = () => {
+  const { login } = useContext(AuthContext);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-const ReportForm = ({ onCancel, onSuccess, user }: { onCancel: () => void, onSuccess: () => void, user: User }) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    
+    const success = await login(username, password);
+    if (!success) {
+      setError('Username atau Password salah');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-natural-bg p-6">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-md w-full bg-white rounded-[40px] p-12 shadow-xl border border-natural-border"
+      >
+        <div className="text-center mb-10">
+          <div className="bg-natural-primary w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-natural-primary/10">
+            <FileText className="text-white w-9 h-9" />
+          </div>
+          <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight mb-2">E-Lapor Muhijo</h2>
+          <p className="text-natural-secondary text-xs uppercase tracking-widest font-light">Sistem Pelaporan Dana Unit Kerja</p>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase tracking-widest font-bold text-natural-secondary flex items-center gap-2">
+              <UserCircle2 className="w-3 h-3" /> Username
+            </label>
+            <input 
+              required
+              type="text"
+              className="w-full p-4 bg-natural-input border-b-2 border-natural-bg focus:border-natural-primary outline-none transition-all font-medium"
+              placeholder="Masukkan username..."
+              value={username}
+              onChange={(e) => setUsername(e.target.value.toLowerCase())}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase tracking-widest font-bold text-natural-secondary flex items-center gap-2">
+              <Lock className="w-3 h-3" /> Password
+            </label>
+            <input 
+              required
+              type="password"
+              className="w-full p-4 bg-natural-input border-b-2 border-natural-bg focus:border-natural-primary outline-none transition-all font-medium"
+              placeholder="Masukkan password..."
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+
+          {error && (
+            <motion.p 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              className="text-red-500 text-xs font-bold uppercase tracking-wider text-center"
+            >
+              {error}
+            </motion.p>
+          )}
+
+          <button 
+            type="submit"
+            disabled={loading}
+            className="w-full bg-natural-primary text-white font-serif italic text-xl py-4 rounded-full hover:bg-natural-primary/90 transition-all active:scale-[0.98] shadow-lg shadow-natural-primary/20 disabled:opacity-50"
+          >
+            {loading ? 'Memverifikasi...' : 'Masuk ke Sistem'}
+          </button>
+        </form>
+        
+        <p className="mt-10 text-[10px] text-natural-secondary uppercase tracking-[0.2em] font-bold text-center">
+          Pusat Data Pertanggungjawaban
+        </p>
+      </motion.div>
+    </div>
+  );
+};
+
+const ReportForm = ({ onCancel, onSuccess, user }: { onCancel: () => void, onSuccess: () => void, user: AppUser }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     unitId: '',
@@ -491,7 +581,7 @@ const ReportDetail = ({ report, onBack, isAdmin }: { report: Report, onBack: () 
 };
 
 const MainDashboard = () => {
-  const { user, isAdmin } = useContext(AuthContext);
+  const { user, isAdmin, logout } = useContext(AuthContext);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'list' | 'create' | 'detail'>('list');
@@ -619,45 +709,65 @@ const MainDashboard = () => {
 };
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const login = async (username: string, pass: string): Promise<boolean> => {
+    const userData = USER_DB[username];
+    if (userData && userData.pass === pass) {
+      const appUser: AppUser = {
+        uid: username,
+        username,
+        displayName: userData.displayName,
+        unitName: userData.unit
+      };
+      setUser(appUser);
+      setIsAdmin(userData.role === 'admin');
+      localStorage.setItem('auth_session', JSON.stringify(appUser));
+      return true;
+    }
+    return false;
+  };
+
+  const logout = () => {
+    setUser(null);
+    setIsAdmin(false);
+    localStorage.removeItem('auth_session');
+  };
+
   useEffect(() => {
-    return onAuthStateChanged(auth, async (u) => {
-      if (u) {
+    const session = localStorage.getItem('auth_session');
+    if (session) {
+      try {
+        const u = JSON.parse(session) as AppUser;
         setUser(u);
-        const adminDoc = await getDoc(doc(db, 'admins', u.uid));
-        setIsAdmin(adminDoc.exists());
-        
-        // Auto-bootstrap common units if none exist (for demo purposes)
+        setIsAdmin(USER_DB[u.username]?.role === 'admin');
+      } catch (err) {
+        localStorage.removeItem('auth_session');
+      }
+    }
+    setLoading(false);
+
+    // Bootstrap units
+    const bootstrap = async () => {
+      try {
         const unitsSnap = await getDocs(collection(db, 'units'));
         if (unitsSnap.empty) {
-          const defaultUnits = ['Perpustakaan', 'OSIS', 'UKS', 'Sarana Prasarana', 'Kesiswaan'];
+          const defaultUnits = Object.values(USER_DB).map(u => u.unit);
           for (const name of defaultUnits) {
             await addDoc(collection(db, 'units'), { name });
           }
         }
-
-        // Auto-bootstrap admin (the user who first logs in if no admins exist)
-        const adminSnap = await getDocs(collection(db, 'admins'));
-        if (adminSnap.empty) {
-            await setDoc(doc(db, 'admins', u.uid), { email: u.email });
-            setIsAdmin(true);
-        }
-
-      } else {
-        setUser(null);
-        setIsAdmin(false);
-      }
-      setLoading(false);
-    });
+      } catch (e) {}
+    };
+    bootstrap();
   }, []);
 
   if (loading) return <LoadingScreen />;
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading }}>
+    <AuthContext.Provider value={{ user, isAdmin, loading, login, logout }}>
       {!user ? <LoginPage /> : <MainDashboard />}
     </AuthContext.Provider>
   );
