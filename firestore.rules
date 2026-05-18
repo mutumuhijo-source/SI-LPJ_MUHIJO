@@ -61,21 +61,34 @@ service cloud.firestore {
 
     // --- Rules ---
 
-    // Admin list
-    match /admins/{userId} {
-      allow read: if true;
-      allow write: if true; 
+    // Expense types configuration
+    match /expense_types/{typeId} {
+      allow read, write: if true;
+    }
+
+    // App users collection
+    match /app_users/{userId} {
+      allow read, write: if true;
     }
 
     // Work units
     match /units/{unitId} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if true;
     }
 
     // Reports collection
     match /reports/{reportId} {
       allow read, write: if true;
+    }
+
+    // Admin list
+    match /admins/{userId} {
+      allow read, write: if true;
+    }
+
+    // Global Safety Net (at the end)
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

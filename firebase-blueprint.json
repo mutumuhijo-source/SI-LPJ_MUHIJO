@@ -47,6 +47,15 @@
       "schema": "Report",
       "description": "Submitted reports from units to treasurer"
     },
+    "expense_types": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" }
+        }
+      },
+      "description": "Predefined categories for expenses"
+    },
     "admins": {
       "schema": {
         "type": "object",
@@ -55,6 +64,19 @@
         }
       },
       "description": "Authorized treasurer accounts"
+    },
+    "app_users": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "username": { "type": "string" },
+          "pass": { "type": "string" },
+          "role": { "type": "string" },
+          "displayName": { "type": "string" },
+          "unitName": { "type": "string" }
+        }
+      },
+      "description": "Custom application users for internal login"
     }
   }
 }

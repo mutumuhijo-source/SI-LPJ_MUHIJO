@@ -5,8 +5,14 @@ export enum ReportStatus {
 }
 
 export interface ExpenseDetail {
+  date: string;
   description: string;
   amount: number;
+}
+
+export interface ExpenseType {
+  id?: string;
+  name: string;
 }
 
 export interface Report {
@@ -20,6 +26,7 @@ export interface Report {
   details: ExpenseDetail[];
   status: ReportStatus;
   submittedAt: any;
+  updatedAt?: any;
   submittedBy: string;
   treasurerNotes?: string;
 }
