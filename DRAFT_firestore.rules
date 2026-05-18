@@ -1,0 +1,91 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidUnit(data) {
+      return data.keys().hasAll(['name']) && 
+             data.keys().size() >= 1 && 
+             data.name is string && data.name.size() > 0 && data.name.size() <= 200;
+    }
+
+    function isValidReport(data) {
+      let requiredFields = ['unitId', 'activityName', 'executionDate', 'amountReceived', 'totalSpent', 'status', 'submittedAt', 'submittedBy'];
+      return data.keys().hasAll(requiredFields) &&
+             data.unitId is string && data.unitId.size() <= 64 &&
+             data.activityName is string && data.activityName.size() <= 300 &&
+             data.executionDate is string && // Simple date string validation
+             data.amountReceived is number && data.amountReceived >= 0 &&
+             data.totalSpent is number && data.totalSpent >= 0 &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.submittedAt == request.time &&
+             data.submittedBy == request.auth.uid;
+    }
+
+    // --- Rules ---
+
+    match /admins/{userId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only manageable via console or specialized tool
+    }
+
+    match /units/{unitId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /reports/{reportId} {
+      allow get: if isSignedIn() && (isAdmin() || existing().submittedBy == request.auth.uid);
+      allow list: if isSignedIn() && (isAdmin() || resource.data.submittedBy == request.auth.uid);
+      
+      allow create: if isEmailVerified() && 
+                    isValidId(reportId) && 
+                    isValidReport(incoming()) && 
+                    incoming().status == 'pending';
+
+      allow update: if isEmailVerified() && (
+        // Admin Action: Review
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasAny(['status', 'treasurerNotes'])) ||
+        
+        // Owner Action: Edit Pending
+        (existing().submittedBy == request.auth.uid && 
+         existing().status == 'pending' && 
+         isValidReport(incoming()) &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['activityName', 'executionDate', 'amountReceived', 'totalSpent', 'details', 'submittedAt']))
+      );
+
+      allow delete: if isAdmin() || (existing().submittedBy == request.auth.uid && existing().status == 'pending');
+    }
+  }
+}

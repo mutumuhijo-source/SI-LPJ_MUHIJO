@@ -1,0 +1,105 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      // Identity verify against admins collection OR bootstrap admin email
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email == 'mutumuhijo@gmail.com' && request.auth.token.email_verified == true)
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidUnit(data) {
+      return data.keys().hasAll(['name']) && 
+             data.keys().size() >= 1 && 
+             data.name is string && data.name.size() > 0 && data.name.size() <= 200;
+    }
+
+    function isValidReport(data) {
+      // List of required fields for a complete report
+      let requiredFields = ['unitId', 'unitName', 'activityName', 'executionDate', 'amountReceived', 'totalSpent', 'details', 'status', 'submittedAt', 'submittedBy'];
+      return data.keys().hasAll(requiredFields) &&
+             data.unitId is string && data.unitId.size() <= 64 &&
+             data.unitName is string &&
+             data.activityName is string && data.activityName.size() <= 300 &&
+             data.executionDate is string && // Simplified format validation
+             data.amountReceived is number && data.amountReceived >= 0 &&
+             data.totalSpent is number && data.totalSpent >= 0 &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.submittedAt == request.time &&
+             data.submittedBy == request.auth.uid;
+    }
+
+    // --- Rules ---
+
+    // Admin list
+    match /admins/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() && userId == request.auth.uid; 
+    }
+
+    // Work units defined by Admin
+    match /units/{unitId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Reports collection - core business logic
+    match /reports/{reportId} {
+      // Secure list queries: users only see their own reports, admins see all
+      allow list: if isSignedIn() && (isAdmin() || resource.data.submittedBy == request.auth.uid);
+      allow get: if isSignedIn() && (isAdmin() || existing().submittedBy == request.auth.uid);
+      
+      // Creation: must be authenticated and valid schema
+      allow create: if isEmailVerified() && 
+                    isValidId(reportId) && 
+                    isValidReport(incoming()) && 
+                    incoming().status == 'pending';
+
+      // Updates: split by role and state
+      allow update: if isEmailVerified() && (
+        // Action: Treasurer Review
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasAny(['status', 'treasurerNotes']) &&
+         (existing().status == 'pending' || incoming().status == existing().status)) || // Can't un-approve easily without status loop
+        
+        // Action: Submitter Edit (only if pending)
+        (existing().submittedBy == request.auth.uid && 
+         existing().status == 'pending' && 
+         isValidReport(incoming()) &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['activityName', 'executionDate', 'amountReceived', 'totalSpent', 'details', 'submittedAt']))
+      );
+
+      // Deletion: admins can delete any, owners can only delete pending
+      allow delete: if isAdmin() || (existing().submittedBy == request.auth.uid && existing().status == 'pending');
+    }
+  }
+}

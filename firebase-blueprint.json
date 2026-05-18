@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "Unit": {
+      "title": "Unit Kerja",
+      "description": "Work unit in the school (e.g., Library, OSIS).",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the work unit" },
+        "headName": { "type": "string", "description": "Person in charge" },
+        "email": { "type": "string", "description": "Contact email" }
+      },
+      "required": ["name"]
+    },
+    "Report": {
+      "title": "Laporan Kegiatan",
+      "description": "Report submitted by unit work for a specific activity.",
+      "type": "object",
+      "properties": {
+        "unitId": { "type": "string", "description": "Reference to the Unit ID" },
+        "unitName": { "type": "string", "description": "Name of the unit (denormalized for easy listing)" },
+        "activityName": { "type": "string", "description": "Title of the activity" },
+        "executionDate": { "type": "string", "format": "date", "description": "When the activity happened" },
+        "amountReceived": { "type": "number", "description": "Budget given by treasurer" },
+        "totalSpent": { "type": "number", "description": "Summary of expenses" },
+        "details": {
+          "type": "array",
+          "description": "Itemized expense list"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"],
+          "description": "Current status of the report"
+        },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "submittedBy": { "type": "string", "description": "User ID of the submitter" },
+        "treasurerNotes": { "type": "string", "description": "Feedback from treasurer" }
+      },
+      "required": ["unitId", "activityName", "executionDate", "amountReceived", "totalSpent", "status"]
+    }
+  },
+  "firestore": {
+    "units": {
+      "schema": "Unit",
+      "description": "Registered work units"
+    },
+    "reports": {
+      "schema": "Report",
+      "description": "Submitted reports from units to treasurer"
+    },
+    "admins": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" }
+        }
+      },
+      "description": "Authorized treasurer accounts"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "E-Lapor Bendahara Sekolah",
+  "description": "Aplikasi pelaporan kegiatan dan rincian penggunaan anggaran dari unit kerja sekolah kepada bendahara.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
