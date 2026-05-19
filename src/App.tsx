@@ -535,7 +535,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
   );
 };
 
-const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint }: { reports: Report[], isAdmin: boolean, allowedStatuses: ReportStatus[], onSelect: (r: Report) => void, onPrint: (r: Report) => void }) => {
+const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onDelete }: { reports: Report[], isAdmin: boolean, allowedStatuses: ReportStatus[], onSelect: (r: Report) => void, onPrint: (r: Report) => void, onDelete: (r: Report) => void }) => {
   const filteredReports = reports.filter(r => allowedStatuses.includes(r.status));
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -562,6 +562,13 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint }: {
                   title="Cetak SPJ"
                 >
                   <Printer className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onDelete(report); }}
+                  className="p-2 bg-red-50 hover:bg-red-500 hover:text-white rounded-full transition-all text-red-500"
+                  title="Hapus"
+                >
+                  <Trash2 className="w-4 h-4" />
                 </button>
                 <span className="text-[10px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic self-center">
                   {report.executionDate}
@@ -1291,6 +1298,16 @@ const MainDashboard = () => {
     }
   };
 
+  const handleDeleteReport = async (report: Report) => {
+    if (window.confirm(`Hapus kegiatan ${report.activityName}?`)) {
+      try {
+        await deleteDoc(doc(db, 'reports', report.id!));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `reports/${report.id}`);
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-natural-bg font-sans selection:bg-natural-primary/10">
       <div className="flex flex-1">
@@ -1384,10 +1401,10 @@ const MainDashboard = () => {
                         </p>
                         <div className="flex gap-4">
                            <button 
-                            onClick={() => isAdmin ? setView('create') : setView('anggaran')}
+                            onClick={() => setView('create')}
                             className="text-[10px] font-bold uppercase tracking-widest text-natural-primary bg-natural-primary/5 px-4 py-2 rounded-full border border-natural-primary/20 hover:bg-natural-primary hover:text-white transition-all"
                            >
-                             {isAdmin ? 'Terbitkan Anggaran Baru' : 'Lihat Daftar Pelaporan'}
+                             {isAdmin ? 'Terbitkan Anggaran Baru' : 'Ajukan Anggaran Baru'}
                            </button>
                         </div>
                       </div>
@@ -1413,6 +1430,15 @@ const MainDashboard = () => {
                     <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Anggaran</h2>
                     <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Daftar usulan kegiatan</p>
                   </div>
+                  {!isAdmin && (
+                    <button 
+                      onClick={() => { setSelectedReport(null); setView('create'); }}
+                      className="bg-natural-primary text-white px-6 py-3 rounded-full font-serif italic flex items-center gap-2 hover:bg-natural-primary/90 transition-all shadow-lg"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      Tambah Anggaran
+                    </button>
+                  )}
                 </div>
                 <ReportTable 
                   reports={reports} 
@@ -1420,6 +1446,7 @@ const MainDashboard = () => {
                   allowedStatuses={[ReportStatus.BUDGET_PROPOSAL, ReportStatus.BUDGET_APPROVED, ReportStatus.REJECTED]}
                   onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
                   onPrint={handlePrint}
+                  onDelete={handleDeleteReport}
                 />
               </motion.div>
             )}
@@ -1438,6 +1465,7 @@ const MainDashboard = () => {
                   allowedStatuses={[ReportStatus.REPORTING, ReportStatus.COMPLETED]}
                   onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
                   onPrint={handlePrint}
+                  onDelete={handleDeleteReport}
                 />
               </motion.div>
             )}
