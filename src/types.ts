@@ -26,6 +26,7 @@ export interface Report {
   amountReceived: number;
   totalSpent: number;
   details: ExpenseDetail[];
+  proposedDetails?: ExpenseDetail[];
   status: ReportStatus;
   submittedAt: any;
   updatedAt?: any;

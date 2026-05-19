@@ -6,7 +6,7 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { db } from './firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, setDoc, serverTimestamp, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
-import { Report, ReportStatus, Unit, OperationType, ExpenseType } from './types.ts';
+import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail } from './types.ts';
 import { handleFirestoreError } from './lib/error-handler.ts';
 import { 
   LayoutDashboard, 
@@ -247,7 +247,8 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
     activityName: editReport?.activityName || '',
     executionDate: editReport?.executionDate || new Date().toISOString().split('T')[0],
     amountReceived: editReport?.amountReceived || 0,
-    details: editReport?.details || [{ date: new Date().toISOString().split('T')[0], description: '', amount: 0 }]
+    proposedDetails: editReport?.proposedDetails || [{ date: new Date().toISOString().split('T')[0], description: '', amount: 0 }],
+    details: editReport?.details || []
   });
 
   const [units, setUnits] = useState<Unit[]>([]);
@@ -276,14 +277,29 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
     return () => unsubscribeExpenses();
   }, [user.unitName, editReport, isAdmin]);
 
-  const addDetail = () => {
-    setFormData({ ...formData, details: [...formData.details, { date: new Date().toISOString().split('T')[0], description: '', amount: 0 }] });
+  const updateProposedDetails = (newDetails: ExpenseDetail[]) => {
+    const total = newDetails.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+    setFormData(prev => ({ ...prev, proposedDetails: newDetails, amountReceived: total }));
   };
 
-  const removeDetail = (index: number) => {
-    const newDetails = [...formData.details];
-    newDetails.splice(index, 1);
-    setFormData({ ...formData, details: newDetails });
+  const addDetail = (isProposed: boolean) => {
+    if (isProposed) {
+      updateProposedDetails([...formData.proposedDetails, { date: new Date().toISOString().split('T')[0], description: '', amount: 0 }]);
+    } else {
+      setFormData({ ...formData, details: [...formData.details, { date: new Date().toISOString().split('T')[0], description: '', amount: 0 }] });
+    }
+  };
+
+  const removeDetail = (index: number, isProposed: boolean) => {
+    if (isProposed) {
+      const newDetails = [...formData.proposedDetails];
+      newDetails.splice(index, 1);
+      updateProposedDetails(newDetails);
+    } else {
+      const newDetails = [...formData.details];
+      newDetails.splice(index, 1);
+      setFormData({ ...formData, details: newDetails });
+    }
   };
 
   const totalSpent = formData.details.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
@@ -303,6 +319,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
         amountReceived: Number(formData.amountReceived),
         totalSpent: totalSpent,
         details: formData.details,
+        proposedDetails: formData.proposedDetails,
         status: editReport?.status || ReportStatus.BUDGET_PROPOSAL,
         submittedAt: editReport?.submittedAt || serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -400,7 +417,101 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
           </div>
         </div>
 
-        {(!isAdmin || (isAdmin && editReport && editReport.details.length > 0)) && (
+        {/* Proposed Details */}
+        <div className="bg-white p-10 rounded-[32px] border border-natural-border shadow-sm space-y-8">
+            <div className="flex justify-between items-center border-b border-natural-bg pb-6">
+              <div>
+                <h3 className="font-serif italic text-2xl text-natural-primary">Rincian Anggaran (Usulan)</h3>
+                <p className="text-[10px] uppercase font-bold text-natural-secondary tracking-widest mt-1">Item belanja yang diusulkan</p>
+              </div>
+              <button 
+                  type="button"
+                  onClick={() => addDetail(true)}
+                  className="px-6 py-2.5 bg-natural-primary text-white text-[11px] uppercase font-bold rounded-full hover:bg-natural-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-natural-primary/20"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  Baris Baru
+                </button>
+            </div>
+
+            <div className="space-y-4">
+              {formData.proposedDetails.map((detail, idx) => (
+                <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-natural-bg/20 p-6 rounded-[24px] border border-natural-bg relative group">
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Tgl</label>
+                    <input 
+                      type="date"
+                      required
+                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold"
+                      value={detail.date}
+                      onChange={(e) => {
+                        const newD = [...formData.proposedDetails];
+                        newD[idx].date = e.target.value;
+                        updateProposedDetails(newD);
+                      }}
+                    />
+                  </div>
+                  <div className="md:col-span-3 space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Kategori</label>
+                    <select 
+                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold"
+                      onChange={(e) => {
+                        const newD = [...formData.proposedDetails];
+                        const current = newD[idx].description;
+                        newD[idx].description = `[${e.target.value}] ${current.replace(/^\[.*?\]\s*/, '')}`;
+                        updateProposedDetails(newD);
+                      }}
+                    >
+                      <option value="">Pilih...</option>
+                      {expenseTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="md:col-span-4 space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Deskripsi Pengeluaran</label>
+                    <input 
+                      required
+                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-medium"
+                      placeholder="Masukkan rincian..."
+                      value={detail.description}
+                      onChange={(e) => {
+                        const newD = [...formData.proposedDetails];
+                        newD[idx].description = e.target.value;
+                        updateProposedDetails(newD);
+                      }}
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60 text-right block">Nominal</label>
+                    <input 
+                      type="number"
+                      required
+                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none font-mono font-bold text-xs text-right"
+                      value={detail.amount}
+                      onChange={(e) => {
+                        const newD = [...formData.proposedDetails];
+                        newD[idx].amount = parseInt(e.target.value) || 0;
+                        updateProposedDetails(newD);
+                      }}
+                    />
+                  </div>
+                  <div className="md:col-span-1 flex justify-center pb-1">
+                    {formData.proposedDetails.length > 1 && (
+                      <button 
+                        type="button"
+                        onClick={() => removeDetail(idx, true)}
+                        className="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+        </div>
+
+        {/* Actual Details */}
+        {(editReport?.status === ReportStatus.REPORTING || editReport?.status === ReportStatus.COMPLETED) && (
           <div className="bg-white p-10 rounded-[32px] border border-natural-border shadow-sm space-y-8">
             <div className="flex justify-between items-center border-b border-natural-bg pb-6">
               <div>
@@ -410,11 +521,11 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
               {!isAdmin && (
                 <button 
                   type="button"
-                  onClick={addDetail}
-                  className="px-6 py-2.5 bg-natural-primary text-white text-[11px] uppercase font-bold rounded-full hover:bg-natural-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-natural-primary/20"
+                  onClick={() => addDetail(false)}
+                  className="px-6 py-2.5 bg-emerald-600 text-white text-[11px] uppercase font-bold rounded-full hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-lg shadow-emerald-700/20"
                 >
                   <PlusCircle className="w-4 h-4" />
-                  Baris Baru
+                  Baris Baru Realisasi
                 </button>
               )}
             </div>
@@ -437,6 +548,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
                       }}
                     />
                   </div>
+
                   <div className="md:col-span-3 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Kategori</label>
                     <select 
@@ -483,11 +595,12 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
                       }}
                     />
                   </div>
+
                   <div className="md:col-span-1 flex justify-center pb-1">
-                    {!isAdmin && formData.details.length > 1 && (
+                    {!isAdmin && (
                       <button 
                         type="button"
-                        onClick={() => removeDetail(idx)}
+                        onClick={() => removeDetail(idx, false)}
                         className="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
                       >
                         <Trash2 className="w-5 h-5" />
@@ -584,7 +697,7 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onD
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold text-natural-secondary/40 uppercase tracking-widest block">{allowedStatuses.includes(ReportStatus.REPORTING) || allowedStatuses.includes(ReportStatus.COMPLETED) ? 'Realisasi' : 'Anggaran'}</span>
-                    <span className="font-mono font-bold text-natural-primary text-xl tracking-tight">Rp {report.totalSpent.toLocaleString('id-ID')}</span>
+                    <span className="font-mono font-bold text-natural-primary text-xl tracking-tight">Rp {(allowedStatuses.includes(ReportStatus.REPORTING) || allowedStatuses.includes(ReportStatus.COMPLETED) ? report.totalSpent : report.amountReceived).toLocaleString('id-ID')}</span>
                   </div>
                   <div className="flex justify-between items-center bg-natural-bg/30 p-2 rounded-full px-4 group-hover:bg-natural-primary group-hover:text-white transition-all text-[#a5a58d]">
                     <span className="text-[9px] font-bold uppercase tracking-[0.3em]">Buka Detail</span>
@@ -678,7 +791,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onUpdateStatus
               Lengkapi / Edit Rincian
             </button>
           )}
-          {!isAdmin && report.status === ReportStatus.BUDGET_APPROVED && (
+          {isAdmin && report.status === ReportStatus.BUDGET_APPROVED && (
             <button 
               onClick={() => handleUpdateStatusAction(ReportStatus.REPORTING)}
               className="bg-natural-secondary text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-natural-secondary/90 transition-all shadow-md"
@@ -1184,100 +1297,114 @@ const MainDashboard = () => {
     return () => unsubscribe();
   }, [user, isAdmin]);
 
-  const handlePrint = (report: Report) => {
+  const handlePrintAnggaran = (report: Report) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
     const html = `
       <html>
         <head>
-          <title>SPJ - ${report.activityName}</title>
+          <title>Anggaran - ${report.activityName}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap');
             body { font-family: 'Crimson Pro', serif; padding: 1cm; line-height: 1.4; color: #000; font-size: 11pt; }
             .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
             .header h1 { margin: 0; font-size: 18pt; text-transform: uppercase; }
-            .header p { margin: 2px 0; font-size: 10pt; }
             .title { text-align: center; font-weight: bold; text-decoration: underline; margin-bottom: 20px; font-size: 14pt; }
             .meta { margin-bottom: 20px; }
-            .meta table { width: 100%; border-collapse: collapse; }
-            .meta td { padding: 4px 0; vertical-align: top; }
-            .meta td:first-child { width: 140px; font-weight: bold; }
-            .rpt-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            .rpt-table th, .rpt-table td { border: 1px solid #000; padding: 6px 10px; text-align: left; }
-            .rpt-table th { background: #f0f0f0; text-transform: uppercase; font-size: 9pt; }
-            .mono { font-family: 'JetBrains Mono', monospace; font-size: 9pt; }
-            .text-right { text-align: right; }
-            .summary { margin-top: 20px; page-break-inside: avoid; }
-            .summary table { width: 100%; border-collapse: collapse; }
-            .summary td { padding: 6px 10px; border: 1px solid #000; font-weight: bold; }
-            .sign { margin-top: 40px; display: grid; grid-template-cols: 1fr 1fr; gap: 40px; page-break-inside: avoid; }
-            .sign-box { text-align: center; }
-            .sign-space { height: 60px; }
-            @media print { .no-print { display: none; } button { display: none; } }
+            .meta td { padding: 4px 0; font-weight: bold; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>Laporan Pertanggungjawaban Dana (SPJ)</h1>
-            <p>SD MUHAMMADIYAH 1 TLOGOMAS MALANG</p>
-            <p>Jl. Karya Wiguna No. 250, Tlogomas, Kec. Lowokwaru, Kota Malang</p>
-          </div>
-          <div class="title">RINCIAN PENGGUNAAN ANGGARAN</div>
+          <div class="header"><h1>PERMOHONAN ANGGARAN KEGIATAN</h1></div>
           <div class="meta">
             <table>
               <tr><td>Nama Kegiatan</td><td>: ${report.activityName}</td></tr>
               <tr><td>Unit Kerja</td><td>: ${report.unitName}</td></tr>
-              <tr><td>Status Laporan</td><td>: ${report.status.toUpperCase()}</td></tr>
-              <tr><td>Alokasi Dana</td><td>: <span class="mono">Rp ${report.amountReceived.toLocaleString('id-ID')}</span></td></tr>
             </table>
           </div>
+          <table class="rpt-table" style="width:100%; border-collapse:collapse; margin-top:20px;">
+            <thead>
+                <tr style="background:#f0f0f0;">
+                    <th style="border:1px solid #000; padding:6px;">Tanggal</th>
+                    <th style="border:1px solid #000; padding:6px;">Deskripsi</th>
+                    <th style="border:1px solid #000; padding:6px; text-align:right;">Nominal (Rp)</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${(report.proposedDetails || []).map(d => `
+                    <tr>
+                        <td style="border:1px solid #000; padding:6px;">${d.date}</td>
+                        <td style="border:1px solid #000; padding:6px;">${d.description}</td>
+                        <td style="border:1px solid #000; padding:6px; text-align:right;">${d.amount.toLocaleString('id-ID')}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; text-align:right;">Total</td>
+                    <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold;">${report.amountReceived.toLocaleString('id-ID')}</td>
+                </tr>
+            </tfoot>
+          </table>
+          <script>window.print(); setTimeout(() => window.close(), 1000);</script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  const handlePrintLaporan = (report: Report) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const html = `
+      <html>
+        <head>
+          <title>Laporan - ${report.activityName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap');
+            body { font-family: 'Crimson Pro', serif; padding: 1cm; }
+            .rpt-table { width: 100%; border-collapse: collapse; }
+            .rpt-table th, .rpt-table td { border: 1px solid #000; padding: 6px; }
+            .text-right { text-align: right; }
+          </style>
+        </head>
+        <body>
+          <h1>Laporan Realisasi: ${report.activityName}</h1>
           <table class="rpt-table">
             <thead>
               <tr>
-                <th style="width: 30px;">No</th>
-                <th style="width: 80px;">Tanggal</th>
-                <th>Uraian Penggunaan</th>
-                <th style="width: 120px;" class="text-right">Jumlah (Rp)</th>
+                <th>Deskripsi</th>
+                <th>Anggaran</th>
+                <th>Realisasi</th>
+                <th>Selisih</th>
               </tr>
             </thead>
             <tbody>
-              ${report.details.map((d, i) => `
-                <tr>
-                  <td style="text-align: center;">${i + 1}</td>
-                  <td>${d.date}</td>
-                  <td>${d.description}</td>
-                  <td class="text-right mono">${(d.amount || 0).toLocaleString('id-ID')}</td>
-                </tr>
-              `).join('')}
+              ${report.proposedDetails.map(p => {
+                const actual = report.details.find(d => d.description === p.description);
+                const diff = p.amount - (actual?.amount || 0);
+                return `
+                  <tr>
+                    <td>${p.description}</td>
+                    <td class="text-right">${p.amount.toLocaleString('id-ID')}</td>
+                    <td class="text-right">${(actual?.amount || 0).toLocaleString('id-ID')}</td>
+                    <td class="text-right">${diff.toLocaleString('id-ID')}</td>
+                  </tr>
+                `;
+              }).join('')}
             </tbody>
+            <tfoot>
+                <tr>
+                    <td class="text-right"><b>TOTAL</b></td>
+                    <td class="text-right"><b>${report.amountReceived.toLocaleString('id-ID')}</b></td>
+                    <td class="text-right"><b>${report.totalSpent.toLocaleString('id-ID')}</b></td>
+                    <td class="text-right"><b>${(report.amountReceived - report.totalSpent).toLocaleString('id-ID')}</b></td>
+                </tr>
+            </tfoot>
           </table>
-          <div class="summary">
-            <table>
-              <tr>
-                <td style="width: 70%; text-align: right;">Total Dana Terealisasi</td>
-                <td class="text-right mono">Rp ${report.totalSpent.toLocaleString('id-ID')}</td>
-              </tr>
-              <tr>
-                <td style="width: 70%; text-align: right;">Sisa Dana Anggaran</td>
-                <td class="text-right mono">Rp ${(report.amountReceived - report.totalSpent).toLocaleString('id-ID')}</td>
-              </tr>
-            </table>
-          </div>
-          <div class="sign">
-            <div class="sign-box">
-              <p>Mengetahui,</p>
-              <p>Bendahara Sekolah</p>
-              <div class="sign-space"></div>
-              <p><b>( Bendahara Utama )</b></p>
-            </div>
-            <div class="sign-box">
-              <p>Malang, ${new Date().toLocaleDateString('id-ID')}</p>
-              <p>Hormat Kami,</p>
-              <div class="sign-space"></div>
-              <p><b>( ${report.unitName} )</b></p>
-            </div>
-          </div>
           <script>window.print(); setTimeout(() => window.close(), 1000);</script>
         </body>
       </html>
@@ -1445,7 +1572,7 @@ const MainDashboard = () => {
                   isAdmin={isAdmin} 
                   allowedStatuses={[ReportStatus.BUDGET_PROPOSAL, ReportStatus.BUDGET_APPROVED, ReportStatus.REJECTED]}
                   onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
-                  onPrint={handlePrint}
+                  onPrint={handlePrintAnggaran}
                   onDelete={handleDeleteReport}
                 />
               </motion.div>
@@ -1464,7 +1591,7 @@ const MainDashboard = () => {
                   isAdmin={isAdmin} 
                   allowedStatuses={[ReportStatus.REPORTING, ReportStatus.COMPLETED]}
                   onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
-                  onPrint={handlePrint}
+                  onPrint={handlePrintLaporan}
                   onDelete={handleDeleteReport}
                 />
               </motion.div>
@@ -1474,7 +1601,13 @@ const MainDashboard = () => {
               <ReportDetail 
                 report={selectedReport} 
                 isAdmin={isAdmin}
-                onPrint={() => handlePrint(selectedReport)}
+                onPrint={() => {
+                  if (selectedReport.status === ReportStatus.BUDGET_PROPOSAL || selectedReport.status === ReportStatus.BUDGET_APPROVED || selectedReport.status === ReportStatus.REJECTED) {
+                    handlePrintAnggaran(selectedReport);
+                  } else {
+                    handlePrintLaporan(selectedReport);
+                  }
+                }}
                 onUpdateStatus={handleStatusUpdate}
                 onBack={() => { setView('dashboard'); setSelectedReport(null); }}
                 onEdit={() => setView('create')}
