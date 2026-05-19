@@ -10,6 +10,7 @@ export interface ExpenseDetail {
   date: string;
   description: string;
   amount: number;
+  category?: string;
 }
 
 export interface ExpenseType {
@@ -22,7 +23,6 @@ export interface Report {
   unitId: string;
   unitName: string;
   activityName: string;
-  executionDate: string;
   amountReceived: number;
   totalSpent: number;
   details: ExpenseDetail[];
@@ -32,6 +32,11 @@ export interface Report {
   updatedAt?: any;
   submittedBy: string;
   treasurerNotes?: string;
+  ketuaName?: string;
+  ketuaJabatan?: string;
+  bendaharaName?: string;
+  bendaharaJabatan?: string;
+  submissionDate?: string;
 }
 
 export interface Unit {

@@ -245,10 +245,14 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
     unitId: editReport?.unitId || '',
     unitName: editReport?.unitName || '',
     activityName: editReport?.activityName || '',
-    executionDate: editReport?.executionDate || new Date().toISOString().split('T')[0],
     amountReceived: editReport?.amountReceived || 0,
-    proposedDetails: editReport?.proposedDetails || [{ date: new Date().toISOString().split('T')[0], description: '', amount: 0 }],
-    details: editReport?.details || []
+    proposedDetails: editReport?.proposedDetails || [{ category: '', description: '', amount: 0 }],
+    details: editReport?.details || [],
+    ketuaName: editReport?.ketuaName || '',
+    ketuaJabatan: editReport?.ketuaJabatan || '',
+    bendaharaName: editReport?.bendaharaName || '',
+    bendaharaJabatan: editReport?.bendaharaJabatan || '',
+    submissionDate: editReport?.submissionDate || new Date().toISOString().split('T')[0]
   });
 
   const [units, setUnits] = useState<Unit[]>([]);
@@ -284,7 +288,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
 
   const addDetail = (isProposed: boolean) => {
     if (isProposed) {
-      updateProposedDetails([...formData.proposedDetails, { date: new Date().toISOString().split('T')[0], description: '', amount: 0 }]);
+      updateProposedDetails([...formData.proposedDetails, { date: new Date().toISOString().split('T')[0], description: '', amount: 0, category: '' }]);
     } else {
       setFormData({ ...formData, details: [...formData.details, { date: new Date().toISOString().split('T')[0], description: '', amount: 0 }] });
     }
@@ -315,7 +319,6 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
         unitId: formData.unitId,
         unitName: selectedUnit?.name || formData.unitName || 'Unknown',
         activityName: formData.activityName,
-        executionDate: formData.executionDate,
         amountReceived: Number(formData.amountReceived),
         totalSpent: totalSpent,
         details: formData.details,
@@ -324,6 +327,11 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
         submittedAt: editReport?.submittedAt || serverTimestamp(),
         updatedAt: serverTimestamp(),
         submittedBy: editReport?.submittedBy || user.uid,
+        ketuaName: formData.ketuaName,
+        ketuaJabatan: formData.ketuaJabatan,
+        bendaharaName: formData.bendaharaName,
+        bendaharaJabatan: formData.bendaharaJabatan,
+        submissionDate: formData.submissionDate
       };
 
       if (editReport?.id) {
@@ -377,14 +385,47 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
               </select>
             </div>
             <div className="space-y-1.5 focus-within:text-natural-primary transition-colors">
-              <label className="text-[10px] uppercase tracking-wider font-bold">Rencana Tanggal Pelaksanaan</label>
+              <label className="text-[10px] uppercase tracking-wider font-bold">Tanggal Pengajuan</label>
               <input 
                 type="date"
                 required
-                disabled={!isAdmin && !!editReport}
-                className="w-full p-4 bg-natural-input border-b-2 border-natural-bg text-sm font-bold focus:bg-white focus:border-natural-primary outline-none disabled:opacity-60"
-                value={formData.executionDate}
-                onChange={(e) => setFormData({...formData, executionDate: e.target.value})}
+                className="w-full p-4 bg-natural-input border-b-2 border-natural-bg text-sm font-bold focus:bg-white focus:border-natural-primary outline-none"
+                value={formData.submissionDate}
+                onChange={(e) => setFormData({...formData, submissionDate: e.target.value})}
+              />
+            </div>
+            <div className="space-y-1.5 focus-within:text-natural-primary transition-colors">
+              <label className="text-[10px] uppercase tracking-wider font-bold">Pejabat Penanda Tangan 1</label>
+              <input 
+                required
+                className="w-full p-4 bg-natural-input border-b-2 border-natural-bg text-sm font-bold focus:bg-white focus:border-natural-primary outline-none"
+                value={formData.ketuaName}
+                placeholder="Nama"
+                onChange={(e) => setFormData({...formData, ketuaName: e.target.value})}
+              />
+              <input 
+                required
+                className="w-full p-4 bg-natural-input border-b-2 border-natural-bg text-sm font-bold focus:bg-white focus:border-natural-primary outline-none"
+                value={formData.ketuaJabatan}
+                placeholder="Jabatan"
+                onChange={(e) => setFormData({...formData, ketuaJabatan: e.target.value})}
+              />
+            </div>
+            <div className="space-y-1.5 focus-within:text-natural-primary transition-colors">
+              <label className="text-[10px] uppercase tracking-wider font-bold">Pejabat Penanda Tangan 2</label>
+              <input 
+                required
+                className="w-full p-4 bg-natural-input border-b-2 border-natural-bg text-sm font-bold focus:bg-white focus:border-natural-primary outline-none"
+                value={formData.bendaharaName}
+                placeholder="Nama"
+                onChange={(e) => setFormData({...formData, bendaharaName: e.target.value})}
+              />
+              <input 
+                required
+                className="w-full p-4 bg-natural-input border-b-2 border-natural-bg text-sm font-bold focus:bg-white focus:border-natural-primary outline-none"
+                value={formData.bendaharaJabatan}
+                placeholder="Jabatan"
+                onChange={(e) => setFormData({...formData, bendaharaJabatan: e.target.value})}
               />
             </div>
           </div>
@@ -437,28 +478,15 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
             <div className="space-y-4">
               {formData.proposedDetails.map((detail, idx) => (
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-natural-bg/20 p-6 rounded-[24px] border border-natural-bg relative group">
-                  <div className="md:col-span-2 space-y-1">
-                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Tgl</label>
-                    <input 
-                      type="date"
-                      required
-                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold"
-                      value={detail.date}
-                      onChange={(e) => {
-                        const newD = [...formData.proposedDetails];
-                        newD[idx].date = e.target.value;
-                        updateProposedDetails(newD);
-                      }}
-                    />
-                  </div>
-                  <div className="md:col-span-3 space-y-1">
+                  <div className="md:col-span-4 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Kategori</label>
                     <select 
+                      required
                       className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold"
+                      value={detail.category || ''}
                       onChange={(e) => {
                         const newD = [...formData.proposedDetails];
-                        const current = newD[idx].description;
-                        newD[idx].description = `[${e.target.value}] ${current.replace(/^\[.*?\]\s*/, '')}`;
+                        newD[idx].category = e.target.value;
                         updateProposedDetails(newD);
                       }}
                     >
@@ -466,7 +494,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
                       {expenseTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
                     </select>
                   </div>
-                  <div className="md:col-span-4 space-y-1">
+                  <div className="md:col-span-5 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Deskripsi Pengeluaran</label>
                     <input 
                       required
@@ -640,7 +668,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
             className="flex-1 py-4 bg-natural-primary text-white rounded-full font-serif italic text-lg shadow-xl shadow-natural-primary/20 hover:bg-natural-primary/90 transition-all flex items-center justify-center gap-2"
           >
             {loading && <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white" />}
-            {editReport ? 'Simpan Perubahan Laporan' : (isAdmin ? 'Terbitkan Mandat Anggaran' : 'Kirim Laporan Realisasi')}
+            {editReport ? 'Simpan Perubahan Laporan' : (isAdmin ? 'Terbitkan Mandat Anggaran' : 'Kirim Pengajuan Anggaran')}
           </button>
         </div>
       </form>
@@ -672,7 +700,7 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onD
                 <button 
                   onClick={(e) => { e.stopPropagation(); onPrint(report); }}
                   className="p-2 bg-natural-bg hover:bg-natural-primary hover:text-white rounded-full transition-all text-natural-secondary"
-                  title="Cetak SPJ"
+                  title="Cetak RAB"
                 >
                   <Printer className="w-4 h-4" />
                 </button>
@@ -684,7 +712,6 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onD
                   <Trash2 className="w-4 h-4" />
                 </button>
                 <span className="text-[10px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic self-center">
-                  {report.executionDate}
                 </span>
               </div>
             </div>
@@ -744,7 +771,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onUpdateStatus
         </button>
         <div className="flex-1">
           <h2 className="text-4xl font-serif italic text-natural-primary leading-tight">{report.activityName}</h2>
-          <p className="text-natural-secondary text-sm uppercase tracking-[0.2em] font-light mt-1">{report.unitName} • {new Date(report.executionDate).toLocaleDateString('id-ID', { dateStyle: 'long' })}</p>
+          <p className="text-natural-secondary text-sm uppercase tracking-[0.2em] font-light mt-1">{report.unitName}</p>
         </div>
         <div className="flex items-center gap-4">
            <button 
@@ -752,7 +779,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onUpdateStatus
              className="p-3 bg-white border border-natural-border text-natural-primary rounded-full hover:bg-natural-input transition-all shadow-sm flex items-center gap-2 px-6 font-bold uppercase text-[10px] tracking-widest"
            >
              <Printer className="w-4 h-4" />
-             Cetak SPJ
+             Cetak RAB
            </button>
            <StatusBadge status={report.status} />
         </div>
@@ -778,10 +805,56 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onUpdateStatus
       </div>
 
       <div className="bg-white rounded-[40px] border border-natural-border shadow-sm overflow-hidden mb-10">
-        <div className="px-10 py-8 border-b border-natural-bg flex justify-between items-end">
-          <div>
-            <h3 className="font-serif italic text-2xl text-natural-primary">Rincian Laporan</h3>
-            <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-1">Itemized Expense Report</p>
+          <div className="px-10 py-8 border-b border-natural-bg flex justify-between items-end">
+            <div>
+              <h3 className="font-serif italic text-2xl text-natural-primary">Rincian Anggaran (Usulan)</h3>
+              <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-1">Proposed Budget Details</p>
+            </div>
+          </div>
+          <div className="p-0">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-natural-bg/30">
+                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] w-20 italic">#</th>
+                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Deskripsi Item</th>
+                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] text-right italic">Nominal</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-natural-bg/50">
+                {(report.proposedDetails || []).map((item, idx) => (
+                  <tr key={idx} className="hover:bg-natural-input transition-colors">
+                    <td className="px-10 py-6 font-mono text-xs text-natural-secondary">{String(idx + 1).padStart(2, '0')}</td>
+                    <td className="px-10 py-6 text-natural-text font-medium italic">"{item.description}"</td>
+                    <td className="px-10 py-6 text-natural-primary font-mono font-bold text-right text-lg">Rp {item.amount.toLocaleString('id-ID')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-10 py-10 grid grid-cols-2 gap-10 border-t border-natural-bg">
+            <div className="text-center">
+              <p className="text-sm font-bold text-natural-secondary uppercase tracking-widest mb-2 italic">Pejabat Penanda Tangan 1</p>
+              <p className="text-sm font-bold mb-1">{report.ketuaJabatan}</p>
+              <p className="text-sm font-bold border-b border-natural-bg inline-block px-4">{report.ketuaName}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-bold text-natural-secondary uppercase tracking-widest mb-2 italic">Pejabat Penanda Tangan 2</p>
+              <p className="text-sm font-bold mb-1">{report.bendaharaJabatan}</p>
+              <p className="text-sm font-bold border-b border-natural-bg inline-block px-4">{report.bendaharaName}</p>
+            </div>
+            <div className="col-span-2 text-center mt-5">
+              <p className="text-sm text-natural-secondary italic">Mengetahui, {report.unitName}</p>
+              <p className="text-xs text-natural-secondary uppercase tracking-widest mt-2">{report.submissionDate ? `Dibuat pada: ${new Date(report.submissionDate).toLocaleDateString('id-ID', { dateStyle: 'long' })}` : ''}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[40px] border border-natural-border shadow-sm overflow-hidden mb-10">
+          <div className="px-10 py-8 border-b border-natural-bg flex justify-between items-end">
+            <div>
+              <h3 className="font-serif italic text-2xl text-natural-primary">Rincian Laporan</h3>
+              <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-1">Itemized Expense Report</p>
+            </div>
           </div>
           {!isAdmin && (report.status === ReportStatus.BUDGET_PROPOSAL || report.status === ReportStatus.REPORTING) && (
             <button 
@@ -807,30 +880,29 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onUpdateStatus
               Selesaikan Laporan
             </button>
           )}
-        </div>
-        <div className="p-0">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-natural-bg/30">
-                <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] w-20 italic">#</th>
-                <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Tanggal</th>
-                <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Deskripsi Item</th>
-                <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] text-right italic">Nominal</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-natural-bg/50">
-              {report.details.map((item, idx) => (
-                <tr key={idx} className="hover:bg-natural-input transition-colors">
-                  <td className="px-10 py-6 font-mono text-xs text-natural-secondary">{String(idx + 1).padStart(2, '0')}</td>
-                  <td className="px-10 py-6 text-natural-text text-sm">{item.date}</td>
-                  <td className="px-10 py-6 text-natural-text font-medium italic">"{item.description}"</td>
-                  <td className="px-10 py-6 text-natural-primary font-mono font-bold text-right text-lg">Rp {item.amount.toLocaleString('id-ID')}</td>
+          <div className="p-0">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-natural-bg/30">
+                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] w-20 italic">#</th>
+                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Tanggal</th>
+                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Deskripsi Item</th>
+                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] text-right italic">Nominal</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-natural-bg/50">
+                {report.details.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-natural-input transition-colors">
+                    <td className="px-10 py-6 font-mono text-xs text-natural-secondary">{String(idx + 1).padStart(2, '0')}</td>
+                    <td className="px-10 py-6 text-natural-text text-sm">{item.date}</td>
+                    <td className="px-10 py-6 text-natural-text font-medium italic">"{item.description}"</td>
+                    <td className="px-10 py-6 text-natural-primary font-mono font-bold text-right text-lg">Rp {item.amount.toLocaleString('id-ID')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
 
       {isAdmin && report.status === ReportStatus.BUDGET_PROPOSAL && (
         <motion.div 
@@ -1347,6 +1419,23 @@ const MainDashboard = () => {
                 </tr>
             </tfoot>
           </table>
+          <div style="margin-top: 40px; display: flex; justify-content: space-between; font-size: 11pt;">
+            <div style="text-align: center; width: 45%;">
+              <p style="margin: 0;">Pejabat Penanda Tangan 1</p>
+              <p style="margin: 0;">${report.ketuaJabatan || ''}</p>
+              <br><br><br>
+              <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.ketuaName || ''}</p>
+            </div>
+            <div style="text-align: center; width: 45%;">
+              <p style="margin: 0;">Pejabat Penanda Tangan 2</p>
+              <p style="margin: 0;">${report.bendaharaJabatan || ''}</p>
+              <br><br><br>
+              <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.bendaharaName || ''}</p>
+            </div>
+          </div>
+          <div style="text-align: center; margin-top: 40px;">
+             <p style="margin: 0;">Tanggal Pengajuan: ${report.submissionDate ? new Date(report.submissionDate).toLocaleDateString('id-ID', { dateStyle: 'long' }) : ''}</p>
+          </div>
           <script>window.print(); setTimeout(() => window.close(), 1000);</script>
         </body>
       </html>
