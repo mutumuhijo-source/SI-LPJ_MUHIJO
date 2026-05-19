@@ -129,8 +129,10 @@ const Navbar = ({ onLogout }: { onLogout: () => void }) => {
 
 const StatusBadge = ({ status }: { status: ReportStatus }) => {
   const configs = {
-    [ReportStatus.PENDING]: { color: 'bg-[#fcf8e3] text-amber-700 border-amber-200', icon: Clock, label: 'Menunggu' },
-    [ReportStatus.APPROVED]: { color: 'bg-[#ebf5e9] text-green-700 border-green-200', icon: CheckCircle2, label: 'Disetujui' },
+    [ReportStatus.BUDGET_PROPOSAL]: { color: 'bg-[#fcf8e3] text-amber-700 border-amber-200', icon: Clock, label: 'Pengajuan Anggaran' },
+    [ReportStatus.BUDGET_APPROVED]: { color: 'bg-[#ebf5e9] text-green-700 border-green-200', icon: CheckCircle2, label: 'Anggaran Disetujui' },
+    [ReportStatus.REPORTING]: { color: 'bg-[#e0f7fa] text-blue-700 border-blue-200', icon: FileText, label: 'Proses Pelaporan' },
+    [ReportStatus.COMPLETED]: { color: 'bg-[#e8f5e9] text-emerald-700 border-emerald-200', icon: CheckCircle2, label: 'Selesai' },
     [ReportStatus.REJECTED]: { color: 'bg-[#fbeaea] text-red-700 border-red-200', icon: XCircle, label: 'Ditolak' },
   };
   const config = configs[status];
@@ -301,7 +303,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
         amountReceived: Number(formData.amountReceived),
         totalSpent: totalSpent,
         details: formData.details,
-        status: editReport?.status || ReportStatus.PENDING,
+        status: editReport?.status || ReportStatus.BUDGET_PROPOSAL,
         submittedAt: editReport?.submittedAt || serverTimestamp(),
         updatedAt: serverTimestamp(),
         submittedBy: editReport?.submittedBy || user.uid,
@@ -533,18 +535,19 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
   );
 };
 
-const ReportTable = ({ reports, isAdmin, onSelect, onPrint }: { reports: Report[], isAdmin: boolean, onSelect: (r: Report) => void, onPrint: (r: Report) => void }) => {
+const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint }: { reports: Report[], isAdmin: boolean, allowedStatuses: ReportStatus[], onSelect: (r: Report) => void, onPrint: (r: Report) => void }) => {
+  const filteredReports = reports.filter(r => allowedStatuses.includes(r.status));
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      {reports.length === 0 ? (
+      {filteredReports.length === 0 ? (
         <div className="col-span-full py-32 text-center bg-white rounded-[40px] border border-dashed border-natural-border shadow-inner">
           <div className="bg-natural-bg w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
             <FileText className="w-10 h-10 text-natural-secondary/40" />
           </div>
-          <p className="text-natural-secondary font-serif italic text-xl">Belum ada aktivitas pelaporan.</p>
+          <p className="text-natural-secondary font-serif italic text-xl">Belum ada aktivitas.</p>
         </div>
       ) : (
-        reports.map(report => (
+        filteredReports.map(report => (
           <motion.div 
             key={report.id}
             whileHover={{ y: -6, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
@@ -573,7 +576,7 @@ const ReportTable = ({ reports, isAdmin, onSelect, onPrint }: { reports: Report[
               <div className="mt-8 pt-6 border-t border-natural-bg space-y-4">
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-natural-secondary/40 uppercase tracking-widest block">Realisasi</span>
+                    <span className="text-[10px] font-bold text-natural-secondary/40 uppercase tracking-widest block">{allowedStatuses.includes(ReportStatus.REPORTING) || allowedStatuses.includes(ReportStatus.COMPLETED) ? 'Realisasi' : 'Anggaran'}</span>
                     <span className="font-mono font-bold text-natural-primary text-xl tracking-tight">Rp {report.totalSpent.toLocaleString('id-ID')}</span>
                   </div>
                   <div className="flex justify-between items-center bg-natural-bg/30 p-2 rounded-full px-4 group-hover:bg-natural-primary group-hover:text-white transition-all text-[#a5a58d]">
@@ -660,12 +663,28 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onUpdateStatus
             <h3 className="font-serif italic text-2xl text-natural-primary">Rincian Laporan</h3>
             <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-1">Itemized Expense Report</p>
           </div>
-          {!isAdmin && report.status === ReportStatus.PENDING && (
+          {!isAdmin && (report.status === ReportStatus.BUDGET_PROPOSAL || report.status === ReportStatus.REPORTING) && (
             <button 
               onClick={onEdit}
               className="bg-natural-primary text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-natural-primary/90 transition-all shadow-md"
             >
               Lengkapi / Edit Rincian
+            </button>
+          )}
+          {!isAdmin && report.status === ReportStatus.BUDGET_APPROVED && (
+            <button 
+              onClick={() => handleUpdateStatusAction(ReportStatus.REPORTING)}
+              className="bg-natural-secondary text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-natural-secondary/90 transition-all shadow-md"
+            >
+              Mulai Input Realisasi
+            </button>
+          )}
+          {!isAdmin && report.status === ReportStatus.REPORTING && (
+            <button 
+              onClick={() => handleUpdateStatusAction(ReportStatus.COMPLETED)}
+              className="bg-emerald-600 text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-emerald-700 transition-all shadow-md"
+            >
+              Selesaikan Laporan
             </button>
           )}
         </div>
@@ -693,7 +712,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onUpdateStatus
         </div>
       </div>
 
-      {isAdmin && report.status === ReportStatus.PENDING && (
+      {isAdmin && report.status === ReportStatus.BUDGET_PROPOSAL && (
         <motion.div 
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -720,7 +739,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onUpdateStatus
             </button>
             <button 
               disabled={updating}
-              onClick={() => handleUpdateStatusAction(ReportStatus.APPROVED)}
+              onClick={() => handleUpdateStatusAction(ReportStatus.BUDGET_APPROVED)}
               className="flex-1 py-5 bg-natural-secondary text-white rounded-full font-serif italic text-xl hover:bg-white hover:text-natural-primary transition-all shadow-xl shadow-black/10 disabled:opacity-50"
             >
               Setujui & Tandai Sah
@@ -743,40 +762,32 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onUpdateStatus
 };
 
 const DashboardStats = ({ reports }: { reports: Report[] }) => {
-  const pending = reports.filter(r => r.status === ReportStatus.PENDING).length;
-  const approved = reports.filter(r => r.status === ReportStatus.APPROVED).length;
-  const belumDilaporkan = reports.filter(r => r.status === ReportStatus.PENDING && r.totalSpent === 0).length;
-  const totalDana = reports.reduce((sum, r) => sum + r.amountReceived, 0);
+  const proposal = reports.filter(r => r.status === ReportStatus.BUDGET_PROPOSAL).length;
+  const approved = reports.filter(r => r.status === ReportStatus.BUDGET_APPROVED).length;
+  const reporting = reports.filter(r => r.status === ReportStatus.REPORTING).length;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
       <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-sm">
         <div className="flex items-center gap-3 mb-2">
           <Clock className="w-5 h-5 text-amber-500" />
-          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Menunggu Review</p>
+          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Pengajuan Anggaran</p>
         </div>
-        <p className="text-3xl font-serif italic font-bold text-natural-primary">{pending}</p>
-      </div>
-      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-sm">
-        <div className="flex items-center gap-3 mb-2">
-          <AlertCircle className="w-5 h-5 text-red-500" />
-          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Belum Dilaporkan</p>
-        </div>
-        <p className="text-3xl font-serif italic font-bold text-natural-primary">{belumDilaporkan}</p>
+        <p className="text-3xl font-serif italic font-bold text-natural-primary">{proposal}</p>
       </div>
       <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-sm">
         <div className="flex items-center gap-3 mb-2">
           <CheckCircle2 className="w-5 h-5 text-green-500" />
-          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Laporan Sah</p>
+          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Anggaran Disetujui</p>
         </div>
         <p className="text-3xl font-serif italic font-bold text-natural-primary">{approved}</p>
       </div>
-      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-sm col-span-1 md:col-span-1">
+      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-sm">
         <div className="flex items-center gap-3 mb-2">
           <FileText className="w-5 h-5 text-blue-500" />
-          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Total Anggaran</p>
+          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Proses Pelaporan</p>
         </div>
-        <p className="text-xl font-mono font-bold text-natural-primary">Rp {totalDana.toLocaleString('id-ID')}</p>
+        <p className="text-3xl font-serif italic font-bold text-natural-primary">{reporting}</p>
       </div>
     </div>
   );
@@ -1137,7 +1148,7 @@ const MainDashboard = () => {
   const { user, isAdmin, logout } = useContext(AuthContext);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'dashboard' | 'list' | 'create' | 'detail' | 'users' | 'add_user' | 'units' | 'expense_settings'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'detail' | 'create' | 'users' | 'add_user' | 'units' | 'expense_settings' | 'anggaran' | 'laporan'>('dashboard');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [initialUnitNameForAccount, setInitialUnitNameForAccount] = useState('');
 
@@ -1299,11 +1310,18 @@ const MainDashboard = () => {
               Dashboard
             </button>
             <button 
-              onClick={() => setView('list')}
-              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'list' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              onClick={() => setView('anggaran')}
+              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'anggaran' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
             >
               <FileText className="w-4 h-4" />
-              Daftar Laporan
+              Anggaran
+            </button>
+            <button 
+              onClick={() => setView('laporan')}
+              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'laporan' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+            >
+              <FileText className="w-4 h-4" />
+              Laporan
             </button>
             {isAdmin && (
               <>
@@ -1366,7 +1384,7 @@ const MainDashboard = () => {
                         </p>
                         <div className="flex gap-4">
                            <button 
-                            onClick={() => isAdmin ? setView('create') : setView('list')}
+                            onClick={() => isAdmin ? setView('create') : setView('anggaran')}
                             className="text-[10px] font-bold uppercase tracking-widest text-natural-primary bg-natural-primary/5 px-4 py-2 rounded-full border border-natural-primary/20 hover:bg-natural-primary hover:text-white transition-all"
                            >
                              {isAdmin ? 'Terbitkan Anggaran Baru' : 'Lihat Daftar Pelaporan'}
@@ -1380,7 +1398,7 @@ const MainDashboard = () => {
                         </div>
                         <div className="flex justify-between items-center text-xs">
                           <span className="text-natural-secondary font-bold">Laporan Pending</span>
-                          <span className="font-mono font-bold text-amber-600">{reports.filter(r => r.status === ReportStatus.PENDING).length} Kegiatan</span>
+                          <span className="font-mono font-bold text-amber-600">{reports.filter(r => r.status === ReportStatus.BUDGET_PROPOSAL).length} Kegiatan</span>
                         </div>
                       </div>
                    </div>
@@ -1388,27 +1406,36 @@ const MainDashboard = () => {
               </motion.div>
             )}
 
-            {view === 'list' && (
-              <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {view === 'anggaran' && (
+              <motion.div key="anggaran" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
                   <div>
-                    <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Arsip Aktivitas</h2>
-                    <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">
-                       {isAdmin ? 'Verifikasi pertanggungjawaban unit kerja' : 'Daftar anggaran dan laporan realisasi unit anda'}
-                    </p>
+                    <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Anggaran</h2>
+                    <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Daftar usulan kegiatan</p>
                   </div>
-                  {!isAdmin && (
-                    <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-3">
-                       <AlertCircle className="w-5 h-5 text-amber-600" />
-                       <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wider leading-tight">
-                         Lengkapi rincian pengeluaran<br/>pada anggaran bertanda pending
-                       </p>
-                    </div>
-                  )}
                 </div>
                 <ReportTable 
                   reports={reports} 
                   isAdmin={isAdmin} 
+                  allowedStatuses={[ReportStatus.BUDGET_PROPOSAL, ReportStatus.BUDGET_APPROVED, ReportStatus.REJECTED]}
+                  onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
+                  onPrint={handlePrint}
+                />
+              </motion.div>
+            )}
+
+            {view === 'laporan' && (
+              <motion.div key="laporan" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                  <div>
+                    <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Laporan Realisasi</h2>
+                    <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Daftar laporan pengeluaran</p>
+                  </div>
+                </div>
+                <ReportTable 
+                  reports={reports} 
+                  isAdmin={isAdmin} 
+                  allowedStatuses={[ReportStatus.REPORTING, ReportStatus.COMPLETED]}
                   onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
                   onPrint={handlePrint}
                 />
@@ -1421,7 +1448,7 @@ const MainDashboard = () => {
                 isAdmin={isAdmin}
                 onPrint={() => handlePrint(selectedReport)}
                 onUpdateStatus={handleStatusUpdate}
-                onBack={() => { setView('list'); setSelectedReport(null); }}
+                onBack={() => { setView('dashboard'); setSelectedReport(null); }}
                 onEdit={() => setView('create')}
               />
             )}
@@ -1430,8 +1457,8 @@ const MainDashboard = () => {
               <ReportForm 
                 user={user!} 
                 editReport={selectedReport || undefined}
-                onCancel={() => { setView('list'); setSelectedReport(null); }} 
-                onSuccess={() => { setView('list'); setSelectedReport(null); }} 
+                onCancel={() => { setView('anggaran'); setSelectedReport(null); }} 
+                onSuccess={() => { setView('anggaran'); setSelectedReport(null); }} 
               />
             )}
 

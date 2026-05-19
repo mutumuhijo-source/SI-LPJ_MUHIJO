@@ -1,6 +1,8 @@
 export enum ReportStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
+  BUDGET_PROPOSAL = 'budget_proposal',
+  BUDGET_APPROVED = 'budget_approved',
+  REPORTING = 'reporting',
+  COMPLETED = 'completed',
   REJECTED = 'rejected',
 }
 
