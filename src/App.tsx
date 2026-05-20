@@ -1440,9 +1440,8 @@ const MainDashboard = () => {
         </head>
         <body>
           <div style="text-align: center; border-bottom: 3px double #000; padding-bottom: 12px; margin-bottom: 20px;">
-            <h3 style="margin: 0; font-size: 11pt; text-transform: uppercase; font-weight: normal; font-family: 'Crimson Pro', serif; letter-spacing: 0.5px;">MAJELIS DIKDASMEN PNF PCM NGADIREJO</h3>
             <h1 style="margin: 2px 0 4px 0; font-size: 18pt; font-family: 'Crimson Pro', serif; font-weight: bold; letter-spacing: 1px;">SMK MUHAMMADIYAH 1 NGADIREJO</h1>
-            <p style="margin: 0; font-size: 9pt; font-style: italic; color: #333;">Alamat: Jl. Parakan - Ngadirejo Km. 1 Ngadirejo, Temanggung Telp. (0293) 591244</p>
+            <p style="margin: 0; font-size: 9pt; font-style: italic; color: #333;">Alamat: Jl. Raya Candiroto, Ngaren, Ngadirejo, Temanggung</p>
           </div>
           <div style="text-align: center; margin-bottom: 25px;">
             <h2 style="margin: 0; font-size: 14pt; text-transform: uppercase; text-decoration: underline;">Permohonan Anggaran Kegiatan (RAB)</h2>
@@ -1451,7 +1450,14 @@ const MainDashboard = () => {
             <table>
               <tr><td>Nama Kegiatan</td><td>: ${report.activityName}</td></tr>
               <tr><td>Unit Kerja</td><td>: ${report.unitName}</td></tr>
-              <tr><td>Status RAB</td><td>: ${report.status}</td></tr>
+              <tr><td>Status RAB</td><td>: 
+                <span style="font-weight: bold; color: ${report.status !== 'budget_proposal' && report.status !== 'rejected' ? '#15803d' : report.status === 'rejected' ? '#b91c1c' : '#b45309'}; border: 1px solid ${report.status !== 'budget_proposal' && report.status !== 'rejected' ? '#bbf7d0' : report.status === 'rejected' ? '#fca5a5' : '#fef3c7'}; background: ${report.status !== 'budget_proposal' && report.status !== 'rejected' ? '#f0fdf4' : report.status === 'rejected' ? '#fef2f2' : '#fffbeb'}; padding: 3px 8px; border-radius: 4px; font-size: 10pt; text-transform: uppercase;">
+                  ${
+                    report.status === 'budget_proposal' ? 'SEMENTARA (PROSES PENGAJUAN)' :
+                    report.status === 'rejected' ? '❌ DITOLAK' : '✔ TELAH DISETUJUI / DISAHKAN OLEH BENDAHARA'
+                  }
+                </span>
+              </td></tr>
             </table>
           </div>
           <div style="margin-bottom: 20px;">
@@ -1538,9 +1544,8 @@ const MainDashboard = () => {
         <body>
           <!-- PAGE 1: RINGKASAN ANGGARAN VS REALISASI -->
           <div style="text-align: center; border-bottom: 3px double #000; padding-bottom: 12px; margin-bottom: 20px;">
-            <h3 style="margin: 0; font-size: 11pt; text-transform: uppercase; font-weight: normal; font-family: 'Crimson Pro', serif; letter-spacing: 0.5px;">MAJELIS DIKDASMEN PNF PCM NGADIREJO</h3>
             <h1 style="margin: 2px 0 4px 0; font-size: 18pt; font-family: 'Crimson Pro', serif; font-weight: bold; letter-spacing: 1px;">SMK MUHAMMADIYAH 1 NGADIREJO</h1>
-            <p style="margin: 0; font-size: 9pt; font-style: italic; color: #333;">Alamat: Jl. Parakan - Ngadirejo Km. 1 Ngadirejo, Temanggung Telp. (0293) 591244</p>
+            <p style="margin: 0; font-size: 9pt; font-style: italic; color: #333;">Alamat: Jl. Raya Candiroto, Ngaren, Ngadirejo, Temanggung</p>
           </div>
 
           <div class="text-center" style="margin-bottom: 30px;">
@@ -1563,6 +1568,15 @@ const MainDashboard = () => {
               <td>Tanggal Pengajuan</td>
               <td>:</td>
               <td>${report.submissionDate ? new Date(report.submissionDate).toLocaleDateString('id-ID', { dateStyle: 'long' }) : '-'}</td>
+            </tr>
+            <tr>
+              <td>Status Laporan</td>
+              <td>:</td>
+              <td>
+                <span style="font-weight: bold; color: ${report.status === 'completed' || report.status === 'archived' ? '#15803d' : '#b45309'}; border: 1px solid ${report.status === 'completed' || report.status === 'archived' ? '#bbf7d0' : '#fef3c7'}; background: ${report.status === 'completed' || report.status === 'archived' ? '#f0fdf4' : '#fffbeb'}; padding: 3px 8px; border-radius: 4px; font-size: 10pt; text-transform: uppercase;">
+                  ${report.status === 'completed' || report.status === 'archived' ? '✔ SUDAH DISETUJUI & DISAHKAN OLEH BENDAHARA' : 'PROSES PEMBUATAN LAPORAN (BELUM DISETUJUI)'}
+                </span>
+              </td>
             </tr>
           </table>
 
@@ -1624,9 +1638,8 @@ const MainDashboard = () => {
           <div class="page-break"></div>
 
           <div style="text-align: center; border-bottom: 3px double #000; padding-bottom: 12px; margin-bottom: 20px;">
-            <h3 style="margin: 0; font-size: 11pt; text-transform: uppercase; font-weight: normal; font-family: 'Crimson Pro', serif; letter-spacing: 0.5px;">MAJELIS DIKDASMEN PNF PCM NGADIREJO</h3>
             <h1 style="margin: 2px 0 4px 0; font-size: 18pt; font-family: 'Crimson Pro', serif; font-weight: bold; letter-spacing: 1px;">SMK MUHAMMADIYAH 1 NGADIREJO</h1>
-            <p style="margin: 0; font-size: 9pt; font-style: italic; color: #333;">Alamat: Jl. Parakan - Ngadirejo Km. 1 Ngadirejo, Temanggung Telp. (0293) 591244</p>
+            <p style="margin: 0; font-size: 9pt; font-style: italic; color: #333;">Alamat: Jl. Raya Candiroto, Ngaren, Ngadirejo, Temanggung</p>
           </div>
 
           <div class="text-center" style="margin-bottom: 30px;">
@@ -1644,6 +1657,15 @@ const MainDashboard = () => {
               <td>Unit Kerja</td>
               <td>:</td>
               <td>${report.unitName}</td>
+            </tr>
+            <tr>
+              <td>Status Laporan</td>
+              <td>:</td>
+              <td>
+                <span style="font-weight: bold; color: ${report.status === 'completed' || report.status === 'archived' ? '#15803d' : '#b45309'}; border: 1px solid ${report.status === 'completed' || report.status === 'archived' ? '#bbf7d0' : '#fef3c7'}; background: ${report.status === 'completed' || report.status === 'archived' ? '#f0fdf4' : '#fffbeb'}; padding: 3px 8px; border-radius: 4px; font-size: 10pt; text-transform: uppercase;">
+                  ${report.status === 'completed' || report.status === 'archived' ? '✔ SUDAH DISETUJUI & DISAHKAN OLEH BENDAHARA' : 'PROSES PEMBUATAN LAPORAN (BELUM DISETUJUI)'}
+                </span>
+              </td>
             </tr>
           </table>
 
