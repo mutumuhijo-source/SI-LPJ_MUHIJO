@@ -8,10 +8,11 @@ export enum ReportStatus {
 }
 
 export interface ExpenseDetail {
-  date: string;
+  date?: string;
   description: string;
   amount: number;
   category?: string;
+  proposedIndex?: number;
 }
 
 export interface ExpenseType {

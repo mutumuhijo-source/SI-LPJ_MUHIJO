@@ -6,12 +6,12 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
-  --color-natural-bg: #f8f7f2;
-  --color-natural-primary: #5A5A40;
-  --color-natural-secondary: #a5a58d;
-  --color-natural-text: #4a4a4a;
-  --color-natural-border: #e5e5d1;
-  --color-natural-input: #fcfcf9;
+  --color-natural-bg: #f0f4f8;
+  --color-natural-primary: #0f3a5f;
+  --color-natural-secondary: #486581;
+  --color-natural-text: #1e293b;
+  --color-natural-border: #d9e2ec;
+  --color-natural-input: #ffffff;
 }
 
 @layer base {

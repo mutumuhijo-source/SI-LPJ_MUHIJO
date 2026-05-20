@@ -179,8 +179,9 @@ const LoginPage = () => {
           <div className="bg-natural-primary w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-natural-primary/10">
             <FileText className="text-white w-9 h-9" />
           </div>
-          <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight mb-2">E-Lapor Muhijo</h2>
-          <p className="text-natural-secondary text-xs uppercase tracking-widest font-light">Sistem Pelaporan Dana Unit Kerja</p>
+          <h2 className="text-3xl font-serif italic text-natural-primary tracking-tight mb-2">E-Lapor</h2>
+          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-[0.2em] mb-4">SMK MUH 1 NGADIREJO</p>
+          <p className="text-natural-secondary text-xs font-light">Sistem Pelaporan Dana Unit Kerja</p>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -291,7 +292,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
     if (isProposed) {
       updateProposedDetails([...formData.proposedDetails, { date: new Date().toISOString().split('T')[0], description: '', amount: 0, category: '' }]);
     } else {
-      setFormData({ ...formData, details: [...formData.details, { date: new Date().toISOString().split('T')[0], description: '', amount: 0 }] });
+      setFormData({ ...formData, details: [...formData.details, { date: new Date().toISOString().split('T')[0], description: '', amount: 0, proposedIndex: undefined }] });
     }
   };
 
@@ -466,7 +467,12 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
                 <h3 className="font-serif italic text-2xl text-natural-primary">Rincian Anggaran (Usulan)</h3>
                 <p className="text-[10px] uppercase font-bold text-natural-secondary tracking-widest mt-1">Item belanja yang diusulkan</p>
               </div>
-              <button 
+              {!!editReport ? (
+                <span className="text-[10px] uppercase font-bold text-emerald-700 px-3 py-1 bg-emerald-50 rounded-lg border border-emerald-200">
+                  Sudah Final
+                </span>
+              ) : (
+                <button 
                   type="button"
                   onClick={() => addDetail(true)}
                   className="px-6 py-2.5 bg-natural-primary text-white text-[11px] uppercase font-bold rounded-full hover:bg-natural-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-natural-primary/20"
@@ -474,8 +480,9 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
                   <PlusCircle className="w-4 h-4" />
                   Baris Baru
                 </button>
+              )}
             </div>
-
+ 
             <div className="space-y-4">
               {formData.proposedDetails.map((detail, idx) => (
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-natural-bg/20 p-6 rounded-[24px] border border-natural-bg relative group">
@@ -483,7 +490,8 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Kategori</label>
                     <select 
                       required
-                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold"
+                      disabled={!!editReport}
+                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold disabled:bg-natural-bg/50 disabled:text-natural-secondary/70"
                       value={detail.category || ''}
                       onChange={(e) => {
                         const newD = [...formData.proposedDetails];
@@ -499,7 +507,8 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Deskripsi Pengeluaran</label>
                     <input 
                       required
-                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-medium"
+                      disabled={!!editReport}
+                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-medium disabled:bg-natural-bg/50 disabled:text-natural-secondary/70"
                       placeholder="Masukkan rincian..."
                       value={detail.description}
                       onChange={(e) => {
@@ -514,7 +523,8 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
                     <input 
                       type="number"
                       required
-                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none font-mono font-bold text-xs text-right"
+                      disabled={!!editReport}
+                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none font-mono font-bold text-xs text-right disabled:bg-natural-bg/50 disabled:text-natural-secondary/70"
                       value={detail.amount}
                       onChange={(e) => {
                         const newD = [...formData.proposedDetails];
@@ -524,7 +534,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
                     />
                   </div>
                   <div className="md:col-span-1 flex justify-center pb-1">
-                    {formData.proposedDetails.length > 1 && (
+                    {!editReport && formData.proposedDetails.length > 1 && (
                       <button 
                         type="button"
                         onClick={() => removeDetail(idx, true)}
@@ -545,7 +555,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
             <div className="flex justify-between items-center border-b border-natural-bg pb-6">
               <div>
                 <h3 className="font-serif italic text-2xl text-natural-primary">Input Rincian Realisasi</h3>
-                <p className="text-[10px] uppercase font-bold text-natural-secondary tracking-widest mt-1">Sertakan bukti tanggal dan deskripsi yang jelas</p>
+                <p className="text-[10px] uppercase font-bold text-natural-secondary tracking-widest mt-1">Sertakan tanggal, deskripsi yang jelas, dan pilih pagu anggaran acuan</p>
               </div>
               {!isAdmin && (
                 <button 
@@ -557,6 +567,33 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
                   Baris Baru Realisasi
                 </button>
               )}
+            </div>
+
+            {/* Live Pagu Balance Tracker */}
+            <div className="border border-natural-border p-5 rounded-2xl bg-natural-bg/10 space-y-3">
+              <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-[0.2em]">Sisa Pagu per Item Anggaran</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {formData.proposedDetails.map((p, pIdx) => {
+                  const realizedSum = formData.details
+                    .filter(d => d.proposedIndex === pIdx)
+                    .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+                  const remaining = p.amount - realizedSum;
+                  return (
+                    <div key={pIdx} className="bg-white p-3 rounded-xl border border-natural-border flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-natural-primary">{p.description || `Anggaran #${pIdx + 1}`}</p>
+                        <p className="text-[10px] text-natural-secondary">Pagu: Rp {p.amount.toLocaleString('id-ID')}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-mono font-bold ${remaining < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                          Sisa: Rp {remaining.toLocaleString('id-ID')}
+                        </p>
+                        <p className="text-[10px] text-natural-secondary">Realisasi: Rp {realizedSum.toLocaleString('id-ID')}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -578,8 +615,30 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
                     />
                   </div>
 
-                  <div className="md:col-span-5 space-y-1">
-                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Deskripsi Pengeluaran</label>
+                  <div className="md:col-span-3 space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Pilih Pagu Anggaran</label>
+                    <select
+                      required
+                      disabled={isAdmin}
+                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold disabled:bg-transparent"
+                      value={detail.proposedIndex !== undefined ? detail.proposedIndex : ''}
+                      onChange={(e) => {
+                        const newD = [...formData.details];
+                        newD[idx].proposedIndex = e.target.value !== '' ? parseInt(e.target.value) : undefined;
+                        setFormData({...formData, details: newD});
+                      }}
+                    >
+                      <option value="">Pilih Anggaran...</option>
+                      {formData.proposedDetails.map((p, pIdx) => (
+                        <option key={pIdx} value={pIdx}>
+                          {p.description || `Anggaran #${pIdx + 1}`} (Pagu: Rp {p.amount.toLocaleString('id-ID')})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-4 space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Deskripsi Realisasi</label>
                     <input 
                       required
                       disabled={isAdmin}
@@ -593,6 +652,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
                       }}
                     />
                   </div>
+
                   <div className="md:col-span-2 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60 text-right block">Nominal</label>
                     <input 
@@ -685,7 +745,7 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onD
                 <button 
                   onClick={(e) => { e.stopPropagation(); onPrint(report); }}
                   className="p-2 bg-natural-bg hover:bg-natural-primary hover:text-white rounded-full transition-all text-natural-secondary"
-                  title="Cetak RAB"
+                  title={allowedStatuses.includes(ReportStatus.BUDGET_PROPOSAL) ? "Cetak RAB" : "Cetak Laporan"}
                 >
                   <Printer className="w-4 h-4" />
                 </button>
@@ -764,7 +824,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onUpdateStatus
              className="p-3 bg-white border border-natural-border text-natural-primary rounded-full hover:bg-natural-input transition-all shadow-sm flex items-center gap-2 px-6 font-bold uppercase text-[10px] tracking-widest"
            >
              <Printer className="w-4 h-4" />
-             Cetak RAB
+             {report.status === ReportStatus.BUDGET_PROPOSAL || report.status === ReportStatus.BUDGET_APPROVED || report.status === ReportStatus.REJECTED ? 'Cetak RAB' : 'Cetak Laporan'}
            </button>
            <StatusBadge status={report.status} />
         </div>
@@ -1333,7 +1393,7 @@ const MainDashboard = () => {
   const { user, isAdmin, logout } = useContext(AuthContext);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'dashboard' | 'detail' | 'create' | 'users' | 'add_user' | 'units' | 'expense_settings' | 'anggaran' | 'laporan'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'detail' | 'create' | 'users' | 'add_user' | 'units' | 'expense_settings' | 'anggaran' | 'laporan' | 'arsip'>('dashboard');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [initialUnitNameForAccount, setInitialUnitNameForAccount] = useState('');
 
@@ -1379,9 +1439,13 @@ const MainDashboard = () => {
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1 style="margin: 0; font-size: 18pt;">SMK MUHAMMADIYAH 1 NGADIREJO</h1>
-            <h2 style="margin: 0; font-size: 14pt;">Permohonan Anggaran Kegiatan</h2>
+          <div style="text-align: center; border-bottom: 3px double #000; padding-bottom: 12px; margin-bottom: 20px;">
+            <h3 style="margin: 0; font-size: 11pt; text-transform: uppercase; font-weight: normal; font-family: 'Crimson Pro', serif; letter-spacing: 0.5px;">MAJELIS DIKDASMEN PNF PCM NGADIREJO</h3>
+            <h1 style="margin: 2px 0 4px 0; font-size: 18pt; font-family: 'Crimson Pro', serif; font-weight: bold; letter-spacing: 1px;">SMK MUHAMMADIYAH 1 NGADIREJO</h1>
+            <p style="margin: 0; font-size: 9pt; font-style: italic; color: #333;">Alamat: Jl. Parakan - Ngadirejo Km. 1 Ngadirejo, Temanggung Telp. (0293) 591244</p>
+          </div>
+          <div style="text-align: center; margin-bottom: 25px;">
+            <h2 style="margin: 0; font-size: 14pt; text-transform: uppercase; text-decoration: underline;">Permohonan Anggaran Kegiatan (RAB)</h2>
           </div>
           <div class="meta">
             <table>
@@ -1417,12 +1481,18 @@ const MainDashboard = () => {
           </table>
           <div style="margin-top: 40px; display: flex; justify-content: space-between; font-size: 11pt;">
             <div style="text-align: center; width: 45%;">
+              <p style="margin: 0 0 60px 0;">${report.ketuaJabatan || ''}</p>
               <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.ketuaName || ''}</p>
-              <p style="margin: 0;">${report.ketuaJabatan || ''}</p>
             </div>
             <div style="text-align: center; width: 45%;">
+              <p style="margin: 0 0 60px 0;">${report.bendaharaJabatan || ''}</p>
               <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.bendaharaName || ''}</p>
-              <p style="margin: 0;">${report.bendaharaJabatan || ''}</p>
+            </div>
+          </div>
+          <div style="margin-top: 30px; display: flex; justify-content: center; font-size: 11pt; page-break-inside: avoid;">
+            <div style="text-align: center; width: 45%;">
+              <p style="margin: 0 0 60px 0; line-height: 1.4;">Mengetahui,<br/>Waka Ur........................</p>
+              <div style="border-bottom: 1px solid #000; width: 220px; margin: 0 auto;"></div>
             </div>
           </div>
           <script>window.print(); setTimeout(() => window.close(), 1000);</script>
@@ -1446,47 +1516,191 @@ const MainDashboard = () => {
         <head>
           <title>Laporan - ${report.activityName}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap');
-            body { font-family: 'Crimson Pro', serif; padding: 1cm; }
-            .rpt-table { width: 100%; border-collapse: collapse; }
+            @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght=0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap');
+            body { font-family: 'Crimson Pro', serif; padding: 1cm; font-size: 11pt; }
+            .rpt-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; margin-top: 15px; }
             .rpt-table th, .rpt-table td { border: 1px solid #000; padding: 6px; }
             .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .meta-table { width: 100%; border: none; margin-bottom: 20px; }
+            .meta-table td { padding: 4px; border: none; }
+            .signature-block { margin-top: 40px; display: flex; justify-content: space-between; font-size: 11pt; }
+            .signature-box { text-align: center; width: 45%; }
+            @media print {
+              .page-break {
+                page-break-before: always;
+                display: block;
+                clear: both;
+              }
+            }
           </style>
         </head>
         <body>
-          <h1>Laporan Realisasi: ${report.activityName}</h1>
+          <!-- PAGE 1: RINGKASAN ANGGARAN VS REALISASI -->
+          <div style="text-align: center; border-bottom: 3px double #000; padding-bottom: 12px; margin-bottom: 20px;">
+            <h3 style="margin: 0; font-size: 11pt; text-transform: uppercase; font-weight: normal; font-family: 'Crimson Pro', serif; letter-spacing: 0.5px;">MAJELIS DIKDASMEN PNF PCM NGADIREJO</h3>
+            <h1 style="margin: 2px 0 4px 0; font-size: 18pt; font-family: 'Crimson Pro', serif; font-weight: bold; letter-spacing: 1px;">SMK MUHAMMADIYAH 1 NGADIREJO</h1>
+            <p style="margin: 0; font-size: 9pt; font-style: italic; color: #333;">Alamat: Jl. Parakan - Ngadirejo Km. 1 Ngadirejo, Temanggung Telp. (0293) 591244</p>
+          </div>
+
+          <div class="text-center" style="margin-bottom: 30px;">
+            <h2 style="margin: 0; text-transform: uppercase; font-size: 16pt; text-decoration: underline;">Laporan Realisasi Anggaran</h2>
+            <h3 style="margin: 5px 0 0 0; font-weight: normal; font-size: 12pt; font-style: italic;">Ringkasan Pagu Anggaran vs Realisasi</h3>
+          </div>
+
+          <table class="meta-table">
+            <tr>
+              <td style="width: 20%; font-weight: bold;">Nama Kegiatan</td>
+              <td style="width: 3%;">:</td>
+              <td style="width: 77%; font-weight: bold;">${report.activityName}</td>
+            </tr>
+            <tr>
+              <td>Unit Kerja</td>
+              <td>:</td>
+              <td>${report.unitName}</td>
+            </tr>
+            <tr>
+              <td>Tanggal Pengajuan</td>
+              <td>:</td>
+              <td>${report.submissionDate ? new Date(report.submissionDate).toLocaleDateString('id-ID', { dateStyle: 'long' }) : '-'}</td>
+            </tr>
+          </table>
+
           <table class="rpt-table">
             <thead>
-              <tr>
-                <th>Deskripsi</th>
-                <th>Anggaran</th>
-                <th>Realisasi</th>
-                <th>Selisih</th>
+              <tr style="background: #f5f5f5;">
+                <th style="width: 5%;">No</th>
+                <th>Deskripsi Pagu Anggaran</th>
+                <th style="width: 25%;">Anggaran (Rp)</th>
+                <th style="width: 25%;">Realisasi (Rp)</th>
+                <th style="width: 20%;">Selisih (Rp)</th>
               </tr>
             </thead>
             <tbody>
-              ${report.proposedDetails.map(p => {
-                const actual = report.details.find(d => d.description === p.description);
-                const diff = p.amount - (actual?.amount || 0);
+              ${(report.proposedDetails || []).map((p, pIdx) => {
+                const actualAmount = (report.details || [])
+                  .filter(d => d.proposedIndex === pIdx)
+                  .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+                const diff = p.amount - actualAmount;
                 return `
                   <tr>
+                    <td class="text-center">${pIdx + 1}</td>
                     <td>${p.description}</td>
                     <td class="text-right">${p.amount.toLocaleString('id-ID')}</td>
-                    <td class="text-right">${(actual?.amount || 0).toLocaleString('id-ID')}</td>
+                    <td class="text-right">${actualAmount.toLocaleString('id-ID')}</td>
                     <td class="text-right">${diff.toLocaleString('id-ID')}</td>
                   </tr>
                 `;
               }).join('')}
             </tbody>
             <tfoot>
-                <tr>
-                    <td class="text-right"><b>TOTAL</b></td>
-                    <td class="text-right"><b>${report.amountReceived.toLocaleString('id-ID')}</b></td>
-                    <td class="text-right"><b>${report.totalSpent.toLocaleString('id-ID')}</b></td>
-                    <td class="text-right"><b>${(report.amountReceived - report.totalSpent).toLocaleString('id-ID')}</b></td>
-                </tr>
+              <tr style="font-weight: bold; background: #fafafa;">
+                <td colspan="2" class="text-right">TOTAL</td>
+                <td class="text-right">${report.amountReceived.toLocaleString('id-ID')}</td>
+                <td class="text-right">${report.totalSpent.toLocaleString('id-ID')}</td>
+                <td class="text-right">${(report.amountReceived - report.totalSpent).toLocaleString('id-ID')}</td>
+              </tr>
             </tfoot>
           </table>
+
+          <div class="signature-block">
+            <div class="signature-box">
+              <p style="margin: 0 0 60px 0;">${report.ketuaJabatan || ''}</p>
+              <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.ketuaName || ''}</p>
+            </div>
+            <div class="signature-box">
+              <p style="margin: 0 0 60px 0;">${report.bendaharaJabatan || ''}</p>
+              <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.bendaharaName || ''}</p>
+            </div>
+          </div>
+          <div style="margin-top: 30px; display: flex; justify-content: center; font-size: 11pt; page-break-inside: avoid;">
+            <div style="text-align: center; width: 45%;">
+              <p style="margin: 0 0 60px 0; line-height: 1.4;">Mengetahui,<br/>Waka Ur........................</p>
+              <div style="border-bottom: 1px solid #000; width: 220px; margin: 0 auto;"></div>
+            </div>
+          </div>
+
+          <!-- PAGE 2: RINCIAN PENGGUNAAN ANGGARAN -->
+          <div class="page-break"></div>
+
+          <div style="text-align: center; border-bottom: 3px double #000; padding-bottom: 12px; margin-bottom: 20px;">
+            <h3 style="margin: 0; font-size: 11pt; text-transform: uppercase; font-weight: normal; font-family: 'Crimson Pro', serif; letter-spacing: 0.5px;">MAJELIS DIKDASMEN PNF PCM NGADIREJO</h3>
+            <h1 style="margin: 2px 0 4px 0; font-size: 18pt; font-family: 'Crimson Pro', serif; font-weight: bold; letter-spacing: 1px;">SMK MUHAMMADIYAH 1 NGADIREJO</h1>
+            <p style="margin: 0; font-size: 9pt; font-style: italic; color: #333;">Alamat: Jl. Parakan - Ngadirejo Km. 1 Ngadirejo, Temanggung Telp. (0293) 591244</p>
+          </div>
+
+          <div class="text-center" style="margin-bottom: 30px;">
+            <h2 style="margin: 0; text-transform: uppercase; font-size: 15pt; text-decoration: underline;">Rincian Penggunaan Anggaran Realisasi</h2>
+            <h3 style="margin: 5px 0 0 0; font-weight: normal; font-size: 11pt; font-style: italic;">Rincian Pengeluaran Belanja Lengkap</h3>
+          </div>
+
+          <table class="meta-table">
+            <tr>
+              <td style="width: 20%; font-weight: bold;">Nama Kegiatan</td>
+              <td style="width: 3%;">:</td>
+              <td style="width: 77%; font-weight: bold;">${report.activityName}</td>
+            </tr>
+            <tr>
+              <td>Unit Kerja</td>
+              <td>:</td>
+              <td>${report.unitName}</td>
+            </tr>
+          </table>
+
+          <table class="rpt-table">
+            <thead>
+              <tr style="background: #f5f5f5;">
+                <th style="width: 5%;">No</th>
+                <th style="width: 15%;">Tanggal</th>
+                <th style="width: 25%;">Pagu Anggaran Acuan</th>
+                <th>Rincian Penggunaan Belanja</th>
+                <th style="width: 15%;">Pagu (Rp)</th>
+                <th style="width: 15%;">Realisasi (Rp)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(report.details || []).map((d, index) => {
+                const budgetItem = report.proposedDetails && d.proposedIndex !== undefined ? report.proposedDetails[d.proposedIndex] : null;
+                const budgetDesc = budgetItem ? budgetItem.description : 'Tanpa Acuan';
+                const budgetAmount = budgetItem ? budgetItem.amount.toLocaleString('id-ID') : '-';
+                return `
+                  <tr>
+                    <td class="text-center">${index + 1}</td>
+                    <td>${d.date ? new Date(d.date).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : '-'}</td>
+                    <td>${budgetDesc}</td>
+                    <td>${d.description}</td>
+                    <td class="text-right">${budgetAmount}</td>
+                    <td class="text-right">${d.amount.toLocaleString('id-ID')}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="font-weight: bold; background: #fafafa;">
+                <td colspan="4" class="text-right">TOTAL PENGELUARAN</td>
+                <td class="text-right">${report.amountReceived.toLocaleString('id-ID')}</td>
+                <td class="text-right">${report.totalSpent.toLocaleString('id-ID')}</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <div class="signature-block">
+            <div class="signature-box">
+              <p style="margin: 0 0 60px 0;">${report.ketuaJabatan || ''}</p>
+              <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.ketuaName || ''}</p>
+            </div>
+            <div class="signature-box">
+              <p style="margin: 0 0 60px 0;">${report.bendaharaJabatan || ''}</p>
+              <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.bendaharaName || ''}</p>
+            </div>
+          </div>
+          <div style="margin-top: 30px; display: flex; justify-content: center; font-size: 11pt; page-break-inside: avoid;">
+            <div style="text-align: center; width: 45%;">
+              <p style="margin: 0 0 60px 0; line-height: 1.4;">Mengetahui,<br/>Waka Ur........................</p>
+              <div style="border-bottom: 1px solid #000; width: 220px; margin: 0 auto;"></div>
+            </div>
+          </div>
+
           <script>window.print(); setTimeout(() => window.close(), 1000);</script>
         </body>
       </html>
@@ -1523,8 +1737,8 @@ const MainDashboard = () => {
         {/* Sidebar */}
         <div className="w-80 bg-natural-bg border-r border-natural-border px-8 py-12 flex flex-col gap-10">
           <div className="space-y-1 px-4">
-            <h1 className="text-3xl font-serif italic text-natural-primary tracking-tighter">E-Lapor.</h1>
-            <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-[0.3em]">Muhijo Finance</p>
+            <h1 className="text-2xl font-serif italic text-natural-primary tracking-tighter">E-Lapor.</h1>
+            <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-[0.1em]">SMK MUH 1 NGADIREJO</p>
           </div>
           
           <div className="flex flex-col gap-2">
@@ -1613,7 +1827,7 @@ const MainDashboard = () => {
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-4">
                         <p className="text-natural-text italic leading-relaxed text-sm">
-                          Selamat datang di E-Lapor Muhijo. {isAdmin ? 'Pantau alokasi dana dan verifikasi setiap SPJ dari unit kerja secara real-time.' : `Halo ${user?.displayName}, silakan lengkapi laporan rincian pengeluaran untuk anggaran yang telah diberikan oleh Bendahara.`}
+                          Selamat datang di E-Lapor SMK MUH 1 NGADIREJO. {isAdmin ? 'Pantau alokasi dana dan verifikasi setiap SPJ dari unit kerja secara real-time.' : `Halo ${user?.displayName}, silakan lengkapi laporan rincian pengeluaran untuk anggaran yang telah diberikan oleh Bendahara.`}
                         </p>
                         <div className="flex gap-4">
                            <button 

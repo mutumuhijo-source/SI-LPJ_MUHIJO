@@ -1,6 +1,6 @@
 {
-  "name": "E-Lapor Muhijo",
-  "description": "Aplikasi pelaporan kegiatan dan rincian penggunaan anggaran dari unit kerja sekolah kepada bendahara.",
+  "name": "E-Lapor SMK MUH 1 NGADIREJO",
+  "description": "Aplikasi pelaporan kegiatan dan rincian penggunaan anggaran dari unit kerja sekolah kepada bendahara SMK Muhammadiyah 1 Ngadirejo.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
