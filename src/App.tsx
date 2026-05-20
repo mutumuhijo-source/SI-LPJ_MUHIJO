@@ -133,6 +133,7 @@ const StatusBadge = ({ status }: { status: ReportStatus }) => {
     [ReportStatus.BUDGET_APPROVED]: { color: 'bg-[#ebf5e9] text-green-700 border-green-200', icon: CheckCircle2, label: 'Anggaran Disetujui' },
     [ReportStatus.REPORTING]: { color: 'bg-[#e0f7fa] text-blue-700 border-blue-200', icon: FileText, label: 'Proses Pelaporan' },
     [ReportStatus.COMPLETED]: { color: 'bg-[#e8f5e9] text-emerald-700 border-emerald-200', icon: CheckCircle2, label: 'Selesai' },
+    [ReportStatus.ARCHIVED]: { color: 'bg-gray-100 text-gray-700 border-gray-200', icon: Lock, label: 'Arsip' },
     [ReportStatus.REJECTED]: { color: 'bg-[#fbeaea] text-red-700 border-red-200', icon: XCircle, label: 'Ditolak' },
   };
   const config = configs[status];
@@ -577,23 +578,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
                     />
                   </div>
 
-                  <div className="md:col-span-3 space-y-1">
-                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Kategori</label>
-                    <select 
-                      disabled={isAdmin}
-                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold disabled:bg-transparent"
-                      onChange={(e) => {
-                        const newD = [...formData.details];
-                        const current = newD[idx].description;
-                        newD[idx].description = `[${e.target.value}] ${current.replace(/^\[.*?\]\s*/, '')}`;
-                        setFormData({...formData, details: newD});
-                      }}
-                    >
-                      <option value="">Pilih...</option>
-                      {expenseTypes.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="md:col-span-4 space-y-1">
+                  <div className="md:col-span-5 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Deskripsi Pengeluaran</label>
                     <input 
                       required
@@ -872,7 +857,15 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onUpdateStatus
               Mulai Input Realisasi
             </button>
           )}
-          {!isAdmin && report.status === ReportStatus.REPORTING && (
+          {isAdmin && report.status === ReportStatus.COMPLETED && (
+            <button 
+              onClick={() => handleUpdateStatusAction(ReportStatus.ARCHIVED)}
+              className="bg-natural-primary text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-natural-primary/90 transition-all shadow-md"
+            >
+              Setujui Laporan (Arsipkan)
+            </button>
+          )}
+          {isAdmin && report.status === ReportStatus.REPORTING && (
             <button 
               onClick={() => handleUpdateStatusAction(ReportStatus.COMPLETED)}
               className="bg-emerald-600 text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-emerald-700 transition-all shadow-md"
@@ -1380,25 +1373,29 @@ const MainDashboard = () => {
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap');
             body { font-family: 'Crimson Pro', serif; padding: 1cm; line-height: 1.4; color: #000; font-size: 11pt; }
-            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
-            .header h1 { margin: 0; font-size: 18pt; text-transform: uppercase; }
-            .title { text-align: center; font-weight: bold; text-decoration: underline; margin-bottom: 20px; font-size: 14pt; }
+            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
             .meta { margin-bottom: 20px; }
             .meta td { padding: 4px 0; font-weight: bold; }
           </style>
         </head>
         <body>
-          <div class="header"><h1>PERMOHONAN ANGGARAN KEGIATAN</h1></div>
+          <div class="header">
+            <h1 style="margin: 0; font-size: 18pt;">SMK MUHAMMADIYAH 1 NGADIREJO</h1>
+            <h2 style="margin: 0; font-size: 14pt;">Permohonan Anggaran Kegiatan</h2>
+          </div>
           <div class="meta">
             <table>
               <tr><td>Nama Kegiatan</td><td>: ${report.activityName}</td></tr>
               <tr><td>Unit Kerja</td><td>: ${report.unitName}</td></tr>
+              <tr><td>Status RAB</td><td>: ${report.status}</td></tr>
             </table>
+          </div>
+          <div style="margin-bottom: 20px;">
+             <p style="margin: 0; font-weight: bold;">Tanggal Pengajuan: ${report.submissionDate ? new Date(report.submissionDate).toLocaleDateString('id-ID', { dateStyle: 'long' }) : '-'}</p>
           </div>
           <table class="rpt-table" style="width:100%; border-collapse:collapse; margin-top:20px;">
             <thead>
                 <tr style="background:#f0f0f0;">
-                    <th style="border:1px solid #000; padding:6px;">Tanggal</th>
                     <th style="border:1px solid #000; padding:6px;">Deskripsi</th>
                     <th style="border:1px solid #000; padding:6px; text-align:right;">Nominal (Rp)</th>
                 </tr>
@@ -1406,7 +1403,6 @@ const MainDashboard = () => {
             <tbody>
                 ${(report.proposedDetails || []).map(d => `
                     <tr>
-                        <td style="border:1px solid #000; padding:6px;">${d.date}</td>
                         <td style="border:1px solid #000; padding:6px;">${d.description}</td>
                         <td style="border:1px solid #000; padding:6px; text-align:right;">${d.amount.toLocaleString('id-ID')}</td>
                     </tr>
@@ -1414,27 +1410,20 @@ const MainDashboard = () => {
             </tbody>
             <tfoot>
                 <tr>
-                    <td colspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; text-align:right;">Total</td>
+                    <td style="border:1px solid #000; padding:6px; font-weight:bold; text-align:right;">Total</td>
                     <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold;">${report.amountReceived.toLocaleString('id-ID')}</td>
                 </tr>
             </tfoot>
           </table>
           <div style="margin-top: 40px; display: flex; justify-content: space-between; font-size: 11pt;">
             <div style="text-align: center; width: 45%;">
-              <p style="margin: 0;">Pejabat Penanda Tangan 1</p>
-              <p style="margin: 0;">${report.ketuaJabatan || ''}</p>
-              <br><br><br>
               <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.ketuaName || ''}</p>
+              <p style="margin: 0;">${report.ketuaJabatan || ''}</p>
             </div>
             <div style="text-align: center; width: 45%;">
-              <p style="margin: 0;">Pejabat Penanda Tangan 2</p>
-              <p style="margin: 0;">${report.bendaharaJabatan || ''}</p>
-              <br><br><br>
               <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.bendaharaName || ''}</p>
+              <p style="margin: 0;">${report.bendaharaJabatan || ''}</p>
             </div>
-          </div>
-          <div style="text-align: center; margin-top: 40px;">
-             <p style="margin: 0;">Tanggal Pengajuan: ${report.submissionDate ? new Date(report.submissionDate).toLocaleDateString('id-ID', { dateStyle: 'long' }) : ''}</p>
           </div>
           <script>window.print(); setTimeout(() => window.close(), 1000);</script>
         </body>
@@ -1445,6 +1434,10 @@ const MainDashboard = () => {
   };
 
   const handlePrintLaporan = (report: Report) => {
+    if (!isAdmin && report.status !== ReportStatus.COMPLETED && report.status !== ReportStatus.ARCHIVED) {
+        alert("Laporan harus disahkan oleh bendahara terlebih dahulu.");
+        return;
+    }
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -1555,6 +1548,13 @@ const MainDashboard = () => {
             >
               <FileText className="w-4 h-4" />
               Laporan
+            </button>
+            <button 
+              onClick={() => setView('arsip')}
+              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'arsip' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+            >
+              <Lock className="w-4 h-4" />
+              Arsip Laporan
             </button>
             {isAdmin && (
               <>
@@ -1679,6 +1679,25 @@ const MainDashboard = () => {
                   reports={reports} 
                   isAdmin={isAdmin} 
                   allowedStatuses={[ReportStatus.REPORTING, ReportStatus.COMPLETED]}
+                  onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
+                  onPrint={handlePrintLaporan}
+                  onDelete={handleDeleteReport}
+                />
+              </motion.div>
+            )}
+
+            {view === 'arsip' && (
+              <motion.div key="arsip" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                  <div>
+                    <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Arsip Laporan</h2>
+                    <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Kumpulan laporan yang sudah selesai</p>
+                  </div>
+                </div>
+                <ReportTable 
+                  reports={reports} 
+                  isAdmin={isAdmin} 
+                  allowedStatuses={[ReportStatus.COMPLETED, ReportStatus.ARCHIVED]}
                   onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
                   onPrint={handlePrintLaporan}
                   onDelete={handleDeleteReport}

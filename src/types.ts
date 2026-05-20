@@ -3,6 +3,7 @@ export enum ReportStatus {
   BUDGET_APPROVED = 'budget_approved',
   REPORTING = 'reporting',
   COMPLETED = 'completed',
+  ARCHIVED = 'archived',
   REJECTED = 'rejected',
 }
 
@@ -37,6 +38,7 @@ export interface Report {
   bendaharaName?: string;
   bendaharaJabatan?: string;
   submissionDate?: string;
+  parentReportId?: string;
 }
 
 export interface Unit {
