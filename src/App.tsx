@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext, useMemo } from 'react';
 import { db } from './firebase';
-import { collection, query, where, onSnapshot, doc, getDoc, setDoc, serverTimestamp, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, setDoc, serverTimestamp, addDoc, getDocs, deleteDoc, limit, orderBy } from 'firebase/firestore';
 import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail } from './types.ts';
 import { handleFirestoreError } from './lib/error-handler.ts';
 import { 
@@ -26,7 +26,8 @@ import {
   UserCircle2,
   Trash2,
   Printer,
-  Settings
+  Settings,
+  RotateCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -240,7 +241,7 @@ const LoginPage = () => {
   );
 };
 
-const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () => void, onSuccess: () => void, user: AppUser, editReport?: Report }) => {
+const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes, onPrintRAB }: { onCancel: () => void, onSuccess: () => void, user: AppUser, editReport?: Report, units: Unit[], expenseTypes: ExpenseType[], onPrintRAB?: (r: Report) => void }) => {
   const isAdmin = localStorage.getItem('user_role') === 'admin';
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -257,31 +258,12 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
     submissionDate: editReport?.submissionDate || new Date().toISOString().split('T')[0]
   });
 
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
-
   useEffect(() => {
-    const fetchUnits = async () => {
-      try {
-        const snap = await getDocs(collection(db, 'units'));
-        const unitData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Unit));
-        setUnits(unitData);
-        
-        if (!editReport && !formData.unitId && !isAdmin) {
-          const matched = unitData.find(u => u.name === user.unitName);
-          if (matched) setFormData(prev => ({ ...prev, unitId: matched.id, unitName: matched.name }));
-        }
-      } catch (err) {
-        console.error("Error fetching units", err);
-      }
-    };
-    fetchUnits();
-
-    const unsubscribeExpenses = onSnapshot(collection(db, 'expense_types'), (snap) => {
-      setExpenseTypes(snap.docs.map(d => ({ id: d.id, ...d.data() } as ExpenseType)));
-    });
-    return () => unsubscribeExpenses();
-  }, [user.unitName, editReport, isAdmin]);
+    if (!editReport && !formData.unitId && !isAdmin) {
+      const matched = units.find(u => u.name === user.unitName);
+      if (matched) setFormData(prev => ({ ...prev, unitId: matched.id, unitName: matched.name }));
+    }
+  }, [units, user.unitName, editReport, isAdmin, formData.unitId]);
 
   const updateProposedDetails = (newDetails: ExpenseDetail[]) => {
     const total = newDetails.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
@@ -357,10 +339,10 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
       className="max-w-4xl mx-auto py-10"
     >
       <div className="flex items-center gap-6 mb-10">
-        <button onClick={onCancel} className="p-3 hover:bg-white rounded-full transition-colors border border-natural-border bg-white shadow-sm">
+        <button type="button" onClick={onCancel} className="p-3 hover:bg-white rounded-full transition-colors border border-natural-border bg-white shadow-sm">
           <ArrowLeft className="w-5 h-5 text-natural-primary" />
         </button>
-        <div>
+        <div className="flex-1">
           <h2 className="text-3xl font-serif italic text-natural-primary tracking-tight">
             {isAdmin ? (editReport ? 'Revisi Alokasi Anggaran' : 'Sediakan Pagu Anggaran Baru') : (editReport ? 'Lengkapi Rincian Pengeluaran' : 'Pelaporan Mandiri')}
           </h2>
@@ -368,6 +350,16 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
             {isAdmin ? 'Tetapkan pagu dana untuk unit kerja terkait' : 'Input item pengeluaran sesuai realisasi lapangan'}
           </p>
         </div>
+        {editReport && onPrintRAB && (
+          <button
+            type="button"
+            onClick={() => onPrintRAB(editReport)}
+            className="p-3 bg-[#e8f5e9] border border-[#a5d6a7] text-[#2e7d32] rounded-full hover:bg-[#c8e6c9] transition-all shadow-sm flex items-center gap-2 px-6 font-bold uppercase text-[10px] tracking-widest"
+          >
+            <Printer className="w-4 h-4" />
+            Cetak RAB Disetujui
+          </button>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
@@ -721,7 +713,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport }: { onCancel: () =>
   );
 };
 
-const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onDelete }: { reports: Report[], isAdmin: boolean, allowedStatuses: ReportStatus[], onSelect: (r: Report) => void, onPrint: (r: Report) => void, onDelete: (r: Report) => void }) => {
+const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onPrintRAB, onDelete }: { reports: Report[], isAdmin: boolean, allowedStatuses: ReportStatus[], onSelect: (r: Report) => void, onPrint: (r: Report) => void, onPrintRAB?: (r: Report) => void, onDelete: (r: Report) => void }) => {
   const filteredReports = reports.filter(r => allowedStatuses.includes(r.status));
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -742,6 +734,15 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onD
             <div className="flex justify-between items-start mb-6">
               <StatusBadge status={report.status} />
               <div className="flex gap-2">
+                {onPrintRAB && (report.status === ReportStatus.REPORTING || report.status === ReportStatus.COMPLETED || report.status === ReportStatus.ARCHIVED) && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onPrintRAB(report); }}
+                    className="p-2 bg-[#e8f5e9] hover:bg-[#2e7d32] hover:text-white rounded-full transition-all text-[#2e7d32]"
+                    title="Cetak RAB Disetujui"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
+                )}
                 <button 
                   onClick={(e) => { e.stopPropagation(); onPrint(report); }}
                   className="p-2 bg-natural-bg hover:bg-natural-primary hover:text-white rounded-full transition-all text-natural-secondary"
@@ -785,7 +786,7 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onD
   );
 };
 
-const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onUpdateStatus }: { report: Report, onBack: () => void, isAdmin: boolean, onEdit: () => void, onPrint: () => void, onUpdateStatus: (id: string, s: ReportStatus, n?: string) => Promise<void> }) => {
+const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, onUpdateStatus }: { report: Report, onBack: () => void, isAdmin: boolean, onEdit: () => void, onPrint: () => void, onPrintRAB?: (r: Report) => void, onUpdateStatus: (id: string, s: ReportStatus, n?: string) => Promise<void> }) => {
   const [notes, setNotes] = useState(report.treasurerNotes || '');
   const [updating, setUpdating] = useState(false);
 
@@ -819,6 +820,15 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onUpdateStatus
           <p className="text-natural-secondary text-sm uppercase tracking-[0.2em] font-light mt-1">{report.unitName}</p>
         </div>
         <div className="flex items-center gap-4">
+           {onPrintRAB && (report.status === ReportStatus.REPORTING || report.status === ReportStatus.COMPLETED || report.status === ReportStatus.ARCHIVED) && (
+             <button 
+               onClick={() => onPrintRAB(report)}
+               className="p-3 bg-[#e8f5e9] border border-[#a5d6a7] text-[#2e7d32] rounded-full hover:bg-[#c8e6c9] transition-all shadow-sm flex items-center gap-2 px-6 font-bold uppercase text-[10px] tracking-widest"
+             >
+               <Printer className="w-4 h-4" />
+               Cetak RAB Disetujui
+             </button>
+           )}
            <button 
              onClick={onPrint}
              className="p-3 bg-white border border-natural-border text-natural-primary rounded-full hover:bg-natural-input transition-all shadow-sm flex items-center gap-2 px-6 font-bold uppercase text-[10px] tracking-widest"
@@ -1043,12 +1053,19 @@ const UserList = ({ onAdd }: { onAdd: () => void }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'app_users'));
-    const unsubscribe = onSnapshot(q, (snap) => {
-      setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() } as DBUser)));
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    const fetchUsers = async () => {
+      setLoading(true);
+      try {
+        const q = query(collection(db, 'app_users'), limit(100));
+        const snap = await getDocs(q);
+        setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() as any } as DBUser)));
+      } catch (err) {
+        console.error("Error fetching users", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUsers();
   }, []);
 
   const handleDeleteUser = async (id: string, username: string) => {
@@ -1203,19 +1220,9 @@ const UserForm = ({ onCancel, initialUnitName }: { onCancel: () => void, initial
   );
 };
 
-const UnitList = ({ onAddAccount }: { onAddAccount: (unitName: string) => void }) => {
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [loading, setLoading] = useState(true);
+const UnitList = ({ onAddAccount, units }: { onAddAccount: (unitName: string) => void, units: Unit[] }) => {
   const [newUnitName, setNewUnitName] = useState('');
   const [addingUnit, setAddingUnit] = useState(false);
-
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'units'), (snap) => {
-      setUnits(snap.docs.map(d => ({ id: d.id, ...d.data() } as Unit)));
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
 
   const handleAddUnit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1282,8 +1289,8 @@ const UnitList = ({ onAddAccount }: { onAddAccount: (unitName: string) => void }
           <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-1">Unit yang terdaftar di lingkungan sekolah</p>
         </div>
         <div className="p-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {loading ? (
-            <div className="col-span-full py-20 text-center text-natural-secondary font-serif italic">Memuat unit kerja...</div>
+          {units.length === 0 ? (
+            <div className="col-span-full py-20 text-center text-natural-secondary font-serif italic">Belum ada unit kerja terdaftar.</div>
           ) : (
             units.map(unit => (
               <div key={unit.id} className="group p-6 bg-natural-bg border border-natural-border rounded-3xl flex items-center justify-between hover:border-natural-primary transition-all">
@@ -1312,18 +1319,8 @@ const UnitList = ({ onAddAccount }: { onAddAccount: (unitName: string) => void }
   );
 };
 
-const ExpenseSettings = () => {
-  const [types, setTypes] = useState<ExpenseType[]>([]);
-  const [loading, setLoading] = useState(true);
+const ExpenseSettings = ({ types }: { types: ExpenseType[] }) => {
   const [newName, setNewName] = useState('');
-
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'expense_types'), (snap) => {
-      setTypes(snap.docs.map(d => ({ id: d.id, ...d.data() } as ExpenseType)));
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1368,8 +1365,8 @@ const ExpenseSettings = () => {
           <p className="text-[10px] uppercase font-bold text-natural-secondary tracking-widest">Kategori Aktif</p>
         </div>
         <div className="divide-y divide-natural-bg">
-          {loading ? (
-            <div className="p-10 text-center text-natural-secondary italic">Memuat...</div>
+          {types.length === 0 ? (
+            <div className="p-10 text-center text-natural-secondary italic">Belum ada kategori pengeluaran.</div>
           ) : (
             types.map(t => (
               <div key={t.id} className="px-10 py-4 flex justify-between items-center group hover:bg-natural-input transition-all">
@@ -1392,7 +1389,10 @@ const ExpenseSettings = () => {
 const MainDashboard = () => {
   const { user, isAdmin, logout } = useContext(AuthContext);
   const [reports, setReports] = useState<Report[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorInfo, setErrorInfo] = useState<string | null>(null);
   const [view, setView] = useState<'dashboard' | 'detail' | 'create' | 'users' | 'add_user' | 'units' | 'expense_settings' | 'anggaran' | 'laporan' | 'arsip'>('dashboard');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [initialUnitNameForAccount, setInitialUnitNameForAccount] = useState('');
@@ -1400,27 +1400,92 @@ const MainDashboard = () => {
   useEffect(() => {
     if (!user) return;
 
-    let q;
-    if (isAdmin) {
-      q = query(collection(db, 'reports'));
-    } else {
-      q = query(collection(db, 'reports'), where('unitName', '==', user.unitName));
-    }
+    // Fetch static metadata once to save quota
+    const fetchMetadata = async () => {
+      // Try cache first
+      const cachedUnits = localStorage.getItem('cache_units');
+      const cachedExpenseTypes = localStorage.getItem('cache_expense_types');
+      
+      if (cachedUnits && cachedExpenseTypes) {
+        try {
+          setUnits(JSON.parse(cachedUnits));
+          setExpenseTypes(JSON.parse(cachedExpenseTypes));
+          // Still fetch if we have no reports (might be empty)
+          if (reports.length > 0) return;
+        } catch (e) {
+          console.error("Cache parse failed", e);
+        }
+      }
 
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Report));
-      setReports(data.sort((a, b) => {
-        const dateA = a.submittedAt?.seconds || 0;
-        const dateB = b.submittedAt?.seconds || 0;
-        return dateB - dateA;
-      }));
-      setLoading(false);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'reports');
-    });
+      try {
+        const [uSnap, eSnap] = await Promise.all([
+          getDocs(collection(db, 'units')),
+          getDocs(collection(db, 'expense_types'))
+        ]);
+        const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() as any } as Unit));
+        const eData = eSnap.docs.map(d => ({ id: d.id, ...d.data() as any } as ExpenseType));
+        
+        setUnits(uData);
+        setExpenseTypes(eData);
+        
+        localStorage.setItem('cache_units', JSON.stringify(uData));
+        localStorage.setItem('cache_expense_types', JSON.stringify(eData));
+      } catch (err: any) {
+        console.error("Metadata fetch failed", err);
+        if (err.message?.includes('Quota exceeded') || err.message?.includes('Quota limit exceeded')) {
+          setErrorInfo('Limit kuota harian database tercapai. Beberapa data mungkin menggunakan cache lama.');
+        }
+      }
+    };
+    fetchMetadata();
 
-    return () => unsubscribe();
+    const fetchReports = async () => {
+      setLoading(true);
+      setErrorInfo(null);
+      try {
+        let q;
+        if (isAdmin) {
+          q = query(collection(db, 'reports'), orderBy('submittedAt', 'desc'), limit(50));
+        } else {
+          q = query(collection(db, 'reports'), where('unitName', '==', user.unitName), orderBy('submittedAt', 'desc'), limit(50));
+        }
+        const snap = await getDocs(q);
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() as any } as Report));
+        setReports(data);
+      } catch (err: any) {
+        console.error("Reports fetch failed", err);
+        if (err.message?.includes('Quota exceeded') || err.message?.includes('Quota limit exceeded')) {
+          setErrorInfo('Limit kuota harian database telah tercapai. Beberapa data mungkin tidak dapat ditampilkan.');
+        }
+        handleFirestoreError(err, OperationType.LIST, 'reports');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReports();
   }, [user, isAdmin]);
+
+  const refreshReports = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      let q;
+      if (isAdmin) {
+        q = query(collection(db, 'reports'), orderBy('submittedAt', 'desc'), limit(50));
+      } else {
+        q = query(collection(db, 'reports'), where('unitName', '==', user.unitName), orderBy('submittedAt', 'desc'), limit(50));
+      }
+      const snap = await getDocs(q);
+      setReports(snap.docs.map(d => ({ id: d.id, ...d.data() as any } as Report)));
+    } catch (err: any) {
+      if (err.message?.includes('Quota exceeded') || err.message?.includes('Quota limit exceeded')) {
+        setErrorInfo('Limit kuota harian database telah tercapai.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handlePrintAnggaran = (report: Report) => {
     const printWindow = window.open('', '_blank');
@@ -1738,6 +1803,7 @@ const MainDashboard = () => {
         treasurerNotes: notes || '',
         updatedAt: serverTimestamp() 
       }, { merge: true });
+      await refreshReports();
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `reports/${id}`);
     }
@@ -1747,6 +1813,7 @@ const MainDashboard = () => {
     if (window.confirm(`Hapus kegiatan ${report.activityName}?`)) {
       try {
         await deleteDoc(doc(db, 'reports', report.id!));
+        await refreshReports();
       } catch (err) {
         handleFirestoreError(err, OperationType.DELETE, `reports/${report.id}`);
       }
@@ -1836,12 +1903,27 @@ const MainDashboard = () => {
         </div>
 
         <main className="flex-1 px-8 py-12">
+          {errorInfo && (
+            <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 text-sm">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <p className="font-medium">{errorInfo}</p>
+            </div>
+          )}
           <AnimatePresence mode="wait">
             {view === 'dashboard' && (
               <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="mb-12">
-                  <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Ringkasan Sistem</h2>
-                  <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Gambaran umum aktivitas keuangan sekolah</p>
+                <div className="mb-12 flex justify-between items-end">
+                  <div>
+                    <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Ringkasan Sistem</h2>
+                    <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Gambaran umum aktivitas keuangan sekolah</p>
+                  </div>
+                  <button 
+                    onClick={refreshReports}
+                    disabled={loading}
+                    className="p-3 bg-natural-input border border-natural-border rounded-full hover:bg-white transition-all disabled:opacity-50"
+                  >
+                    <RotateCw className={`w-5 h-5 text-natural-secondary ${loading ? 'animate-spin' : ''}`} />
+                  </button>
                 </div>
                 <DashboardStats reports={reports} />
                 <div className="bg-white p-10 rounded-[40px] border border-natural-border shadow-sm">
@@ -1882,15 +1964,24 @@ const MainDashboard = () => {
                     <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Anggaran</h2>
                     <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Daftar usulan kegiatan</p>
                   </div>
-                  {!isAdmin && (
+                  <div className="flex items-center gap-4">
                     <button 
-                      onClick={() => { setSelectedReport(null); setView('create'); }}
-                      className="bg-natural-primary text-white px-6 py-3 rounded-full font-serif italic flex items-center gap-2 hover:bg-natural-primary/90 transition-all shadow-lg"
+                      onClick={refreshReports}
+                      disabled={loading}
+                      className="p-3 bg-natural-input border border-natural-border rounded-full hover:bg-white transition-all disabled:opacity-50"
                     >
-                      <PlusCircle className="w-4 h-4" />
-                      Tambah Anggaran
+                      <RotateCw className={`w-5 h-5 text-natural-secondary ${loading ? 'animate-spin' : ''}`} />
                     </button>
-                  )}
+                    {!isAdmin && (
+                      <button 
+                        onClick={() => { setSelectedReport(null); setView('create'); }}
+                        className="bg-natural-primary text-white px-6 py-3 rounded-full font-serif italic flex items-center gap-2 hover:bg-natural-primary/90 transition-all shadow-lg"
+                      >
+                        <PlusCircle className="w-4 h-4" />
+                        Tambah Anggaran
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <ReportTable 
                   reports={reports} 
@@ -1910,6 +2001,13 @@ const MainDashboard = () => {
                     <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Laporan Realisasi</h2>
                     <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Daftar laporan pengeluaran</p>
                   </div>
+                  <button 
+                    onClick={refreshReports}
+                    disabled={loading}
+                    className="p-3 bg-natural-input border border-natural-border rounded-full hover:bg-white transition-all disabled:opacity-50"
+                  >
+                    <RotateCw className={`w-5 h-5 text-natural-secondary ${loading ? 'animate-spin' : ''}`} />
+                  </button>
                 </div>
                 <ReportTable 
                   reports={reports} 
@@ -1917,6 +2015,7 @@ const MainDashboard = () => {
                   allowedStatuses={[ReportStatus.REPORTING, ReportStatus.COMPLETED]}
                   onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
                   onPrint={handlePrintLaporan}
+                  onPrintRAB={handlePrintAnggaran}
                   onDelete={handleDeleteReport}
                 />
               </motion.div>
@@ -1929,6 +2028,13 @@ const MainDashboard = () => {
                     <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Arsip Laporan</h2>
                     <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Kumpulan laporan yang sudah selesai</p>
                   </div>
+                  <button 
+                    onClick={refreshReports}
+                    disabled={loading}
+                    className="p-3 bg-natural-input border border-natural-border rounded-full hover:bg-white transition-all disabled:opacity-50"
+                  >
+                    <RotateCw className={`w-5 h-5 text-natural-secondary ${loading ? 'animate-spin' : ''}`} />
+                  </button>
                 </div>
                 <ReportTable 
                   reports={reports} 
@@ -1936,6 +2042,7 @@ const MainDashboard = () => {
                   allowedStatuses={[ReportStatus.COMPLETED, ReportStatus.ARCHIVED]}
                   onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
                   onPrint={handlePrintLaporan}
+                  onPrintRAB={handlePrintAnggaran}
                   onDelete={handleDeleteReport}
                 />
               </motion.div>
@@ -1952,6 +2059,7 @@ const MainDashboard = () => {
                     handlePrintLaporan(selectedReport);
                   }
                 }}
+                onPrintRAB={handlePrintAnggaran}
                 onUpdateStatus={handleStatusUpdate}
                 onBack={() => { setView('dashboard'); setSelectedReport(null); }}
                 onEdit={() => setView('create')}
@@ -1962,8 +2070,11 @@ const MainDashboard = () => {
               <ReportForm 
                 user={user!} 
                 editReport={selectedReport || undefined}
+                units={units}
+                expenseTypes={expenseTypes}
+                onPrintRAB={handlePrintAnggaran}
                 onCancel={() => { setView('anggaran'); setSelectedReport(null); }} 
-                onSuccess={() => { setView('anggaran'); setSelectedReport(null); }} 
+                onSuccess={() => { refreshReports(); setView('anggaran'); setSelectedReport(null); }} 
               />
             )}
 
@@ -1982,13 +2093,16 @@ const MainDashboard = () => {
 
             {view === 'units' && isAdmin && (
               <motion.div key="units" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <UnitList onAddAccount={(name) => { setInitialUnitNameForAccount(name); setView('add_user'); }} />
+                <UnitList 
+                  units={units}
+                  onAddAccount={(name) => { setInitialUnitNameForAccount(name); setView('add_user'); }} 
+                />
               </motion.div>
             )}
 
             {view === 'expense_settings' && isAdmin && (
               <motion.div key="expense_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <ExpenseSettings />
+                <ExpenseSettings types={expenseTypes} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -2007,6 +2121,8 @@ export default function App() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const login = async (username: string, pass: string): Promise<boolean> => {
     try {
@@ -2027,8 +2143,13 @@ export default function App() {
         localStorage.setItem('user_role', userData.role);
         return true;
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Login failed", err);
+      const msg = err.message || String(err);
+      if (msg.includes('Quota exceeded') || msg.includes('Quota limit exceeded')) {
+        setQuotaExceeded(true);
+        setErrorMessage('Database sedang limit (Quota Exceeded). Tidak dapat memproses login saat ini.');
+      }
     }
     return false;
   };
@@ -2055,35 +2176,73 @@ export default function App() {
     }
     setLoading(false);
 
-    // Bootstrap units and users
+    // Bootstrap units and users ONLY IF not done before in this browser
     const bootstrap = async () => {
+      if (localStorage.getItem('db_bootstrapped_v2')) return;
+
       try {
-        const usersSnap = await getDocs(collection(db, 'app_users'));
+        const usersSnap = await getDocs(query(collection(db, 'app_users'), limit(1)));
         if (usersSnap.empty) {
           for (const u of BOOTSTRAP_USERS) {
             await addDoc(collection(db, 'app_users'), u);
           }
         }
 
-        const unitsSnap = await getDocs(collection(db, 'units'));
+        const unitsSnap = await getDocs(query(collection(db, 'units'), limit(1)));
         if (unitsSnap.empty) {
-          const currentUsers = await getDocs(collection(db, 'app_users'));
-          const defaultUnits = Array.from(new Set(currentUsers.docs.map(d => (d.data() as DBUser).unitName)));
+          // If we derived units from BOOTSTRAP_USERS, we can skip one read here
+          const defaultUnits = Array.from(new Set(BOOTSTRAP_USERS.map(u => u.unitName)));
           for (const name of defaultUnits) {
             await addDoc(collection(db, 'units'), { name });
           }
         }
-      } catch (e) {
+        localStorage.setItem('db_bootstrapped_v2', 'true');
+      } catch (e: any) {
         console.error("Bootstrap failed", e);
+        const errorMessage = e.message || String(e);
+        if (errorMessage.includes('Quota exceeded') || errorMessage.includes('Quota limit exceeded')) {
+          setQuotaExceeded(true);
+          try {
+            const parsed = JSON.parse(errorMessage);
+            setErrorMessage(parsed.error || errorMessage);
+          } catch {
+            setErrorMessage('Limit kuota harian database telah tercapai. Mohon coba lagi besok.');
+          }
+        }
       }
     };
     bootstrap();
   }, []);
 
+  const contextValue = useMemo(() => ({ user, isAdmin, loading, login, logout }), [user, isAdmin, loading]);
+
+  if (quotaExceeded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-natural-bg p-6">
+        <div className="max-w-md w-full bg-white rounded-[40px] p-12 shadow-xl border border-red-100 text-center">
+          <div className="bg-red-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="text-red-500 w-10 h-10" />
+          </div>
+          <h2 className="text-2xl font-serif italic text-red-700 mb-4">Layanan Terhenti Sementara</h2>
+          <div className="text-natural-secondary text-sm space-y-4 text-left bg-red-50/30 p-6 rounded-3xl border border-red-50">
+             <p className="font-medium whitespace-pre-wrap">{errorMessage || 'Limit kuota harian database telah tercapai.'}</p>
+             <p className="text-xs opacity-75">Ini adalah limit dari Google Firebase (Free Tier). Sistem akan pulih secara otomatis besok atau jika pemilik proyek mengaktifkan 'Billing' di konsol Firebase.</p>
+          </div>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-8 w-full bg-natural-primary text-white font-serif italic text-lg py-4 rounded-full transition-all active:scale-[0.98]"
+          >
+            Coba Segarkan Halaman
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) return <LoadingScreen />;
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, login, logout }}>
+    <AuthContext.Provider value={contextValue}>
       {!user ? <LoginPage /> : <MainDashboard />}
     </AuthContext.Provider>
   );
