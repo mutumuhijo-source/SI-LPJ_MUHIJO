@@ -21,8 +21,6 @@ export interface ExpenseDetail {
 export interface Employee {
   id?: string;
   name: string;
-  position: string;
-  unitName: string;
 }
 
 export interface ExpenseType {

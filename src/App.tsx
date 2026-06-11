@@ -631,11 +631,17 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                       }}
                     >
                       <option value="">Pilih Anggaran...</option>
-                      {formData.proposedDetails.map((p, pIdx) => (
-                        <option key={pIdx} value={pIdx}>
-                          {p.description || `Anggaran #${pIdx + 1}`} (Pagu: Rp {p.amount.toLocaleString('id-ID')})
-                        </option>
-                      ))}
+                       {formData.proposedDetails.map((p, pIdx) => {
+                         const realizedSum = formData.details
+                           .filter(d => d.proposedIndex === pIdx)
+                           .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+                         const remaining = p.amount - realizedSum;
+                         return (
+                           <option key={pIdx} value={pIdx}>
+                             {p.description || `Anggaran #${pIdx + 1}`} (Sisa: Rp {remaining.toLocaleString('id-ID')})
+                           </option>
+                         );
+                       })}
                     </select>
                   </div>
 
@@ -671,7 +677,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                       }}
                     >
                       <option value="">Pilih Pegawai...</option>
-                      {employees.filter(emp => emp.unitName === formData.unitName || isAdmin).map(emp => (
+                      {employees.map(emp => (
                         <option key={emp.id} value={emp.id}>{emp.name}</option>
                       ))}
                     </select>
@@ -1442,14 +1448,14 @@ const ExpenseSettings = ({ types }: { types: ExpenseType[] }) => {
 };
 
 const EmployeeSettings = ({ employees, units }: { employees: Employee[], units: Unit[] }) => {
-  const [formData, setFormData] = useState({ name: '', position: '', unitName: '' });
+  const [formData, setFormData] = useState({ name: '' });
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.unitName) return;
+    if (!formData.name) return;
     try {
       await addDoc(collection(db, 'employees'), formData);
-      setFormData({ name: '', position: '', unitName: '' });
+      setFormData({ name: '' });
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'employees');
     }
@@ -1469,9 +1475,9 @@ const EmployeeSettings = ({ employees, units }: { employees: Employee[], units: 
     <div className="max-w-3xl mx-auto space-y-8">
       <div className="bg-white p-10 rounded-[40px] border border-natural-border shadow-sm">
         <h3 className="text-2xl font-serif italic text-natural-primary mb-6">Kelola Daftar Pegawai</h3>
-        <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-1.5 focus-within:text-natural-primary">
-            <label className="text-[9px] uppercase font-bold text-natural-secondary/60 ml-2">Nama Lengkap</label>
+        <form onSubmit={handleAdd} className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 space-y-1.5 focus-within:text-natural-primary">
+            <label className="text-[9px] uppercase font-bold text-natural-secondary/60 ml-2">Nama Lengkap Pegawai</label>
             <input 
               required
               className="w-full p-4 bg-natural-input border-b border-natural-border focus:border-natural-primary outline-none text-sm font-bold" 
@@ -1480,29 +1486,8 @@ const EmployeeSettings = ({ employees, units }: { employees: Employee[], units: 
               onChange={e => setFormData({...formData, name: e.target.value})}
             />
           </div>
-          <div className="space-y-1.5 focus-within:text-natural-primary">
-            <label className="text-[9px] uppercase font-bold text-natural-secondary/60 ml-2">Jabatan</label>
-            <input 
-              className="w-full p-4 bg-natural-input border-b border-natural-border focus:border-natural-primary outline-none text-sm font-bold" 
-              placeholder="E.g. Staf TU..."
-              value={formData.position}
-              onChange={e => setFormData({...formData, position: e.target.value})}
-            />
-          </div>
-          <div className="space-y-1.5 focus-within:text-natural-primary">
-            <label className="text-[9px] uppercase font-bold text-natural-secondary/60 ml-2">Unit Kerja</label>
-            <select 
-              required
-              className="w-full p-4 bg-natural-input border-b border-natural-border focus:border-natural-primary outline-none text-sm font-bold"
-              value={formData.unitName}
-              onChange={e => setFormData({...formData, unitName: e.target.value})}
-            >
-              <option value="">Pilih Unit...</option>
-              {units.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-            </select>
-          </div>
-          <button type="submit" className="md:col-span-3 bg-natural-primary text-white py-4 rounded-full font-serif italic text-xl hover:bg-natural-primary/90 transition-all shadow-lg active:scale-95">
-            Tambah Pegawai Baru
+          <button type="submit" className="md:self-end bg-natural-primary text-white py-4 px-8 rounded-full font-serif italic text-xl hover:bg-natural-primary/90 transition-all shadow-lg active:scale-95">
+            Tambah Baru
           </button>
         </form>
       </div>
@@ -1519,7 +1504,6 @@ const EmployeeSettings = ({ employees, units }: { employees: Employee[], units: 
               <div key={emp.id} className="px-10 py-4 flex justify-between items-center group hover:bg-natural-input transition-all">
                 <div className="flex flex-col">
                   <span className="font-bold text-natural-primary">{emp.name}</span>
-                  <span className="text-[10px] uppercase tracking-wider text-natural-secondary font-medium">{emp.position || '-'} • {emp.unitName}</span>
                 </div>
                 <button 
                   onClick={() => emp.id && handleDelete(emp.id)}

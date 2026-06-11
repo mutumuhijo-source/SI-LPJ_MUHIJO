@@ -77,6 +77,16 @@
         }
       },
       "description": "Custom application users for internal login"
+    },
+    "employees": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" }
+        },
+        "required": ["name"]
+      },
+      "description": "List of employees for reporting"
     }
   }
 }
