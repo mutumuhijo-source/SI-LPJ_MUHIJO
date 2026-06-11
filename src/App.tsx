@@ -346,7 +346,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="max-w-4xl mx-auto py-10"
+      className="max-w-5xl mx-auto py-10"
     >
       <div className="flex items-center gap-6 mb-10">
         <button type="button" onClick={onCancel} className="p-3 hover:bg-white rounded-full transition-colors border border-natural-border bg-white shadow-sm">
@@ -488,7 +488,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
             <div className="space-y-4">
               {formData.proposedDetails.map((detail, idx) => (
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-natural-bg/20 p-6 rounded-[24px] border border-natural-bg relative group">
-                  <div className="md:col-span-4 space-y-1">
+                  <div className="md:col-span-3 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Kategori</label>
                     <select 
                       required
@@ -520,7 +520,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                       }}
                     />
                   </div>
-                  <div className="md:col-span-2 space-y-1">
+                  <div className="md:col-span-3 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60 text-right block">Nominal</label>
                     <input 
                       type="number"
@@ -601,7 +601,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
             <div className="space-y-4">
               {formData.details.map((detail, idx) => (
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-natural-bg/20 p-6 rounded-[24px] border border-natural-bg relative group">
-                  <div className="md:col-span-2 space-y-1">
+                  <div className="md:col-span-1 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Tgl</label>
                     <input 
                       type="date"
@@ -617,7 +617,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                     />
                   </div>
 
-                  <div className="md:col-span-3 space-y-1">
+                  <div className="md:col-span-2 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Pilih Pagu Anggaran</label>
                     <select
                       required
@@ -645,7 +645,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                     </select>
                   </div>
 
-                  <div className="md:col-span-4 space-y-1">
+                  <div className={detail.proposedIndex !== undefined && formData.proposedDetails[detail.proposedIndex]?.category?.toLowerCase().includes('pegawai') ? "md:col-span-3 space-y-1" : "md:col-span-5 space-y-1"}>
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Deskripsi Realisasi</label>
                     <input 
                       required
@@ -686,7 +686,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                     </div>
                   )}
 
-                  <div className="md:col-span-1 space-y-1">
+                  <div className="md:col-span-2 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60 text-right block">Nominal</label>
                     <input 
                       type="number"
