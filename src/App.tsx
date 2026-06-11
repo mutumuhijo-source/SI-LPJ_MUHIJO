@@ -662,26 +662,29 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                   </div>
 
                   {/* Employee Selection if category implies personnel expense */}
-                  <div className="md:col-span-2 space-y-1">
-                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Pegawai (Penerima)</label>
-                    <select
-                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold disabled:bg-transparent"
-                      disabled={isAdmin}
-                      value={detail.employeeId || ''}
-                      onChange={(e) => {
-                        const newD = [...formData.details];
-                        const emp = employees.find(emp => emp.id === e.target.value);
-                        newD[idx].employeeId = e.target.value;
-                        newD[idx].employeeName = emp?.name || '';
-                        setFormData({...formData, details: newD});
-                      }}
-                    >
-                      <option value="">Pilih Pegawai...</option>
-                      {employees.map(emp => (
-                        <option key={emp.id} value={emp.id}>{emp.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {detail.proposedIndex !== undefined && 
+                   formData.proposedDetails[detail.proposedIndex]?.category?.toLowerCase().includes('pegawai') && (
+                    <div className="md:col-span-2 space-y-1">
+                      <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Pegawai (Penerima)</label>
+                      <select
+                        className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold disabled:bg-transparent"
+                        disabled={isAdmin}
+                        value={detail.employeeId || ''}
+                        onChange={(e) => {
+                          const newD = [...formData.details];
+                          const emp = employees.find(emp => emp.id === e.target.value);
+                          newD[idx].employeeId = e.target.value;
+                          newD[idx].employeeName = emp?.name || '';
+                          setFormData({...formData, details: newD});
+                        }}
+                      >
+                        <option value="">Pilih Pegawai...</option>
+                        {employees.map(emp => (
+                          <option key={emp.id} value={emp.id}>{emp.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="md:col-span-1 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60 text-right block">Nominal</label>
