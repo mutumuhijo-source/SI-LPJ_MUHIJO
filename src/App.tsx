@@ -136,6 +136,7 @@ const StatusBadge = ({ status }: { status: ReportStatus }) => {
     [ReportStatus.COMPLETED]: { color: 'bg-[#e8f5e9] text-emerald-700 border-emerald-200', icon: CheckCircle2, label: 'Selesai' },
     [ReportStatus.ARCHIVED]: { color: 'bg-gray-100 text-gray-700 border-gray-200', icon: Lock, label: 'Arsip' },
     [ReportStatus.REJECTED]: { color: 'bg-[#fbeaea] text-red-700 border-red-200', icon: XCircle, label: 'Ditolak' },
+    [ReportStatus.REVISION]: { color: 'bg-[#fff4e5] text-orange-700 border-orange-200', icon: RotateCw, label: 'Revisi Diperlukan' },
   };
   const config = configs[status];
   const Icon = config.icon;
@@ -299,6 +300,15 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
     setLoading(true);
     try {
       const selectedUnit = units.find(u => u.id === formData.unitId);
+      const getNextStatus = () => {
+        if (!editReport) return ReportStatus.BUDGET_PROPOSAL;
+        if (editReport.status === ReportStatus.REVISION) {
+          // If revision, check if it was for budget or report
+          return editReport.details.length > 0 ? ReportStatus.REPORTING : ReportStatus.BUDGET_PROPOSAL;
+        }
+        return editReport.status;
+      };
+
       const payload = {
         unitId: formData.unitId,
         unitName: selectedUnit?.name || formData.unitName || 'Unknown',
@@ -307,7 +317,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
         totalSpent: totalSpent,
         details: formData.details,
         proposedDetails: formData.proposedDetails,
-        status: editReport?.status || ReportStatus.BUDGET_PROPOSAL,
+        status: getNextStatus(),
         submittedAt: editReport?.submittedAt || serverTimestamp(),
         updatedAt: serverTimestamp(),
         submittedBy: editReport?.submittedBy || user.uid,
@@ -369,7 +379,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
               <label className="text-[10px] uppercase tracking-wider font-bold">Unit Kerja Penerima Mandat</label>
               <select 
                 required
-                disabled={!isAdmin && !!editReport}
+                disabled={!isAdmin && !!editReport && editReport.status !== ReportStatus.BUDGET_PROPOSAL && editReport.status !== ReportStatus.REVISION}
                 className="w-full p-4 bg-natural-input border-b-2 border-natural-bg text-sm font-bold focus:bg-white focus:border-natural-primary transition-all outline-none disabled:opacity-60"
                 value={formData.unitId}
                 onChange={(e) => setFormData({...formData, unitId: e.target.value})}
@@ -428,7 +438,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
             <label className="text-[10px] uppercase tracking-wider font-bold">Judul / Kode Kegiatan</label>
             <input 
               required
-              disabled={!isAdmin && !!editReport}
+              disabled={!isAdmin && !!editReport && editReport.status !== ReportStatus.BUDGET_PROPOSAL && editReport.status !== ReportStatus.REVISION}
               className="w-full p-4 bg-natural-input border-b-2 border-natural-bg text-xl font-serif italic focus:bg-white focus:border-natural-primary outline-none disabled:opacity-60"
               placeholder="Contoh: Operasional TU Tahap I..."
               value={formData.activityName}
@@ -459,7 +469,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                 <h3 className="font-serif italic text-2xl text-natural-primary">Rincian Anggaran (Usulan)</h3>
                 <p className="text-[10px] uppercase font-bold text-natural-secondary tracking-widest mt-1">Item belanja yang diusulkan</p>
               </div>
-              {!!editReport ? (
+              {!!editReport && editReport.status !== ReportStatus.BUDGET_PROPOSAL && editReport.status !== ReportStatus.REVISION ? (
                 <span className="text-[10px] uppercase font-bold text-emerald-700 px-3 py-1 bg-emerald-50 rounded-lg border border-emerald-200">
                   Sudah Final
                 </span>
@@ -470,7 +480,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                   className="px-6 py-2.5 bg-natural-primary text-white text-[11px] uppercase font-bold rounded-full hover:bg-natural-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-natural-primary/20"
                 >
                   <PlusCircle className="w-4 h-4" />
-                  Baris Baru
+                  Baris Baru Usul
                 </button>
               )}
             </div>
@@ -482,7 +492,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Kategori</label>
                     <select 
                       required
-                      disabled={!!editReport}
+                      disabled={!!editReport && editReport.status !== ReportStatus.BUDGET_PROPOSAL && editReport.status !== ReportStatus.REVISION}
                       className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold disabled:bg-natural-bg/50 disabled:text-natural-secondary/70"
                       value={detail.category || ''}
                       onChange={(e) => {
@@ -499,7 +509,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Deskripsi Pengeluaran</label>
                     <input 
                       required
-                      disabled={!!editReport}
+                      disabled={!!editReport && editReport.status !== ReportStatus.BUDGET_PROPOSAL && editReport.status !== ReportStatus.REVISION}
                       className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-medium disabled:bg-natural-bg/50 disabled:text-natural-secondary/70"
                       placeholder="Masukkan rincian..."
                       value={detail.description}
@@ -515,7 +525,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                     <input 
                       type="number"
                       required
-                      disabled={!!editReport}
+                      disabled={!!editReport && editReport.status !== ReportStatus.BUDGET_PROPOSAL && editReport.status !== ReportStatus.REVISION}
                       className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none font-mono font-bold text-xs text-right disabled:bg-natural-bg/50 disabled:text-natural-secondary/70"
                       value={detail.amount}
                       onChange={(e) => {
@@ -526,7 +536,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                     />
                   </div>
                   <div className="md:col-span-1 flex justify-center pb-1">
-                    {!editReport && formData.proposedDetails.length > 1 && (
+                    {(!editReport || editReport.status === ReportStatus.BUDGET_PROPOSAL || editReport.status === ReportStatus.REVISION) && formData.proposedDetails.length > 1 && (
                       <button 
                         type="button"
                         onClick={() => removeDetail(idx, true)}
@@ -542,7 +552,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
         </div>
 
         {/* Actual Details */}
-        {(editReport?.status === ReportStatus.REPORTING || editReport?.status === ReportStatus.COMPLETED) && (
+        {(editReport?.status === ReportStatus.REPORTING || editReport?.status === ReportStatus.COMPLETED || (editReport?.status === ReportStatus.REVISION && editReport.details.length > 0)) && (
           <div className="bg-white p-10 rounded-[32px] border border-natural-border shadow-sm space-y-8">
             <div className="flex justify-between items-center border-b border-natural-bg pb-6">
               <div>
@@ -911,7 +921,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
               <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-1">Itemized Expense Report</p>
             </div>
           </div>
-          {!isAdmin && (report.status === ReportStatus.BUDGET_PROPOSAL || report.status === ReportStatus.REPORTING) && (
+          {!isAdmin && (report.status === ReportStatus.BUDGET_PROPOSAL || report.status === ReportStatus.REPORTING || report.status === ReportStatus.REVISION) && (
             <button 
               onClick={onEdit}
               className="bg-natural-primary text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-natural-primary/90 transition-all shadow-md"
@@ -928,20 +938,36 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
             </button>
           )}
           {isAdmin && report.status === ReportStatus.COMPLETED && (
-            <button 
-              onClick={() => handleUpdateStatusAction(ReportStatus.ARCHIVED)}
-              className="bg-natural-primary text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-natural-primary/90 transition-all shadow-md"
-            >
-              Setujui Laporan (Arsipkan)
-            </button>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => handleUpdateStatusAction(ReportStatus.REVISION)}
+                className="bg-orange-600 text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-orange-700 transition-all shadow-md"
+              >
+                Revisi Laporan
+              </button>
+              <button 
+                onClick={() => handleUpdateStatusAction(ReportStatus.ARCHIVED)}
+                className="bg-natural-primary text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-natural-primary/90 transition-all shadow-md"
+              >
+                Setujui Laporan (Arsipkan)
+              </button>
+            </div>
           )}
           {isAdmin && report.status === ReportStatus.REPORTING && (
-            <button 
-              onClick={() => handleUpdateStatusAction(ReportStatus.COMPLETED)}
-              className="bg-emerald-600 text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-emerald-700 transition-all shadow-md"
-            >
-              Selesaikan Laporan
-            </button>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => handleUpdateStatusAction(ReportStatus.REVISION)}
+                className="bg-orange-600 text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-orange-700 transition-all shadow-md"
+              >
+                Instruksikan Revisi
+              </button>
+              <button 
+                onClick={() => handleUpdateStatusAction(ReportStatus.COMPLETED)}
+                className="bg-emerald-600 text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-emerald-700 transition-all shadow-md"
+              >
+                Selesaikan Laporan
+              </button>
+            </div>
           )}
           <div className="p-0">
             <table className="w-full text-left">
@@ -990,7 +1016,14 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
               onClick={() => handleUpdateStatusAction(ReportStatus.REJECTED)}
               className="flex-1 py-5 border border-white/20 hover:bg-red-600 hover:border-red-600 rounded-full font-bold uppercase text-xs tracking-widest transition-all disabled:opacity-50"
             >
-              Tolak Laporan
+              Tolak
+            </button>
+            <button 
+              disabled={updating}
+              onClick={() => handleUpdateStatusAction(ReportStatus.REVISION)}
+              className="flex-1 py-5 border border-white/20 hover:bg-orange-600 hover:border-orange-600 rounded-full font-bold uppercase text-xs tracking-widest transition-all disabled:opacity-50"
+            >
+              Minta Revisi
             </button>
             <button 
               disabled={updating}
@@ -1017,7 +1050,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
 };
 
 const DashboardStats = ({ reports }: { reports: Report[] }) => {
-  const proposal = reports.filter(r => r.status === ReportStatus.BUDGET_PROPOSAL).length;
+  const proposal = reports.filter(r => r.status === ReportStatus.BUDGET_PROPOSAL || r.status === ReportStatus.REVISION).length;
   const approved = reports.filter(r => r.status === ReportStatus.BUDGET_APPROVED).length;
   const reporting = reports.filter(r => r.status === ReportStatus.REPORTING).length;
 
@@ -1949,7 +1982,7 @@ const MainDashboard = () => {
                         </div>
                         <div className="flex justify-between items-center text-xs">
                           <span className="text-natural-secondary font-bold">Laporan Pending</span>
-                          <span className="font-mono font-bold text-amber-600">{reports.filter(r => r.status === ReportStatus.BUDGET_PROPOSAL).length} Kegiatan</span>
+                          <span className="font-mono font-bold text-amber-600">{reports.filter(r => r.status === ReportStatus.BUDGET_PROPOSAL || r.status === ReportStatus.REVISION).length} Kegiatan</span>
                         </div>
                       </div>
                    </div>
@@ -1986,7 +2019,7 @@ const MainDashboard = () => {
                 <ReportTable 
                   reports={reports} 
                   isAdmin={isAdmin} 
-                  allowedStatuses={[ReportStatus.BUDGET_PROPOSAL, ReportStatus.BUDGET_APPROVED, ReportStatus.REJECTED]}
+                  allowedStatuses={[ReportStatus.BUDGET_PROPOSAL, ReportStatus.BUDGET_APPROVED, ReportStatus.REJECTED, ReportStatus.REVISION]}
                   onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
                   onPrint={handlePrintAnggaran}
                   onDelete={handleDeleteReport}
@@ -2012,7 +2045,7 @@ const MainDashboard = () => {
                 <ReportTable 
                   reports={reports} 
                   isAdmin={isAdmin} 
-                  allowedStatuses={[ReportStatus.REPORTING, ReportStatus.COMPLETED]}
+                  allowedStatuses={[ReportStatus.REPORTING, ReportStatus.COMPLETED, ReportStatus.REVISION]}
                   onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
                   onPrint={handlePrintLaporan}
                   onPrintRAB={handlePrintAnggaran}

@@ -5,6 +5,7 @@ export enum ReportStatus {
   COMPLETED = 'completed',
   ARCHIVED = 'archived',
   REJECTED = 'rejected',
+  REVISION = 'revision',
 }
 
 export interface ExpenseDetail {
