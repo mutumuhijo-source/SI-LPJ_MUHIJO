@@ -14,6 +14,15 @@ export interface ExpenseDetail {
   amount: number;
   category?: string;
   proposedIndex?: number;
+  employeeId?: string;
+  employeeName?: string;
+}
+
+export interface Employee {
+  id?: string;
+  name: string;
+  position: string;
+  unitName: string;
 }
 
 export interface ExpenseType {

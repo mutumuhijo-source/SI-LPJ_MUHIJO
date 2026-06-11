@@ -6,7 +6,7 @@
 import { useState, useEffect, createContext, useContext, useMemo } from 'react';
 import { db } from './firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, setDoc, serverTimestamp, addDoc, getDocs, deleteDoc, limit, orderBy } from 'firebase/firestore';
-import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail } from './types.ts';
+import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail, Employee } from './types.ts';
 import { handleFirestoreError } from './lib/error-handler.ts';
 import { 
   LayoutDashboard, 
@@ -242,7 +242,7 @@ const LoginPage = () => {
   );
 };
 
-const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes, onPrintRAB }: { onCancel: () => void, onSuccess: () => void, user: AppUser, editReport?: Report, units: Unit[], expenseTypes: ExpenseType[], onPrintRAB?: (r: Report) => void }) => {
+const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes, employees, onPrintRAB }: { onCancel: () => void, onSuccess: () => void, user: AppUser, editReport?: Report, units: Unit[], expenseTypes: ExpenseType[], employees: Employee[], onPrintRAB?: (r: Report) => void }) => {
   const isAdmin = localStorage.getItem('user_role') === 'admin';
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -655,7 +655,29 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                     />
                   </div>
 
+                  {/* Employee Selection if category implies personnel expense */}
                   <div className="md:col-span-2 space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Pegawai (Penerima)</label>
+                    <select
+                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold disabled:bg-transparent"
+                      disabled={isAdmin}
+                      value={detail.employeeId || ''}
+                      onChange={(e) => {
+                        const newD = [...formData.details];
+                        const emp = employees.find(emp => emp.id === e.target.value);
+                        newD[idx].employeeId = e.target.value;
+                        newD[idx].employeeName = emp?.name || '';
+                        setFormData({...formData, details: newD});
+                      }}
+                    >
+                      <option value="">Pilih Pegawai...</option>
+                      {employees.filter(emp => emp.unitName === formData.unitName || isAdmin).map(emp => (
+                        <option key={emp.id} value={emp.id}>{emp.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-1 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60 text-right block">Nominal</label>
                     <input 
                       type="number"
@@ -1419,14 +1441,110 @@ const ExpenseSettings = ({ types }: { types: ExpenseType[] }) => {
   );
 };
 
+const EmployeeSettings = ({ employees, units }: { employees: Employee[], units: Unit[] }) => {
+  const [formData, setFormData] = useState({ name: '', position: '', unitName: '' });
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.unitName) return;
+    try {
+      await addDoc(collection(db, 'employees'), formData);
+      setFormData({ name: '', position: '', unitName: '' });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'employees');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (id && window.confirm('Hapus pegawai ini dari daftar?')) {
+      try {
+        await deleteDoc(doc(db, 'employees', id));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `employees/${id}`);
+      }
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-8">
+      <div className="bg-white p-10 rounded-[40px] border border-natural-border shadow-sm">
+        <h3 className="text-2xl font-serif italic text-natural-primary mb-6">Kelola Daftar Pegawai</h3>
+        <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-1.5 focus-within:text-natural-primary">
+            <label className="text-[9px] uppercase font-bold text-natural-secondary/60 ml-2">Nama Lengkap</label>
+            <input 
+              required
+              className="w-full p-4 bg-natural-input border-b border-natural-border focus:border-natural-primary outline-none text-sm font-bold" 
+              placeholder="E.g. Budi Santoso..."
+              value={formData.name}
+              onChange={e => setFormData({...formData, name: e.target.value})}
+            />
+          </div>
+          <div className="space-y-1.5 focus-within:text-natural-primary">
+            <label className="text-[9px] uppercase font-bold text-natural-secondary/60 ml-2">Jabatan</label>
+            <input 
+              className="w-full p-4 bg-natural-input border-b border-natural-border focus:border-natural-primary outline-none text-sm font-bold" 
+              placeholder="E.g. Staf TU..."
+              value={formData.position}
+              onChange={e => setFormData({...formData, position: e.target.value})}
+            />
+          </div>
+          <div className="space-y-1.5 focus-within:text-natural-primary">
+            <label className="text-[9px] uppercase font-bold text-natural-secondary/60 ml-2">Unit Kerja</label>
+            <select 
+              required
+              className="w-full p-4 bg-natural-input border-b border-natural-border focus:border-natural-primary outline-none text-sm font-bold"
+              value={formData.unitName}
+              onChange={e => setFormData({...formData, unitName: e.target.value})}
+            >
+              <option value="">Pilih Unit...</option>
+              {units.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+            </select>
+          </div>
+          <button type="submit" className="md:col-span-3 bg-natural-primary text-white py-4 rounded-full font-serif italic text-xl hover:bg-natural-primary/90 transition-all shadow-lg active:scale-95">
+            Tambah Pegawai Baru
+          </button>
+        </form>
+      </div>
+
+      <div className="bg-white rounded-[40px] border border-natural-border shadow-sm overflow-hidden">
+        <div className="px-10 py-6 bg-natural-bg/30 border-b border-natural-bg">
+          <p className="text-[10px] uppercase font-bold text-natural-secondary tracking-widest">Daftar Pegawai Aktif</p>
+        </div>
+        <div className="divide-y divide-natural-bg max-h-96 overflow-y-auto">
+          {employees.length === 0 ? (
+            <div className="p-10 text-center text-natural-secondary italic">Belum ada data pegawai.</div>
+          ) : (
+            employees.map(emp => (
+              <div key={emp.id} className="px-10 py-4 flex justify-between items-center group hover:bg-natural-input transition-all">
+                <div className="flex flex-col">
+                  <span className="font-bold text-natural-primary">{emp.name}</span>
+                  <span className="text-[10px] uppercase tracking-wider text-natural-secondary font-medium">{emp.position || '-'} • {emp.unitName}</span>
+                </div>
+                <button 
+                  onClick={() => emp.id && handleDelete(emp.id)}
+                  className="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const MainDashboard = () => {
   const { user, isAdmin, logout } = useContext(AuthContext);
   const [reports, setReports] = useState<Report[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorInfo, setErrorInfo] = useState<string | null>(null);
-  const [view, setView] = useState<'dashboard' | 'detail' | 'create' | 'users' | 'add_user' | 'units' | 'expense_settings' | 'anggaran' | 'laporan' | 'arsip'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'detail' | 'create' | 'users' | 'add_user' | 'units' | 'expense_settings' | 'employee_settings' | 'anggaran' | 'laporan' | 'arsip'>('dashboard');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [initialUnitNameForAccount, setInitialUnitNameForAccount] = useState('');
 
@@ -1438,11 +1556,13 @@ const MainDashboard = () => {
       // Try cache first
       const cachedUnits = localStorage.getItem('cache_units');
       const cachedExpenseTypes = localStorage.getItem('cache_expense_types');
+      const cachedEmployees = localStorage.getItem('cache_employees');
       
-      if (cachedUnits && cachedExpenseTypes) {
+      if (cachedUnits && cachedExpenseTypes && cachedEmployees) {
         try {
           setUnits(JSON.parse(cachedUnits));
           setExpenseTypes(JSON.parse(cachedExpenseTypes));
+          setEmployees(JSON.parse(cachedEmployees));
           // Still fetch if we have no reports (might be empty)
           if (reports.length > 0) return;
         } catch (e) {
@@ -1451,18 +1571,22 @@ const MainDashboard = () => {
       }
 
       try {
-        const [uSnap, eSnap] = await Promise.all([
+        const [uSnap, eSnap, empSnap] = await Promise.all([
           getDocs(collection(db, 'units')),
-          getDocs(collection(db, 'expense_types'))
+          getDocs(collection(db, 'expense_types')),
+          getDocs(collection(db, 'employees'))
         ]);
         const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() as any } as Unit));
         const eData = eSnap.docs.map(d => ({ id: d.id, ...d.data() as any } as ExpenseType));
+        const empData = empSnap.docs.map(d => ({ id: d.id, ...d.data() as any } as Employee));
         
         setUnits(uData);
         setExpenseTypes(eData);
+        setEmployees(empData);
         
         localStorage.setItem('cache_units', JSON.stringify(uData));
         localStorage.setItem('cache_expense_types', JSON.stringify(eData));
+        localStorage.setItem('cache_employees', JSON.stringify(empData));
       } catch (err: any) {
         console.error("Metadata fetch failed", err);
         if (err.message?.includes('Quota exceeded') || err.message?.includes('Quota limit exceeded')) {
@@ -1916,6 +2040,13 @@ const MainDashboard = () => {
                   <Settings className="w-4 h-4" />
                   Jenis Pengeluaran
                 </button>
+                <button 
+                  onClick={() => setView('employee_settings')}
+                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'employee_settings' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+                >
+                  <UserIcon className="w-4 h-4" />
+                  Daftar Pegawai
+                </button>
               </>
             )}
           </div>
@@ -2105,6 +2236,7 @@ const MainDashboard = () => {
                 editReport={selectedReport || undefined}
                 units={units}
                 expenseTypes={expenseTypes}
+                employees={employees}
                 onPrintRAB={handlePrintAnggaran}
                 onCancel={() => { setView('anggaran'); setSelectedReport(null); }} 
                 onSuccess={() => { refreshReports(); setView('anggaran'); setSelectedReport(null); }} 
@@ -2136,6 +2268,12 @@ const MainDashboard = () => {
             {view === 'expense_settings' && isAdmin && (
               <motion.div key="expense_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <ExpenseSettings types={expenseTypes} />
+              </motion.div>
+            )}
+
+            {view === 'employee_settings' && isAdmin && (
+              <motion.div key="employee_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <EmployeeSettings employees={employees} units={units} />
               </motion.div>
             )}
           </AnimatePresence>
