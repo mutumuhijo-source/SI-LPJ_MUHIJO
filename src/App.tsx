@@ -27,7 +27,8 @@ import {
   Trash2,
   Printer,
   Settings,
-  RotateCw
+  RotateCw,
+  Folder
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -1286,6 +1287,100 @@ const UserForm = ({ onCancel, initialUnitName }: { onCancel: () => void, initial
 
 
 
+const UnitList = ({ units }: { units: Unit[] }) => {
+  const [newUnitName, setNewUnitName] = useState('');
+  const [addingUnit, setAddingUnit] = useState(false);
+
+  const handleAddUnit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUnitName) return;
+    setAddingUnit(true);
+    try {
+      // Check if unit exists
+      const existing = units.find(u => u.name.toLowerCase() === newUnitName.toLowerCase());
+      if (existing) {
+        alert('Unit sudah terdaftar');
+        return;
+      }
+
+      await addDoc(collection(db, 'units'), { name: newUnitName });
+      
+      setNewUnitName('');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'units');
+    } finally {
+      setAddingUnit(false);
+    }
+  };
+
+  const handleDeleteUnit = async (id: string, name: string) => {
+    if (window.confirm(`Hapus unit kerja ${name}? Ini hanya menghapus daftar pilihan, data laporan tidak akan terhapus.`)) {
+      try {
+        await deleteDoc(doc(db, 'units', id));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `units/${id}`);
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="bg-white p-10 rounded-[40px] border border-natural-border shadow-sm">
+        <h3 className="font-serif italic text-2xl text-natural-primary mb-6">Tambah Unit Kerja Baru</h3>
+        <form onSubmit={handleAddUnit} className="flex flex-col md:flex-row gap-4">
+          <input 
+            required
+            className="flex-1 p-4 bg-natural-input border-b border-natural-border focus:border-natural-primary outline-none" 
+            placeholder="Masukkan nama unit kerja (e.g. Unit Tata Usaha)..."
+            value={newUnitName}
+            onChange={e => setNewUnitName(e.target.value)}
+          />
+          <button 
+            disabled={addingUnit}
+            type="submit" 
+            className="bg-natural-primary text-white px-8 py-4 rounded-full font-serif italic flex items-center justify-center gap-2 hover:bg-natural-primary/90 transition-all shadow-lg"
+          >
+            {addingUnit ? 'Menyimpan...' : 'Tambah Unit'}
+          </button>
+        </form>
+      </div>
+
+      <div className="bg-white rounded-[40px] border border-natural-border shadow-sm overflow-hidden">
+        <div className="px-10 py-8 border-b border-natural-bg">
+          <h3 className="font-serif italic text-2xl text-natural-primary">Daftar Unit Kerja</h3>
+          <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-1">Unit yang terdaftar di lingkungan sekolah</p>
+        </div>
+        <div className="p-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {units.length === 0 ? (
+            <div className="col-span-full py-20 text-center text-natural-secondary font-serif italic">Belum ada unit kerja terdaftar.</div>
+          ) : (
+            units.map(unit => (
+              <div key={unit.id} className="group p-6 bg-natural-bg border border-natural-border rounded-3xl flex items-center justify-between hover:border-natural-primary transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-natural-primary/10 rounded-full flex items-center justify-center text-natural-primary">
+                    <LayoutDashboard className="w-5 h-5" />
+                  </div>
+                  <span className="font-serif italic text-lg text-natural-primary">{unit.name}</span>
+                </div>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    unit.id && handleDeleteUnit(unit.id, unit.name);
+                  }}
+                  title="Hapus Unit"
+                  className="opacity-40 hover:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-full transition-all cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ExpenseSettings = ({ types }: { types: ExpenseType[] }) => {
   const [newName, setNewName] = useState('');
 
@@ -1434,9 +1529,23 @@ const MainDashboard = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorInfo, setErrorInfo] = useState<string | null>(null);
-  const [view, setView] = useState<'dashboard' | 'detail' | 'create' | 'users' | 'add_user' | 'expense_settings' | 'employee_settings' | 'anggaran' | 'laporan' | 'arsip'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'detail' | 'create' | 'users' | 'add_user' | 'units' | 'expense_settings' | 'employee_settings' | 'anggaran' | 'laporan' | 'arsip'>('dashboard');
+  const [prevView, setPrevView] = useState<'dashboard' | 'anggaran' | 'laporan' | 'arsip'>('dashboard');
+  const [selectedUnitFolder, setSelectedUnitFolder] = useState<string | null>(null);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [initialUnitNameForAccount, setInitialUnitNameForAccount] = useState('');
+
+  const navigateTo = (newView: typeof view) => {
+    if (newView === 'detail' || newView === 'create') {
+      if (view !== 'detail' && view !== 'create') {
+        const pView = view as any;
+        if (['dashboard', 'anggaran', 'laporan', 'arsip'].includes(pView)) {
+          setPrevView(pView);
+        }
+      }
+    }
+    setView(newView);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -1860,21 +1969,21 @@ const MainDashboard = () => {
               Dashboard
             </button>
             <button 
-              onClick={() => setView('anggaran')}
+              onClick={() => { setView('anggaran'); setSelectedUnitFolder(null); }}
               className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'anggaran' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
             >
               <FileText className="w-4 h-4" />
               Anggaran
             </button>
             <button 
-              onClick={() => setView('laporan')}
+              onClick={() => { setView('laporan'); setSelectedUnitFolder(null); }}
               className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'laporan' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
             >
               <FileText className="w-4 h-4" />
               Laporan
             </button>
             <button 
-              onClick={() => setView('arsip')}
+              onClick={() => { setView('arsip'); setSelectedUnitFolder(null); }}
               className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'arsip' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
             >
               <Lock className="w-4 h-4" />
@@ -1889,6 +1998,14 @@ const MainDashboard = () => {
                 >
                   <Users className="w-4 h-4" />
                   Daftar Akun
+                </button>
+
+                <button 
+                  onClick={() => setView('units')}
+                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'units' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  Daftar Unit
                 </button>
 
                 <button 
@@ -1996,7 +2113,7 @@ const MainDashboard = () => {
                     </button>
                     {!isAdmin && (
                       <button 
-                        onClick={() => { setSelectedReport(null); setView('create'); }}
+                        onClick={() => { setSelectedReport(null); navigateTo('create'); }}
                         className="bg-natural-primary text-white px-6 py-3 rounded-full font-serif italic flex items-center gap-2 hover:bg-natural-primary/90 transition-all shadow-lg"
                       >
                         <PlusCircle className="w-4 h-4" />
@@ -2009,7 +2126,7 @@ const MainDashboard = () => {
                   reports={reports} 
                   isAdmin={isAdmin} 
                   allowedStatuses={[ReportStatus.BUDGET_PROPOSAL, ReportStatus.BUDGET_APPROVED, ReportStatus.REJECTED, ReportStatus.REVISION]}
-                  onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
+                  onSelect={(r) => { setSelectedReport(r); navigateTo('detail'); }} 
                   onPrint={handlePrintAnggaran}
                   onDelete={handleDeleteReport}
                 />
@@ -2035,7 +2152,7 @@ const MainDashboard = () => {
                   reports={reports} 
                   isAdmin={isAdmin} 
                   allowedStatuses={[ReportStatus.REPORTING, ReportStatus.COMPLETED, ReportStatus.REVISION]}
-                  onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
+                  onSelect={(r) => { setSelectedReport(r); navigateTo('detail'); }} 
                   onPrint={handlePrintLaporan}
                   onPrintRAB={handlePrintAnggaran}
                   onDelete={handleDeleteReport}
@@ -2047,8 +2164,22 @@ const MainDashboard = () => {
               <motion.div key="arsip" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
                   <div>
-                    <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Arsip Laporan</h2>
-                    <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Kumpulan laporan yang sudah selesai</p>
+                    <div className="flex items-center gap-4">
+                      {isAdmin && selectedUnitFolder && (
+                        <button 
+                          onClick={() => setSelectedUnitFolder(null)}
+                          className="p-2 hover:bg-white rounded-full transition-colors border border-natural-border bg-white shadow-sm"
+                        >
+                          <ArrowLeft className="w-5 h-5 text-natural-primary" />
+                        </button>
+                      )}
+                      <div>
+                        <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">
+                          {isAdmin && selectedUnitFolder ? `Arsip: ${selectedUnitFolder}` : 'Arsip Laporan'}
+                        </h2>
+                        <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Kumpulan laporan yang sudah selesai</p>
+                      </div>
+                    </div>
                   </div>
                   <button 
                     onClick={refreshReports}
@@ -2058,15 +2189,41 @@ const MainDashboard = () => {
                     <RotateCw className={`w-5 h-5 text-natural-secondary ${loading ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
-                <ReportTable 
-                  reports={reports} 
-                  isAdmin={isAdmin} 
-                  allowedStatuses={[ReportStatus.COMPLETED, ReportStatus.ARCHIVED]}
-                  onSelect={(r) => { setSelectedReport(r); setView('detail'); }} 
-                  onPrint={handlePrintLaporan}
-                  onPrintRAB={handlePrintAnggaran}
-                  onDelete={handleDeleteReport}
-                />
+
+                {isAdmin && !selectedUnitFolder ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {units.map(unit => {
+                      const unitReportsCount = reports.filter(r => r.unitName === unit.name && (r.status === ReportStatus.COMPLETED || r.status === ReportStatus.ARCHIVED)).length;
+                      return (
+                        <motion.div 
+                          key={unit.id}
+                          whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                          onClick={() => setSelectedUnitFolder(unit.name)}
+                          className="bg-white p-8 rounded-[32px] border border-natural-border shadow-sm cursor-pointer group transition-all"
+                        >
+                          <div className="w-14 h-14 bg-natural-primary/5 rounded-2xl flex items-center justify-center text-natural-primary mb-6 group-hover:bg-natural-primary group-hover:text-white transition-all">
+                            <Folder className="w-7 h-7" />
+                          </div>
+                          <h3 className="text-xl font-serif italic text-natural-primary mb-2">{unit.name}</h3>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest">{unitReportsCount} Laporan</span>
+                            <ChevronRight className="w-4 h-4 text-natural-primary" />
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <ReportTable 
+                    reports={isAdmin && selectedUnitFolder ? reports.filter(r => r.unitName === selectedUnitFolder) : reports} 
+                    isAdmin={isAdmin} 
+                    allowedStatuses={[ReportStatus.COMPLETED, ReportStatus.ARCHIVED]}
+                    onSelect={(r) => { setSelectedReport(r); navigateTo('detail'); }} 
+                    onPrint={handlePrintLaporan}
+                    onPrintRAB={handlePrintAnggaran}
+                    onDelete={handleDeleteReport}
+                  />
+                )}
               </motion.div>
             )}
 
@@ -2083,8 +2240,8 @@ const MainDashboard = () => {
                 }}
                 onPrintRAB={handlePrintAnggaran}
                 onUpdateStatus={handleStatusUpdate}
-                onBack={() => { setView('dashboard'); setSelectedReport(null); }}
-                onEdit={() => setView('create')}
+                onBack={() => { setView(prevView); setSelectedReport(null); }}
+                onEdit={() => navigateTo('create')}
               />
             )}
 
@@ -2096,8 +2253,8 @@ const MainDashboard = () => {
                 expenseTypes={expenseTypes}
                 employees={employees}
                 onPrintRAB={handlePrintAnggaran}
-                onCancel={() => { setView('anggaran'); setSelectedReport(null); }} 
-                onSuccess={() => { refreshReports(); setView('anggaran'); setSelectedReport(null); }} 
+                onCancel={() => { setView(prevView); setSelectedReport(null); }} 
+                onSuccess={() => { refreshReports(); setView(prevView); setSelectedReport(null); }} 
               />
             )}
 
@@ -2115,6 +2272,12 @@ const MainDashboard = () => {
             )}
 
 
+
+            {view === 'units' && isAdmin && (
+              <motion.div key="units" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <UnitList units={units} />
+              </motion.div>
+            )}
 
             {view === 'expense_settings' && isAdmin && (
               <motion.div key="expense_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
