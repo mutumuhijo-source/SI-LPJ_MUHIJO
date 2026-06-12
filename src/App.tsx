@@ -756,7 +756,17 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
 };
 
 const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onPrintRAB, onDelete }: { reports: Report[], isAdmin: boolean, allowedStatuses: ReportStatus[], onSelect: (r: Report) => void, onPrint: (r: Report) => void, onPrintRAB?: (r: Report) => void, onDelete: (r: Report) => void }) => {
-  const filteredReports = reports.filter(r => allowedStatuses.includes(r.status));
+  const filteredReports = reports.filter(r => {
+    if (!allowedStatuses.includes(r.status)) return false;
+    if (r.status === ReportStatus.REVISION) {
+      const hasRealization = r.details && r.details.length > 0;
+      const isBudgetView = allowedStatuses.includes(ReportStatus.BUDGET_PROPOSAL);
+      const isReportView = allowedStatuses.includes(ReportStatus.REPORTING);
+      if (isBudgetView && hasRealization) return false;
+      if (isReportView && !hasRealization) return false;
+    }
+    return true;
+  });
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
       {filteredReports.length === 0 ? (
@@ -1082,9 +1092,15 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
 };
 
 const DashboardStats = ({ reports }: { reports: Report[] }) => {
-  const proposal = reports.filter(r => r.status === ReportStatus.BUDGET_PROPOSAL || r.status === ReportStatus.REVISION).length;
+  const proposal = reports.filter(r => 
+    r.status === ReportStatus.BUDGET_PROPOSAL || 
+    (r.status === ReportStatus.REVISION && (!r.details || r.details.length === 0))
+  ).length;
   const approved = reports.filter(r => r.status === ReportStatus.BUDGET_APPROVED).length;
-  const reporting = reports.filter(r => r.status === ReportStatus.REPORTING).length;
+  const reporting = reports.filter(r => 
+    r.status === ReportStatus.REPORTING ||
+    (r.status === ReportStatus.REVISION && r.details && r.details.length > 0)
+  ).length;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
@@ -1962,28 +1978,28 @@ const MainDashboard = () => {
           
           <div className="flex flex-col gap-2">
             <button 
-              onClick={() => setView('dashboard')}
+              onClick={() => { navigateTo('dashboard'); setSelectedReport(null); }}
               className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'dashboard' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
             >
               <LayoutDashboard className="w-4 h-4" />
               Dashboard
             </button>
             <button 
-              onClick={() => { setView('anggaran'); setSelectedUnitFolder(null); }}
+              onClick={() => { navigateTo('anggaran'); setSelectedUnitFolder(null); setSelectedReport(null); }}
               className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'anggaran' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
             >
               <FileText className="w-4 h-4" />
               Anggaran
             </button>
             <button 
-              onClick={() => { setView('laporan'); setSelectedUnitFolder(null); }}
+              onClick={() => { navigateTo('laporan'); setSelectedUnitFolder(null); setSelectedReport(null); }}
               className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'laporan' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
             >
               <FileText className="w-4 h-4" />
               Laporan
             </button>
             <button 
-              onClick={() => { setView('arsip'); setSelectedUnitFolder(null); }}
+              onClick={() => { navigateTo('arsip'); setSelectedUnitFolder(null); setSelectedReport(null); }}
               className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'arsip' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
             >
               <Lock className="w-4 h-4" />
@@ -2074,7 +2090,7 @@ const MainDashboard = () => {
                         </p>
                         <div className="flex gap-4">
                            <button 
-                            onClick={() => setView('create')}
+                            onClick={() => navigateTo('create')}
                             className="text-[10px] font-bold uppercase tracking-widest text-natural-primary bg-natural-primary/5 px-4 py-2 rounded-full border border-natural-primary/20 hover:bg-natural-primary hover:text-white transition-all"
                            >
                              {isAdmin ? 'Terbitkan Anggaran Baru' : 'Ajukan Anggaran Baru'}
@@ -2088,7 +2104,12 @@ const MainDashboard = () => {
                         </div>
                         <div className="flex justify-between items-center text-xs">
                           <span className="text-natural-secondary font-bold">Laporan Pending</span>
-                          <span className="font-mono font-bold text-amber-600">{reports.filter(r => r.status === ReportStatus.BUDGET_PROPOSAL || r.status === ReportStatus.REVISION).length} Kegiatan</span>
+                          <span className="font-mono font-bold text-amber-600">
+                            {reports.filter(r => 
+                              r.status === ReportStatus.BUDGET_PROPOSAL || 
+                              (r.status === ReportStatus.REVISION && (!r.details || r.details.length === 0))
+                            ).length} Kegiatan
+                          </span>
                         </div>
                       </div>
                    </div>
