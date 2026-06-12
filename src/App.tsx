@@ -818,6 +818,16 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onP
               <h3 className="text-xl font-serif italic text-natural-primary leading-tight mb-2 group-hover:text-natural-secondary transition-colors underline decoration-natural-border/50 underline-offset-4">{report.activityName}</h3>
               <p className="text-[11px] font-bold text-natural-secondary uppercase tracking-widest">{report.unitName}</p>
               
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {Array.from(new Set((report.proposedDetails || []).map(pd => pd.category))).map((cat, ci) => (
+                  cat && (
+                    <span key={ci} className="px-2 py-0.5 bg-natural-primary/5 text-natural-primary text-[8px] font-bold uppercase rounded-md border border-natural-primary/10">
+                      {cat}
+                    </span>
+                  )
+                ))}
+              </div>
+              
               <div className="mt-8 pt-6 border-t border-natural-bg space-y-4">
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
@@ -923,6 +933,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
               <thead>
                 <tr className="bg-natural-bg/30">
                   <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] w-20 italic">#</th>
+                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Kategori</th>
                   <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Deskripsi Item</th>
                   <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] text-right italic">Nominal</th>
                 </tr>
@@ -931,6 +942,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                 {(report.proposedDetails || []).map((item, idx) => (
                   <tr key={idx} className="hover:bg-natural-input transition-colors">
                     <td className="px-10 py-6 font-mono text-xs text-natural-secondary">{String(idx + 1).padStart(2, '0')}</td>
+                    <td className="px-10 py-6 text-natural-primary font-bold text-xs uppercase italic">{item.category}</td>
                     <td className="px-10 py-6 text-natural-text font-medium italic">"{item.description}"</td>
                     <td className="px-10 py-6 text-natural-primary font-mono font-bold text-right text-lg">Rp {item.amount.toLocaleString('id-ID')}</td>
                   </tr>
@@ -1017,6 +1029,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                 <tr className="bg-natural-bg/30">
                   <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] w-20 italic">#</th>
                   <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Tanggal</th>
+                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Kategori</th>
                   <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Deskripsi Item</th>
                   <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] text-right italic">Nominal</th>
                 </tr>
@@ -1026,6 +1039,9 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                   <tr key={idx} className="hover:bg-natural-input transition-colors">
                     <td className="px-10 py-6 font-mono text-xs text-natural-secondary">{String(idx + 1).padStart(2, '0')}</td>
                     <td className="px-10 py-6 text-natural-text text-sm">{item.date}</td>
+                    <td className="px-10 py-6 text-natural-secondary font-bold text-[10px] uppercase italic">
+                      {item.proposedIndex !== undefined ? report.proposedDetails[item.proposedIndex]?.category : '-'}
+                    </td>
                     <td className="px-10 py-6 text-natural-text font-medium italic">"{item.description}"</td>
                     <td className="px-10 py-6 text-natural-primary font-mono font-bold text-right text-lg">Rp {item.amount.toLocaleString('id-ID')}</td>
                   </tr>
@@ -1677,13 +1693,15 @@ const MainDashboard = () => {
           <table class="rpt-table" style="width:100%; border-collapse:collapse; margin-top:20px;">
             <thead>
                 <tr style="background:#f0f0f0;">
+                    <th style="border:1px solid #000; padding:6px; width:20%;">Kategori</th>
                     <th style="border:1px solid #000; padding:6px;">Deskripsi</th>
-                    <th style="border:1px solid #000; padding:6px; text-align:right;">Nominal (Rp)</th>
+                    <th style="border:1px solid #000; padding:6px; text-align:right; width:25%;">Nominal (Rp)</th>
                 </tr>
             </thead>
             <tbody>
                 ${(report.proposedDetails || []).map(d => `
                     <tr>
+                        <td style="border:1px solid #000; padding:6px; font-size: 9pt;">${d.category}</td>
                         <td style="border:1px solid #000; padding:6px;">${d.description}</td>
                         <td style="border:1px solid #000; padding:6px; text-align:right;">${d.amount.toLocaleString('id-ID')}</td>
                     </tr>
@@ -1691,7 +1709,7 @@ const MainDashboard = () => {
             </tbody>
             <tfoot>
                 <tr>
-                    <td style="border:1px solid #000; padding:6px; font-weight:bold; text-align:right;">Total</td>
+                    <td colspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; text-align:right;">Total</td>
                     <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold;">${report.amountReceived.toLocaleString('id-ID')}</td>
                 </tr>
             </tfoot>
@@ -1795,10 +1813,11 @@ const MainDashboard = () => {
             <thead>
               <tr style="background: #f5f5f5;">
                 <th style="width: 5%;">No</th>
+                <th style="width: 20%;">Jenis Pengeluaran</th>
                 <th>Deskripsi Pagu Anggaran</th>
-                <th style="width: 25%;">Anggaran (Rp)</th>
-                <th style="width: 25%;">Realisasi (Rp)</th>
-                <th style="width: 20%;">Selisih (Rp)</th>
+                <th style="width: 15%;">Anggaran (Rp)</th>
+                <th style="width: 15%;">Realisasi (Rp)</th>
+                <th style="width: 15%;">Selisih (Rp)</th>
               </tr>
             </thead>
             <tbody>
@@ -1810,6 +1829,7 @@ const MainDashboard = () => {
                 return `
                   <tr>
                     <td class="text-center">${pIdx + 1}</td>
+                    <td style="font-size: 9pt;">${p.category}</td>
                     <td>${p.description}</td>
                     <td class="text-right">${p.amount.toLocaleString('id-ID')}</td>
                     <td class="text-right">${actualAmount.toLocaleString('id-ID')}</td>
@@ -1820,7 +1840,7 @@ const MainDashboard = () => {
             </tbody>
             <tfoot>
               <tr style="font-weight: bold; background: #fafafa;">
-                <td colspan="2" class="text-right">TOTAL</td>
+                <td colspan="3" class="text-right">TOTAL</td>
                 <td class="text-right">${report.amountReceived.toLocaleString('id-ID')}</td>
                 <td class="text-right">${report.totalSpent.toLocaleString('id-ID')}</td>
                 <td class="text-right">${(report.amountReceived - report.totalSpent).toLocaleString('id-ID')}</td>
@@ -1884,11 +1904,12 @@ const MainDashboard = () => {
             <thead>
               <tr style="background: #f5f5f5;">
                 <th style="width: 5%;">No</th>
-                <th style="width: 15%;">Tanggal</th>
-                <th style="width: 25%;">Pagu Anggaran Acuan</th>
-                <th>Rincian Penggunaan Belanja</th>
-                <th style="width: 15%;">Pagu (Rp)</th>
-                <th style="width: 15%;">Realisasi (Rp)</th>
+                <th style="width: 12%;">Tanggal</th>
+                <th style="width: 15%;">Jenis</th>
+                <th style="width: 20%;">Pagu Acuan</th>
+                <th>Rincian Belanja</th>
+                <th style="width: 12%;">Pagu (Rp)</th>
+                <th style="width: 12%;">Realisasi (Rp)</th>
               </tr>
             </thead>
             <tbody>
@@ -1896,12 +1917,14 @@ const MainDashboard = () => {
                 const budgetItem = report.proposedDetails && d.proposedIndex !== undefined ? report.proposedDetails[d.proposedIndex] : null;
                 const budgetDesc = budgetItem ? budgetItem.description : 'Tanpa Acuan';
                 const budgetAmount = budgetItem ? budgetItem.amount.toLocaleString('id-ID') : '-';
+                const category = budgetItem ? budgetItem.category : '-';
                 return `
                   <tr>
                     <td class="text-center">${index + 1}</td>
-                    <td>${d.date ? new Date(d.date).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : '-'}</td>
-                    <td>${budgetDesc}</td>
-                    <td>${d.description}</td>
+                    <td style="font-size: 8pt;">${d.date ? new Date(d.date).toLocaleDateString('id-ID', { dateStyle: 'short' }) : '-'}</td>
+                    <td style="font-size: 8pt;">${category}</td>
+                    <td style="font-size: 8pt;">${budgetDesc}</td>
+                    <td style="font-size: 9pt;">${d.description}</td>
                     <td class="text-right">${budgetAmount}</td>
                     <td class="text-right">${d.amount.toLocaleString('id-ID')}</td>
                   </tr>
@@ -1910,7 +1933,7 @@ const MainDashboard = () => {
             </tbody>
             <tfoot>
               <tr style="font-weight: bold; background: #fafafa;">
-                <td colspan="4" class="text-right">TOTAL PENGELUARAN</td>
+                <td colspan="5" class="text-right">TOTAL PENGELUARAN</td>
                 <td class="text-right">${report.amountReceived.toLocaleString('id-ID')}</td>
                 <td class="text-right">${report.totalSpent.toLocaleString('id-ID')}</td>
               </tr>
