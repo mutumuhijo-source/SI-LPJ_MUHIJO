@@ -829,15 +829,35 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onP
               </div>
               
               <div className="mt-8 pt-6 border-t border-natural-bg space-y-4">
-                <div className="flex justify-between items-end">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-natural-secondary/40 uppercase tracking-widest block">{allowedStatuses.includes(ReportStatus.REPORTING) || allowedStatuses.includes(ReportStatus.COMPLETED) ? 'Realisasi' : 'Anggaran'}</span>
-                    <span className="font-mono font-bold text-natural-primary text-xl tracking-tight">Rp {(allowedStatuses.includes(ReportStatus.REPORTING) || allowedStatuses.includes(ReportStatus.COMPLETED) ? report.totalSpent : report.amountReceived).toLocaleString('id-ID')}</span>
+                {allowedStatuses.includes(ReportStatus.REPORTING) || allowedStatuses.includes(ReportStatus.COMPLETED) ? (
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    <div className="space-y-0.5">
+                      <span className="text-[8px] font-bold text-natural-secondary/60 uppercase tracking-widest block">Anggaran</span>
+                      <span className="font-mono text-[11px] font-bold text-natural-primary">Rp {report.amountReceived.toLocaleString('id-ID')}</span>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[8px] font-bold text-natural-secondary/60 uppercase tracking-widest block">Realisasi</span>
+                      <span className="font-mono text-[11px] font-bold text-natural-secondary">Rp {report.totalSpent.toLocaleString('id-ID')}</span>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[8px] font-bold text-natural-secondary/60 uppercase tracking-widest block">Sisa</span>
+                      <span className={`font-mono text-[11px] font-bold ${report.amountReceived - report.totalSpent < 0 ? 'text-red-500' : 'text-[#829273]'}`}>
+                        Rp {(report.amountReceived - report.totalSpent).toLocaleString('id-ID')}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center bg-natural-bg/30 p-2 rounded-full px-4 group-hover:bg-natural-primary group-hover:text-white transition-all text-[#a5a58d]">
-                    <span className="text-[9px] font-bold uppercase tracking-[0.3em]">Buka Detail</span>
-                    <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                ) : (
+                  <div className="space-y-1 pb-2">
+                    <span className="text-[10px] font-bold text-natural-secondary/40 uppercase tracking-widest block">Total Anggaran Pagu</span>
+                    <span className="font-mono font-bold text-natural-primary text-xl tracking-tight">Rp {report.amountReceived.toLocaleString('id-ID')}</span>
                   </div>
+                )}
+
+                <div className="flex justify-between items-center bg-natural-bg/30 p-3 rounded-2xl group-hover:bg-natural-primary group-hover:text-white transition-all text-[#a5a58d]">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.3em]">
+                    {allowedStatuses.includes(ReportStatus.REPORTING) || allowedStatuses.includes(ReportStatus.COMPLETED) ? 'Buka Detail Laporan' : 'Buka Detail Anggaran'}
+                  </span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
             </div>
