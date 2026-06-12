@@ -276,7 +276,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
     if (isProposed) {
       updateProposedDetails([...formData.proposedDetails, { date: new Date().toISOString().split('T')[0], description: '', amount: 0, category: '' }]);
     } else {
-      setFormData({ ...formData, details: [...formData.details, { date: new Date().toISOString().split('T')[0], description: '', amount: 0, proposedIndex: undefined }] });
+      setFormData({ ...formData, details: [...formData.details, { date: '', description: '', amount: 0, proposedIndex: undefined }] });
     }
   };
 
@@ -602,7 +602,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
             <div className="space-y-4">
               {formData.details.map((detail, idx) => (
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-natural-bg/20 p-6 rounded-[24px] border border-natural-bg relative group">
-                  <div className="md:col-span-1 space-y-1">
+                  <div className="md:col-span-2 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Tgl</label>
                     <input 
                       type="date"
