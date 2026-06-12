@@ -1145,7 +1145,7 @@ const DashboardStats = ({ reports }: { reports: Report[] }) => {
   );
 };
 
-const UserList = ({ onAdd }: { onAdd: () => void }) => {
+const UserList = ({ onAdd, onViewUnits }: { onAdd: () => void, onViewUnits: () => void }) => {
   const [users, setUsers] = useState<DBUser[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -1170,6 +1170,7 @@ const UserList = ({ onAdd }: { onAdd: () => void }) => {
       try {
         // @ts-ignore
         await deleteDoc(doc(db, 'app_users', id));
+        setUsers(prev => prev.filter(u => u.id !== id));
       } catch (err) {
         handleFirestoreError(err, OperationType.DELETE, `app_users/${id}`);
       }
@@ -1208,7 +1209,14 @@ const UserList = ({ onAdd }: { onAdd: () => void }) => {
             <tbody className="divide-y divide-natural-bg/50">
               {users.map((data) => (
                 <tr key={data.id} className="hover:bg-natural-input transition-colors group">
-                  <td className="px-10 py-6 text-natural-primary font-bold">{data.displayName}</td>
+                  <td className="px-10 py-6">
+                    <button 
+                      onClick={onViewUnits}
+                      className="text-natural-primary font-bold hover:underline underline-offset-4 text-left"
+                    >
+                      {data.displayName}
+                    </button>
+                  </td>
                   <td className="px-10 py-6 text-natural-text font-mono">{data.username}</td>
                   <td className="px-10 py-6 text-natural-text font-mono">{data.pass}</td>
                   <td className="px-10 py-6">
@@ -1238,7 +1246,7 @@ const UserList = ({ onAdd }: { onAdd: () => void }) => {
   );
 };
 
-const UserForm = ({ onCancel, initialUnitName }: { onCancel: () => void, initialUnitName?: string }) => {
+const UserForm = ({ onCancel, units, initialUnitName }: { onCancel: () => void, units: Unit[], initialUnitName?: string }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
@@ -1250,15 +1258,22 @@ const UserForm = ({ onCancel, initialUnitName }: { onCancel: () => void, initial
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.unitName && formData.role === 'user') {
+      alert('Pilih Unit Kerja terlebih dahulu');
+      return;
+    }
     setLoading(true);
     try {
       // Add to users
       await addDoc(collection(db, 'app_users'), formData);
       
-      // Sync to units collection
-      const unitsSnap = await getDocs(query(collection(db, 'units'), where('name', '==', formData.unitName)));
-      if (unitsSnap.empty) {
-        await addDoc(collection(db, 'units'), { name: formData.unitName });
+      // Sync to units collection if it's a new unit (though we'll use a dropdown, so this might be redundant if we only pick from units)
+      // but if we allow 'admin' without unit, we handle it
+      if (formData.unitName) {
+        const unitsSnap = await getDocs(query(collection(db, 'units'), where('name', '==', formData.unitName)));
+        if (unitsSnap.empty) {
+          await addDoc(collection(db, 'units'), { name: formData.unitName });
+        }
       }
       
       onCancel();
@@ -1272,7 +1287,7 @@ const UserForm = ({ onCancel, initialUnitName }: { onCancel: () => void, initial
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto">
       <div className="flex items-center gap-6 mb-10">
-        <button onClick={onCancel} className="p-3 hover:bg-white rounded-full transition-colors border border-natural-border bg-white">
+        <button onClick={onCancel} className="p-3 hover:bg-white rounded-full transition-colors border border-natural-border bg-white shadow-sm">
           <ArrowLeft className="w-5 h-5 text-natural-primary" />
         </button>
         <h2 className="text-3xl font-serif italic text-natural-primary tracking-tight">Registrasi Akun Baru</h2>
@@ -1298,7 +1313,18 @@ const UserForm = ({ onCancel, initialUnitName }: { onCancel: () => void, initial
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-1.5">
             <label className="text-[10px] uppercase font-bold text-natural-secondary tracking-widest">Unit Kerja</label>
-            <input required className="w-full p-3 bg-natural-input border-b border-natural-border focus:border-natural-primary outline-none" value={formData.unitName} onChange={e => setFormData({...formData, unitName: e.target.value})} />
+            <select 
+              required={formData.role === 'user'} 
+              className="w-full p-3 bg-natural-input border-b border-natural-border focus:border-natural-primary outline-none" 
+              value={formData.unitName} 
+              onChange={e => {
+                const val = e.target.value;
+                setFormData({...formData, unitName: val, displayName: val}); // Usually Display Name follows unit name for users
+              }}
+            >
+              <option value="">Pilih Unit...</option>
+              {units.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+            </select>
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] uppercase font-bold text-natural-secondary tracking-widest">Role</label>
@@ -2304,13 +2330,14 @@ const MainDashboard = () => {
 
             {view === 'users' && isAdmin && (
               <motion.div key="users" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <UserList onAdd={() => setView('add_user')} />
+                <UserList onAdd={() => setView('add_user')} onViewUnits={() => setView('units')} />
               </motion.div>
             )}
 
             {view === 'add_user' && isAdmin && (
               <UserForm 
                 onCancel={() => { setView('users'); setInitialUnitNameForAccount(''); }} 
+                units={units}
                 initialUnitName={initialUnitNameForAccount}
               />
             )}
