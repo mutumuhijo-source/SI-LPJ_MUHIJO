@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, createContext, useContext, useMemo } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, Navigate, useLocation, useParams } from 'react-router-dom';
 import { db } from './firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, setDoc, serverTimestamp, addDoc, getDocs, deleteDoc, limit, orderBy } from 'firebase/firestore';
 import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail, Employee } from './types.ts';
@@ -1601,30 +1602,23 @@ const EmployeeSettings = ({ employees, units }: { employees: Employee[], units: 
 
 const MainDashboard = () => {
   const { user, isAdmin, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [reports, setReports] = useState<Report[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorInfo, setErrorInfo] = useState<string | null>(null);
-  const [view, setView] = useState<'dashboard' | 'detail' | 'create' | 'users' | 'add_user' | 'units' | 'expense_settings' | 'employee_settings' | 'anggaran' | 'laporan' | 'arsip'>('dashboard');
-  const [prevView, setPrevView] = useState<'dashboard' | 'anggaran' | 'laporan' | 'arsip'>('dashboard');
   const [selectedUnitFolder, setSelectedUnitFolder] = useState<string | null>(null);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [initialUnitNameForAccount, setInitialUnitNameForAccount] = useState('');
 
-  const navigateTo = (newView: typeof view) => {
-    if (newView === 'detail' || newView === 'create') {
-      if (view !== 'detail' && view !== 'create') {
-        const pView = view as any;
-        if (['dashboard', 'anggaran', 'laporan', 'arsip'].includes(pView)) {
-          setPrevView(pView);
-        }
-      }
-    } else {
+  const navigateTo = (path: string, options?: { state?: any }) => {
+    if (path === '/') {
       setSelectedReport(null);
     }
-    setView(newView);
+    navigate(path);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -2080,29 +2074,29 @@ const MainDashboard = () => {
           
           <div className="flex flex-col gap-2">
             <button 
-              onClick={() => { navigateTo('dashboard'); setSelectedReport(null); }}
-              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'dashboard' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              onClick={() => { navigateTo('/'); setSelectedReport(null); }}
+              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
             >
               <LayoutDashboard className="w-4 h-4" />
               Dashboard
             </button>
             <button 
-              onClick={() => { navigateTo('anggaran'); setSelectedUnitFolder(null); setSelectedReport(null); }}
-              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'anggaran' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              onClick={() => { navigateTo('/anggaran'); setSelectedUnitFolder(null); setSelectedReport(null); }}
+              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/anggaran' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
             >
               <FileText className="w-4 h-4" />
               Anggaran
             </button>
             <button 
-              onClick={() => { navigateTo('laporan'); setSelectedUnitFolder(null); setSelectedReport(null); }}
-              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'laporan' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              onClick={() => { navigateTo('/laporan'); setSelectedUnitFolder(null); setSelectedReport(null); }}
+              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/laporan' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
             >
               <FileText className="w-4 h-4" />
               Laporan
             </button>
             <button 
-              onClick={() => { navigateTo('arsip'); setSelectedUnitFolder(null); setSelectedReport(null); }}
-              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'arsip' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              onClick={() => { navigateTo('/arsip'); setSelectedUnitFolder(null); setSelectedReport(null); }}
+              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/arsip' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
             >
               <Lock className="w-4 h-4" />
               Arsip Laporan
@@ -2111,31 +2105,31 @@ const MainDashboard = () => {
               <>
                 <div className="h-px bg-natural-border/50 my-4 mx-4" />
                 <button 
-                  onClick={() => navigateTo('users')}
-                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'users' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+                  onClick={() => navigateTo('/users')}
+                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/users' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
                 >
                   <Users className="w-4 h-4" />
                   Daftar Akun
                 </button>
 
                 <button 
-                  onClick={() => navigateTo('units')}
-                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'units' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+                  onClick={() => navigateTo('/units')}
+                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/units' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
                 >
                   <LayoutDashboard className="w-4 h-4" />
                   Daftar Unit
                 </button>
 
                 <button 
-                  onClick={() => navigateTo('expense_settings')}
-                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'expense_settings' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+                  onClick={() => navigateTo('/settings/expenses')}
+                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/settings/expenses' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
                 >
                   <Settings className="w-4 h-4" />
                   Jenis Pengeluaran
                 </button>
                 <button 
-                  onClick={() => navigateTo('employee_settings')}
-                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'employee_settings' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+                  onClick={() => navigateTo('/settings/employees')}
+                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/settings/employees' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
                 >
                   <UserIcon className="w-4 h-4" />
                   Daftar Pegawai
@@ -2167,66 +2161,14 @@ const MainDashboard = () => {
             </div>
           )}
           <AnimatePresence mode="wait">
-            {view === 'dashboard' && (
-              <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="mb-12 flex justify-between items-end">
-                  <div>
-                    <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Ringkasan Sistem</h2>
-                    <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Gambaran umum aktivitas keuangan sekolah</p>
-                  </div>
-                  <button 
-                    onClick={refreshReports}
-                    disabled={loading}
-                    className="p-3 bg-natural-input border border-natural-border rounded-full hover:bg-white transition-all disabled:opacity-50"
-                  >
-                    <RotateCw className={`w-5 h-5 text-natural-secondary ${loading ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-                <DashboardStats reports={reports} />
-                <div className="bg-white p-10 rounded-[40px] border border-natural-border shadow-sm">
-                   <h3 className="font-serif italic text-2xl text-natural-primary mb-6">Informasi Hari Ini</h3>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-4">
-                        <p className="text-natural-text italic leading-relaxed text-sm">
-                          Selamat datang di E-Lapor SMK MUH 1 NGADIREJO. {isAdmin ? 'Pantau alokasi dana dan verifikasi setiap SPJ dari unit kerja secara real-time.' : `Halo ${user?.displayName}, silakan lengkapi laporan rincian pengeluaran untuk anggaran yang telah diberikan oleh Bendahara.`}
-                        </p>
-                        <div className="flex gap-4">
-                           <button 
-                            onClick={() => navigateTo('create')}
-                            className="text-[10px] font-bold uppercase tracking-widest text-natural-primary bg-natural-primary/5 px-4 py-2 rounded-full border border-natural-primary/20 hover:bg-natural-primary hover:text-white transition-all"
-                           >
-                             {isAdmin ? 'Terbitkan Anggaran Baru' : 'Ajukan Anggaran Baru'}
-                           </button>
-                        </div>
-                      </div>
-                      <div className="flex flex-col justify-center gap-4 bg-natural-input p-6 rounded-3xl border border-natural-border/50">
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-natural-secondary font-bold">Status Koneksi</span>
-                          <span className="font-mono text-green-600 font-bold uppercase tracking-widest text-[9px]">Terhubung (Live)</span>
-                        </div>
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-natural-secondary font-bold">Laporan Pending</span>
-                          <span className="font-mono font-bold text-amber-600">
-                            {reports.filter(r => 
-                              r.status === ReportStatus.BUDGET_PROPOSAL || 
-                              (r.status === ReportStatus.REVISION && (!r.details || r.details.length === 0))
-                            ).length} Kegiatan
-                          </span>
-                        </div>
-                      </div>
-                   </div>
-                </div>
-              </motion.div>
-            )}
-
-            {view === 'anggaran' && (
-              <motion.div key="anggaran" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-                  <div>
-                    <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Anggaran</h2>
-                    <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Daftar usulan kegiatan</p>
-                  </div>
-                  <div className="flex items-center gap-4">
+            <Routes>
+              <Route path="/" element={
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <div className="mb-12 flex justify-between items-end">
+                    <div>
+                      <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Ringkasan Sistem</h2>
+                      <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Gambaran umum aktivitas keuangan sekolah</p>
+                    </div>
                     <button 
                       onClick={refreshReports}
                       disabled={loading}
@@ -2234,186 +2176,250 @@ const MainDashboard = () => {
                     >
                       <RotateCw className={`w-5 h-5 text-natural-secondary ${loading ? 'animate-spin' : ''}`} />
                     </button>
-                    {!isAdmin && (
-                      <button 
-                        onClick={() => { setSelectedReport(null); navigateTo('create'); }}
-                        className="bg-natural-primary text-white px-6 py-3 rounded-full font-serif italic flex items-center gap-2 hover:bg-natural-primary/90 transition-all shadow-lg"
-                      >
-                        <PlusCircle className="w-4 h-4" />
-                        Tambah Anggaran
-                      </button>
-                    )}
                   </div>
-                </div>
-                <ReportTable 
-                  reports={reports} 
-                  isAdmin={isAdmin} 
-                  allowedStatuses={[ReportStatus.BUDGET_PROPOSAL, ReportStatus.BUDGET_APPROVED, ReportStatus.REJECTED, ReportStatus.REVISION]}
-                  onSelect={(r) => { setSelectedReport(r); navigateTo('detail'); }} 
-                  onPrint={handlePrintAnggaran}
-                  onDelete={handleDeleteReport}
-                />
-              </motion.div>
-            )}
-
-            {view === 'laporan' && (
-              <motion.div key="laporan" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-                  <div>
-                    <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Laporan Realisasi</h2>
-                    <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Daftar laporan pengeluaran</p>
-                  </div>
-                  <button 
-                    onClick={refreshReports}
-                    disabled={loading}
-                    className="p-3 bg-natural-input border border-natural-border rounded-full hover:bg-white transition-all disabled:opacity-50"
-                  >
-                    <RotateCw className={`w-5 h-5 text-natural-secondary ${loading ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-                <ReportTable 
-                  reports={reports} 
-                  isAdmin={isAdmin} 
-                  allowedStatuses={[ReportStatus.REPORTING, ReportStatus.COMPLETED, ReportStatus.REVISION]}
-                  onSelect={(r) => { setSelectedReport(r); navigateTo('detail'); }} 
-                  onPrint={handlePrintLaporan}
-                  onPrintRAB={handlePrintAnggaran}
-                  onDelete={handleDeleteReport}
-                />
-              </motion.div>
-            )}
-
-            {view === 'arsip' && (
-              <motion.div key="arsip" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-                  <div>
-                    <div className="flex items-center gap-4">
-                      {isAdmin && selectedUnitFolder && (
-                        <button 
-                          onClick={() => setSelectedUnitFolder(null)}
-                          className="p-2 hover:bg-white rounded-full transition-colors border border-natural-border bg-white shadow-sm"
-                        >
-                          <ArrowLeft className="w-5 h-5 text-natural-primary" />
-                        </button>
-                      )}
-                      <div>
-                        <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">
-                          {isAdmin && selectedUnitFolder ? `Arsip: ${selectedUnitFolder}` : 'Arsip Laporan'}
-                        </h2>
-                        <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Kumpulan laporan yang sudah selesai</p>
-                      </div>
+                  <DashboardStats reports={reports} />
+                  <div className="bg-white p-10 rounded-[40px] border border-natural-border shadow-sm">
+                    <h3 className="font-serif italic text-2xl text-natural-primary mb-6">Informasi Hari Ini</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                          <p className="text-natural-text italic leading-relaxed text-sm">
+                            Selamat datang di E-Lapor SMK MUH 1 NGADIREJO. {isAdmin ? 'Pantau alokasi dana dan verifikasi setiap SPJ dari unit kerja secara real-time.' : `Halo ${user?.displayName}, silakan lengkapi laporan rincian pengeluaran untuk anggaran yang telah diberikan oleh Bendahara.`}
+                          </p>
+                          <div className="flex gap-4">
+                            <button 
+                              onClick={() => navigateTo('/create')}
+                              className="text-[10px] font-bold uppercase tracking-widest text-natural-primary bg-natural-primary/5 px-4 py-2 rounded-full border border-natural-primary/20 hover:bg-natural-primary hover:text-white transition-all"
+                            >
+                              {isAdmin ? 'Terbitkan Anggaran Baru' : 'Ajukan Anggaran Baru'}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex flex-col justify-center gap-4 bg-natural-input p-6 rounded-3xl border border-natural-border/50">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-natural-secondary font-bold">Status Koneksi</span>
+                            <span className="font-mono text-green-600 font-bold uppercase tracking-widest text-[9px]">Terhubung (Live)</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-natural-secondary font-bold">Laporan Pending</span>
+                            <span className="font-mono font-bold text-amber-600">
+                              {reports.filter(r => 
+                                r.status === ReportStatus.BUDGET_PROPOSAL || 
+                                (r.status === ReportStatus.REVISION && (!r.details || r.details.length === 0))
+                              ).length} Kegiatan
+                            </span>
+                          </div>
+                        </div>
                     </div>
                   </div>
-                  <button 
-                    onClick={refreshReports}
-                    disabled={loading}
-                    className="p-3 bg-natural-input border border-natural-border rounded-full hover:bg-white transition-all disabled:opacity-50"
-                  >
-                    <RotateCw className={`w-5 h-5 text-natural-secondary ${loading ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
+                </motion.div>
+              } />
 
-                {isAdmin && !selectedUnitFolder ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {units.map(unit => {
-                      const unitReportsCount = reports.filter(r => r.unitName === unit.name && (r.status === ReportStatus.COMPLETED || r.status === ReportStatus.ARCHIVED)).length;
-                      return (
-                        <motion.div 
-                          key={unit.id}
-                          whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                          onClick={() => setSelectedUnitFolder(unit.name)}
-                          className="bg-white p-8 rounded-[32px] border border-natural-border shadow-sm cursor-pointer group transition-all"
+              <Route path="/anggaran" element={
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                    <div>
+                      <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Anggaran</h2>
+                      <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Daftar usulan kegiatan</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <button 
+                        onClick={refreshReports}
+                        disabled={loading}
+                        className="p-3 bg-natural-input border border-natural-border rounded-full hover:bg-white transition-all disabled:opacity-50"
+                      >
+                        <RotateCw className={`w-5 h-5 text-natural-secondary ${loading ? 'animate-spin' : ''}`} />
+                      </button>
+                      {!isAdmin && (
+                        <button 
+                          onClick={() => { setSelectedReport(null); navigateTo('/create'); }}
+                          className="bg-natural-primary text-white px-6 py-3 rounded-full font-serif italic flex items-center gap-2 hover:bg-natural-primary/90 transition-all shadow-lg"
                         >
-                          <div className="w-14 h-14 bg-natural-primary/5 rounded-2xl flex items-center justify-center text-natural-primary mb-6 group-hover:bg-natural-primary group-hover:text-white transition-all">
-                            <Folder className="w-7 h-7" />
-                          </div>
-                          <h3 className="text-xl font-serif italic text-natural-primary mb-2">{unit.name}</h3>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest">{unitReportsCount} Laporan</span>
-                            <ChevronRight className="w-4 h-4 text-natural-primary" />
-                          </div>
-                        </motion.div>
-                      );
-                    })}
+                          <PlusCircle className="w-4 h-4" />
+                          Tambah Anggaran
+                        </button>
+                      )}
+                    </div>
                   </div>
-                ) : (
                   <ReportTable 
-                    reports={isAdmin && selectedUnitFolder ? reports.filter(r => r.unitName === selectedUnitFolder) : reports} 
+                    reports={reports} 
                     isAdmin={isAdmin} 
-                    allowedStatuses={[ReportStatus.COMPLETED, ReportStatus.ARCHIVED]}
-                    onSelect={(r) => { setSelectedReport(r); navigateTo('detail'); }} 
+                    allowedStatuses={[ReportStatus.BUDGET_PROPOSAL, ReportStatus.BUDGET_APPROVED, ReportStatus.REJECTED, ReportStatus.REVISION]}
+                    onSelect={(r) => { setSelectedReport(r); navigateTo('/detail'); }} 
+                    onPrint={handlePrintAnggaran}
+                    onDelete={handleDeleteReport}
+                  />
+                </motion.div>
+              } />
+
+              <Route path="/laporan" element={
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                    <div>
+                      <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">Laporan Realisasi</h2>
+                      <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Daftar laporan pengeluaran</p>
+                    </div>
+                    <button 
+                      onClick={refreshReports}
+                      disabled={loading}
+                      className="p-3 bg-natural-input border border-natural-border rounded-full hover:bg-white transition-all disabled:opacity-50"
+                    >
+                      <RotateCw className={`w-5 h-5 text-natural-secondary ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
+                  <ReportTable 
+                    reports={reports} 
+                    isAdmin={isAdmin} 
+                    allowedStatuses={[ReportStatus.REPORTING, ReportStatus.COMPLETED, ReportStatus.REVISION]}
+                    onSelect={(r) => { setSelectedReport(r); navigateTo('/detail'); }} 
                     onPrint={handlePrintLaporan}
                     onPrintRAB={handlePrintAnggaran}
                     onDelete={handleDeleteReport}
                   />
-                )}
-              </motion.div>
-            )}
+                </motion.div>
+              } />
 
-            {view === 'detail' && selectedReport && (
-              <ReportDetail 
-                report={selectedReport} 
-                isAdmin={isAdmin}
-                onPrint={() => {
-                  if (selectedReport.status === ReportStatus.BUDGET_PROPOSAL || selectedReport.status === ReportStatus.BUDGET_APPROVED || selectedReport.status === ReportStatus.REJECTED) {
-                    handlePrintAnggaran(selectedReport);
-                  } else {
-                    handlePrintLaporan(selectedReport);
-                  }
-                }}
-                onPrintRAB={handlePrintAnggaran}
-                onUpdateStatus={handleStatusUpdate}
-                onBack={() => { navigateTo(prevView); setSelectedReport(null); }}
-                onEdit={() => navigateTo('create')}
-              />
-            )}
+              <Route path="/arsip" element={
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                    <div>
+                      <div className="flex items-center gap-4">
+                        {isAdmin && selectedUnitFolder && (
+                          <button 
+                            onClick={() => setSelectedUnitFolder(null)}
+                            className="p-2 hover:bg-white rounded-full transition-colors border border-natural-border bg-white shadow-sm"
+                          >
+                            <ArrowLeft className="w-5 h-5 text-natural-primary" />
+                          </button>
+                        )}
+                        <div>
+                          <h2 className="text-4xl font-serif italic text-natural-primary tracking-tight">
+                            {isAdmin && selectedUnitFolder ? `Arsip: ${selectedUnitFolder}` : 'Arsip Laporan'}
+                          </h2>
+                          <p className="text-natural-secondary text-sm uppercase tracking-widest font-light mt-2">Kumpulan laporan yang sudah selesai</p>
+                        </div>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={refreshReports}
+                      disabled={loading}
+                      className="p-3 bg-natural-input border border-natural-border rounded-full hover:bg-white transition-all disabled:opacity-50"
+                    >
+                      <RotateCw className={`w-5 h-5 text-natural-secondary ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
 
-            {view === 'create' && (
-              <ReportForm 
-                user={user!} 
-                editReport={selectedReport || undefined}
-                units={units}
-                expenseTypes={expenseTypes}
-                employees={employees}
-                onPrintRAB={handlePrintAnggaran}
-                onCancel={() => { navigateTo(prevView); setSelectedReport(null); }} 
-                onSuccess={() => { refreshReports(); navigateTo(prevView); setSelectedReport(null); }} 
-              />
-            )}
+                  {isAdmin && !selectedUnitFolder ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {units.map(unit => {
+                        const unitReportsCount = reports.filter(r => r.unitName === unit.name && (r.status === ReportStatus.COMPLETED || r.status === ReportStatus.ARCHIVED)).length;
+                        return (
+                          <motion.div 
+                            key={unit.id}
+                            whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                            onClick={() => setSelectedUnitFolder(unit.name)}
+                            className="bg-white p-8 rounded-[32px] border border-natural-border shadow-sm cursor-pointer group transition-all"
+                          >
+                            <div className="w-14 h-14 bg-natural-primary/5 rounded-2xl flex items-center justify-center text-natural-primary mb-6 group-hover:bg-natural-primary group-hover:text-white transition-all">
+                              <Folder className="w-7 h-7" />
+                            </div>
+                            <h3 className="text-xl font-serif italic text-natural-primary mb-2">{unit.name}</h3>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest">{unitReportsCount} Laporan</span>
+                              <ChevronRight className="w-4 h-4 text-natural-primary" />
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <ReportTable 
+                      reports={isAdmin && selectedUnitFolder ? reports.filter(r => r.unitName === selectedUnitFolder) : reports} 
+                      isAdmin={isAdmin} 
+                      allowedStatuses={[ReportStatus.COMPLETED, ReportStatus.ARCHIVED]}
+                      onSelect={(r) => { setSelectedReport(r); navigateTo('/detail'); }} 
+                      onPrint={handlePrintLaporan}
+                      onPrintRAB={handlePrintAnggaran}
+                      onDelete={handleDeleteReport}
+                    />
+                  )}
+                </motion.div>
+              } />
 
-            {view === 'users' && isAdmin && (
-              <motion.div key="users" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <UserList onAdd={() => navigateTo('add_user')} onViewUnits={() => navigateTo('units')} />
-              </motion.div>
-            )}
+              <Route path="/detail" element={
+                selectedReport ? (
+                  <ReportDetail 
+                    report={selectedReport} 
+                    isAdmin={isAdmin}
+                    onPrint={() => {
+                      if (selectedReport.status === ReportStatus.BUDGET_PROPOSAL || selectedReport.status === ReportStatus.BUDGET_APPROVED || selectedReport.status === ReportStatus.REJECTED) {
+                        handlePrintAnggaran(selectedReport);
+                      } else {
+                        handlePrintLaporan(selectedReport);
+                      }
+                    }}
+                    onPrintRAB={handlePrintAnggaran}
+                    onUpdateStatus={handleStatusUpdate}
+                    onBack={() => { navigate(-1); setSelectedReport(null); }}
+                    onEdit={() => navigateTo('/create')}
+                  />
+                ) : <Navigate to="/" replace />
+              } />
 
-            {view === 'add_user' && isAdmin && (
-              <UserForm 
-                onCancel={() => { navigateTo('users'); setInitialUnitNameForAccount(''); }} 
-                units={units}
-                initialUnitName={initialUnitNameForAccount}
-              />
-            )}
+              <Route path="/create" element={
+                <ReportForm 
+                  user={user!} 
+                  editReport={selectedReport || undefined}
+                  units={units}
+                  expenseTypes={expenseTypes}
+                  employees={employees}
+                  onPrintRAB={handlePrintAnggaran}
+                  onCancel={() => { navigate(-1); setSelectedReport(null); }} 
+                  onSuccess={() => { refreshReports(); navigate(-1); setSelectedReport(null); }} 
+                />
+              } />
 
+              <Route path="/users" element={
+                isAdmin ? (
+                  <motion.div key="users" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <UserList onAdd={() => navigateTo('/users/add')} onViewUnits={() => navigateTo('/units')} />
+                  </motion.div>
+                ) : <Navigate to="/" replace />
+              } />
 
+              <Route path="/users/add" element={
+                isAdmin ? (
+                  <UserForm 
+                    onCancel={() => { navigate('/users'); setInitialUnitNameForAccount(''); }} 
+                    units={units}
+                    initialUnitName={initialUnitNameForAccount}
+                  />
+                ) : <Navigate to="/" replace />
+              } />
 
-            {view === 'units' && isAdmin && (
-              <motion.div key="units" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <UnitList units={units} />
-              </motion.div>
-            )}
+              <Route path="/units" element={
+                isAdmin ? (
+                  <motion.div key="units" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <UnitList units={units} />
+                  </motion.div>
+                ) : <Navigate to="/" replace />
+              } />
 
-            {view === 'expense_settings' && isAdmin && (
-              <motion.div key="expense_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <ExpenseSettings types={expenseTypes} />
-              </motion.div>
-            )}
+              <Route path="/settings/expenses" element={
+                isAdmin ? (
+                  <motion.div key="expense_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <ExpenseSettings types={expenseTypes} />
+                  </motion.div>
+                ) : <Navigate to="/" replace />
+              } />
 
-            {view === 'employee_settings' && isAdmin && (
-              <motion.div key="employee_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <EmployeeSettings employees={employees} units={units} />
-              </motion.div>
-            )}
+              <Route path="/settings/employees" element={
+                isAdmin ? (
+                  <motion.div key="employee_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <EmployeeSettings employees={employees} units={units} />
+                  </motion.div>
+                ) : <Navigate to="/" replace />
+              } />
+            </Routes>
           </AnimatePresence>
         </main>
       </div>
@@ -2548,11 +2554,28 @@ export default function App() {
     );
   }
 
-  if (loading) return <LoadingScreen />;
-
   return (
-    <AuthContext.Provider value={contextValue}>
-      {!user ? <LoginPage /> : <MainDashboard />}
-    </AuthContext.Provider>
+    <BrowserRouter>
+      <AuthContext.Provider value={contextValue}>
+        <AppContent />
+      </AuthContext.Provider>
+    </BrowserRouter>
+  );
+}
+
+function AppContent() {
+  const { user, loading } = useContext(AuthContext);
+  if (loading) return <LoadingScreen />;
+  
+  return (
+    <Routes>
+      <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
+      <Route 
+        path="/*" 
+        element={
+          user ? <MainDashboard /> : <Navigate to="/login" replace />
+        } 
+      />
+    </Routes>
   );
 }
