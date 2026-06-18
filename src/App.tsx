@@ -1621,9 +1621,42 @@ const MainDashboard = () => {
           setPrevView(pView);
         }
       }
+    } else {
+      setSelectedReport(null);
     }
     setView(newView);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // --- Auto Logout Logic (5 Minutes Inactivity) ---
+  useEffect(() => {
+    let timeoutId: any;
+
+    const resetTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        logout();
+      }, 5 * 60 * 1000); // 5 minutes
+    };
+
+    if (user) {
+      resetTimer();
+      const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+      
+      const handleActivity = () => resetTimer();
+      
+      activityEvents.forEach(event => {
+        window.addEventListener(event, handleActivity);
+      });
+
+      return () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        activityEvents.forEach(event => {
+          window.removeEventListener(event, handleActivity);
+        });
+      };
+    }
+  }, [user, logout]);
 
   useEffect(() => {
     if (!user) return;
@@ -2078,7 +2111,7 @@ const MainDashboard = () => {
               <>
                 <div className="h-px bg-natural-border/50 my-4 mx-4" />
                 <button 
-                  onClick={() => setView('users')}
+                  onClick={() => navigateTo('users')}
                   className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'users' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
                 >
                   <Users className="w-4 h-4" />
@@ -2086,7 +2119,7 @@ const MainDashboard = () => {
                 </button>
 
                 <button 
-                  onClick={() => setView('units')}
+                  onClick={() => navigateTo('units')}
                   className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'units' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
                 >
                   <LayoutDashboard className="w-4 h-4" />
@@ -2094,14 +2127,14 @@ const MainDashboard = () => {
                 </button>
 
                 <button 
-                  onClick={() => setView('expense_settings')}
+                  onClick={() => navigateTo('expense_settings')}
                   className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'expense_settings' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
                 >
                   <Settings className="w-4 h-4" />
                   Jenis Pengeluaran
                 </button>
                 <button 
-                  onClick={() => setView('employee_settings')}
+                  onClick={() => navigateTo('employee_settings')}
                   className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${view === 'employee_settings' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
                 >
                   <UserIcon className="w-4 h-4" />
@@ -2330,7 +2363,7 @@ const MainDashboard = () => {
                 }}
                 onPrintRAB={handlePrintAnggaran}
                 onUpdateStatus={handleStatusUpdate}
-                onBack={() => { setView(prevView); setSelectedReport(null); }}
+                onBack={() => { navigateTo(prevView); setSelectedReport(null); }}
                 onEdit={() => navigateTo('create')}
               />
             )}
@@ -2343,20 +2376,20 @@ const MainDashboard = () => {
                 expenseTypes={expenseTypes}
                 employees={employees}
                 onPrintRAB={handlePrintAnggaran}
-                onCancel={() => { setView(prevView); setSelectedReport(null); }} 
-                onSuccess={() => { refreshReports(); setView(prevView); setSelectedReport(null); }} 
+                onCancel={() => { navigateTo(prevView); setSelectedReport(null); }} 
+                onSuccess={() => { refreshReports(); navigateTo(prevView); setSelectedReport(null); }} 
               />
             )}
 
             {view === 'users' && isAdmin && (
               <motion.div key="users" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <UserList onAdd={() => setView('add_user')} onViewUnits={() => setView('units')} />
+                <UserList onAdd={() => navigateTo('add_user')} onViewUnits={() => navigateTo('units')} />
               </motion.div>
             )}
 
             {view === 'add_user' && isAdmin && (
               <UserForm 
-                onCancel={() => { setView('users'); setInitialUnitNameForAccount(''); }} 
+                onCancel={() => { navigateTo('users'); setInitialUnitNameForAccount(''); }} 
                 units={units}
                 initialUnitName={initialUnitNameForAccount}
               />
