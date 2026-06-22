@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, createContext, useContext, useMemo } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, Navigate, useLocation, useParams } from 'react-router-dom';
+import { HashRouter, Routes, Route, useNavigate, Navigate, useLocation, useParams } from 'react-router-dom';
 import { db } from './firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, setDoc, serverTimestamp, addDoc, getDocs, deleteDoc, limit, orderBy } from 'firebase/firestore';
 import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail, Employee } from './types.ts';
@@ -2555,11 +2555,11 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AuthContext.Provider value={contextValue}>
         <AppContent />
       </AuthContext.Provider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
