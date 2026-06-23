@@ -1,4 +1,4 @@
-import { OperationType, FirestoreErrorInfo } from '../types.ts';
+import { OperationType, FirestoreErrorInfo } from '../types';
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errorMessage = error instanceof Error ? error.message : String(error);

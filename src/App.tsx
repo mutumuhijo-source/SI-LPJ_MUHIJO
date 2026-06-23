@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, createContext, useContext, useMemo } from 'react';
+import { useState, useEffect, createContext, useContext, useMemo, useCallback, Component, ReactNode } from 'react';
 import { HashRouter, Routes, Route, useNavigate, Navigate, useLocation, useParams } from 'react-router-dom';
 import { db } from './firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, setDoc, serverTimestamp, addDoc, getDocs, deleteDoc, limit, orderBy } from 'firebase/firestore';
-import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail, Employee } from './types.ts';
-import { handleFirestoreError } from './lib/error-handler.ts';
+import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail, Employee } from './types';
+import { handleFirestoreError } from './lib/error-handler';
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -78,6 +78,94 @@ const AuthContext = createContext<AuthContextType>({
   logout: () => {}
 });
 
+// --- Error Boundary ---
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean, error: any }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-natural-bg p-6">
+          <div className="max-w-md w-full bg-white rounded-[40px] p-12 shadow-xl border border-natural-border text-center">
+            <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="text-red-600 w-8 h-8" />
+            </div>
+            <h2 className="text-2xl font-serif italic text-red-600 mb-4">Terjadi Kesalahan Sistem</h2>
+            <p className="text-natural-secondary text-sm mb-6">Kami memohon maaf, aplikasi mengalami kendala teknis yang tidak terduga.</p>
+            <div className="text-left mb-6">
+              <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest mb-2">Detail Galat:</p>
+              <pre className="text-[10px] bg-natural-input p-4 rounded-2xl overflow-auto border border-natural-border/50 max-h-40 font-mono">
+                {this.state.error?.message || 'Script Error / Runtime Exception'}
+              </pre>
+            </div>
+            <button 
+              onClick={() => window.location.assign('/')}
+              className="w-full bg-natural-primary text-white py-4 rounded-full font-serif italic text-lg shadow-lg shadow-natural-primary/20"
+            >
+              Kembali ke Beranda
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// --- Helper Utilities ---
+
+const safeStorage = (() => {
+  try {
+    const testKey = '__test__';
+    window.localStorage.setItem(testKey, testKey);
+    window.localStorage.removeItem(testKey);
+    return window.localStorage;
+  } catch (e) {
+    const mem: Record<string, string> = {};
+    return {
+      getItem: (key: string) => (key in mem ? mem[key] : null),
+      setItem: (key: string, value: string) => { mem[key] = String(value); },
+      removeItem: (key: string) => { delete mem[key]; },
+      clear: () => { for (const k in mem) delete mem[k]; },
+      key: (i: number) => Object.keys(mem)[i] || null,
+      get length() { return Object.keys(mem).length; }
+    } as any;
+  }
+})();
+
+const formatDate = (dateValue: string | number | Date | undefined | null, options: Intl.DateTimeFormatOptions = { dateStyle: 'long' }) => {
+  if (!dateValue) return '-';
+  try {
+    const d = dateValue instanceof Date ? dateValue : new Date(dateValue);
+    if (isNaN(d.getTime())) return String(dateValue);
+    return d.toLocaleDateString('id-ID', options);
+  } catch (e) {
+    return String(dateValue);
+  }
+};
+
+const formatCurrency = (amount: number | undefined | null) => {
+  try {
+    const val = typeof amount === 'number' ? amount : parseFloat(String(amount || 0));
+    return (val || 0).toLocaleString('id-ID');
+  } catch (e) {
+    return String(amount || 0);
+  }
+};
+
 // --- Components ---
 
 const LoadingScreen = () => (
@@ -139,8 +227,9 @@ const StatusBadge = ({ status }: { status: ReportStatus }) => {
     [ReportStatus.ARCHIVED]: { color: 'bg-gray-100 text-gray-700 border-gray-200', icon: Lock, label: 'Arsip' },
     [ReportStatus.REJECTED]: { color: 'bg-[#fbeaea] text-red-700 border-red-200', icon: XCircle, label: 'Ditolak' },
     [ReportStatus.REVISION]: { color: 'bg-[#fff4e5] text-orange-700 border-orange-200', icon: RotateCw, label: 'Revisi Diperlukan' },
+    [ReportStatus.INCOMPLETE]: { color: 'bg-[#fbeaea] text-red-700 border-red-200', icon: AlertCircle, label: 'Laporan Tidak Lengkap' },
   };
-  const config = configs[status];
+  const config = configs[status] || { color: 'bg-gray-100 text-gray-700 border-gray-200', icon: Clock, label: status || 'Status Baru' };
   const Icon = config.icon;
 
   return (
@@ -245,7 +334,7 @@ const LoginPage = () => {
 };
 
 const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes, employees, onPrintRAB }: { onCancel: () => void, onSuccess: () => void, user: AppUser, editReport?: Report, units: Unit[], expenseTypes: ExpenseType[], employees: Employee[], onPrintRAB?: (r: Report) => void }) => {
-  const isAdmin = localStorage.getItem('user_role') === 'admin';
+  const isAdmin = safeStorage.getItem('user_role') === 'admin';
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     unitId: editReport?.unitId || '',
@@ -302,14 +391,35 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
     setLoading(true);
     try {
       const selectedUnit = units.find(u => u.id === formData.unitId);
+
+      // Check if any "belanja pegawai" details are missing an employee selection
+      let isEmployeeMissing = false;
+      if (formData.details && formData.details.length > 0) {
+        for (const detail of formData.details) {
+          if (detail.proposedIndex !== undefined) {
+            const budgetItem = formData.proposedDetails[detail.proposedIndex];
+            const isPegawai = budgetItem?.category?.toLowerCase().includes('pegawai');
+            if (isPegawai && !detail.employeeId) {
+              isEmployeeMissing = true;
+              break;
+            }
+          }
+        }
+      }
+
       const getNextStatus = () => {
         if (!editReport) return ReportStatus.BUDGET_PROPOSAL;
         if (editReport.status === ReportStatus.REVISION) {
           // If revision, check if it was for budget or report
           return editReport.details.length > 0 ? ReportStatus.REPORTING : ReportStatus.BUDGET_PROPOSAL;
         }
+        if (editReport.status === ReportStatus.INCOMPLETE) {
+          return ReportStatus.REPORTING;
+        }
         return editReport.status;
       };
+
+      const finalStatus = isEmployeeMissing ? ReportStatus.INCOMPLETE : getNextStatus();
 
       const payload = {
         unitId: formData.unitId,
@@ -319,7 +429,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
         totalSpent: totalSpent,
         details: formData.details,
         proposedDetails: formData.proposedDetails,
-        status: getNextStatus(),
+        status: finalStatus,
         submittedAt: editReport?.submittedAt || serverTimestamp(),
         updatedAt: serverTimestamp(),
         submittedBy: editReport?.submittedBy || user.uid,
@@ -554,7 +664,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
         </div>
 
         {/* Actual Details */}
-        {(editReport?.status === ReportStatus.REPORTING || editReport?.status === ReportStatus.COMPLETED || (editReport?.status === ReportStatus.REVISION && editReport.details.length > 0)) && (
+        {(editReport?.status === ReportStatus.REPORTING || editReport?.status === ReportStatus.INCOMPLETE || editReport?.status === ReportStatus.COMPLETED || (editReport?.status === ReportStatus.REVISION && editReport.details.length > 0)) && (
           <div className="bg-white p-10 rounded-[32px] border border-natural-border shadow-sm space-y-8">
             <div className="flex justify-between items-center border-b border-natural-bg pb-6">
               <div>
@@ -586,13 +696,13 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                     <div key={pIdx} className="bg-white p-3 rounded-xl border border-natural-border flex justify-between items-center">
                       <div>
                         <p className="font-bold text-natural-primary">{p.description || `Anggaran #${pIdx + 1}`}</p>
-                        <p className="text-[10px] text-natural-secondary">Pagu: Rp {p.amount.toLocaleString('id-ID')}</p>
+                        <p className="text-[10px] text-natural-secondary">Pagu: Rp {formatCurrency(p.amount)}</p>
                       </div>
                       <div className="text-right">
                         <p className={`font-mono font-bold ${remaining < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
-                          Sisa: Rp {remaining.toLocaleString('id-ID')}
+                          Sisa: Rp {formatCurrency(remaining)}
                         </p>
-                        <p className="text-[10px] text-natural-secondary">Realisasi: Rp {realizedSum.toLocaleString('id-ID')}</p>
+                        <p className="text-[10px] text-natural-secondary">Realisasi: Rp {formatCurrency(realizedSum)}</p>
                       </div>
                     </div>
                   );
@@ -640,7 +750,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                          const remaining = p.amount - realizedSum;
                          return (
                            <option key={pIdx} value={pIdx}>
-                             {p.description || `Anggaran #${pIdx + 1}`} (Sisa: Rp {remaining.toLocaleString('id-ID')})
+                             {p.description || `Anggaran #${pIdx + 1}`} (Sisa: Rp {formatCurrency(remaining)})
                            </option>
                          );
                        })}
@@ -722,12 +832,12 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
             <div className="flex justify-between items-center bg-natural-primary/5 p-6 rounded-[24px]">
                <div className="space-y-1">
                  <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Total Realisasi</p>
-                 <p className="text-3xl font-mono font-bold text-natural-primary">Rp {totalSpent.toLocaleString('id-ID')}</p>
+                 <p className="text-3xl font-mono font-bold text-natural-primary">Rp {formatCurrency(totalSpent)}</p>
                </div>
                <div className="text-right space-y-1">
                  <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Sisa Anggaran</p>
                  <p className={`text-xl font-mono font-bold ${formData.amountReceived - totalSpent < 0 ? 'text-red-500' : 'text-natural-secondary'}`}>
-                   Rp {(formData.amountReceived - totalSpent).toLocaleString('id-ID')}
+                   Rp {formatCurrency((formData.amountReceived || 0) - totalSpent)}
                  </p>
                </div>
             </div>
@@ -787,7 +897,7 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onP
             <div className="flex justify-between items-start mb-6">
               <StatusBadge status={report.status} />
               <div className="flex gap-2">
-                {onPrintRAB && (report.status === ReportStatus.REPORTING || report.status === ReportStatus.COMPLETED || report.status === ReportStatus.ARCHIVED) && (
+                {onPrintRAB && (report.status === ReportStatus.REPORTING || report.status === ReportStatus.INCOMPLETE || report.status === ReportStatus.COMPLETED || report.status === ReportStatus.ARCHIVED) && (
                   <button 
                     onClick={(e) => { e.stopPropagation(); onPrintRAB(report); }}
                     className="p-2 bg-[#e8f5e9] hover:bg-[#2e7d32] hover:text-white rounded-full transition-all text-[#2e7d32]"
@@ -820,7 +930,7 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onP
               <p className="text-[11px] font-bold text-natural-secondary uppercase tracking-widest">{report.unitName}</p>
               
               <div className="flex flex-wrap gap-1.5 mt-3">
-                {Array.from(new Set((report.proposedDetails || []).map(pd => pd.category))).map((cat, ci) => (
+                {Array.from(new Set((report.proposedDetails || []).map(pd => pd?.category))).map((cat, ci) => (
                   cat && (
                     <span key={ci} className="px-2 py-0.5 bg-natural-primary/5 text-natural-primary text-[8px] font-bold uppercase rounded-md border border-natural-primary/10">
                       {cat}
@@ -830,33 +940,33 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onP
               </div>
               
               <div className="mt-8 pt-6 border-t border-natural-bg space-y-4">
-                {allowedStatuses.includes(ReportStatus.REPORTING) || allowedStatuses.includes(ReportStatus.COMPLETED) ? (
+                {allowedStatuses.includes(ReportStatus.REPORTING) || allowedStatuses.includes(ReportStatus.COMPLETED) || allowedStatuses.includes(ReportStatus.INCOMPLETE) ? (
                   <div className="grid grid-cols-3 gap-2 mb-2">
                     <div className="space-y-0.5">
                       <span className="text-[8px] font-bold text-natural-secondary/60 uppercase tracking-widest block">Anggaran</span>
-                      <span className="font-mono text-[11px] font-bold text-natural-primary">Rp {report.amountReceived.toLocaleString('id-ID')}</span>
+                      <span className="font-mono text-[11px] font-bold text-natural-primary">Rp {formatCurrency(report.amountReceived)}</span>
                     </div>
                     <div className="space-y-0.5">
                       <span className="text-[8px] font-bold text-natural-secondary/60 uppercase tracking-widest block">Realisasi</span>
-                      <span className="font-mono text-[11px] font-bold text-natural-secondary">Rp {report.totalSpent.toLocaleString('id-ID')}</span>
+                      <span className="font-mono text-[11px] font-bold text-natural-secondary">Rp {formatCurrency(report.totalSpent)}</span>
                     </div>
                     <div className="space-y-0.5">
                       <span className="text-[8px] font-bold text-natural-secondary/60 uppercase tracking-widest block">Sisa</span>
-                      <span className={`font-mono text-[11px] font-bold ${report.amountReceived - report.totalSpent < 0 ? 'text-red-500' : 'text-[#829273]'}`}>
-                        Rp {(report.amountReceived - report.totalSpent).toLocaleString('id-ID')}
+                      <span className={`font-mono text-[11px] font-bold ${(report.amountReceived || 0) - (report.totalSpent || 0) < 0 ? 'text-red-500' : 'text-[#829273]'}`}>
+                        Rp {formatCurrency((report.amountReceived || 0) - (report.totalSpent || 0))}
                       </span>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-1 pb-2">
                     <span className="text-[10px] font-bold text-natural-secondary/40 uppercase tracking-widest block">Total Anggaran Pagu</span>
-                    <span className="font-mono font-bold text-natural-primary text-xl tracking-tight">Rp {report.amountReceived.toLocaleString('id-ID')}</span>
+                    <span className="font-mono font-bold text-natural-primary text-xl tracking-tight">Rp {formatCurrency(report.amountReceived)}</span>
                   </div>
                 )}
 
                 <div className="flex justify-between items-center bg-natural-bg/30 p-3 rounded-2xl group-hover:bg-natural-primary group-hover:text-white transition-all text-[#a5a58d]">
                   <span className="text-[9px] font-bold uppercase tracking-[0.3em]">
-                    {allowedStatuses.includes(ReportStatus.REPORTING) || allowedStatuses.includes(ReportStatus.COMPLETED) ? 'Buka Detail Laporan' : 'Buka Detail Anggaran'}
+                    {allowedStatuses.includes(ReportStatus.REPORTING) || allowedStatuses.includes(ReportStatus.COMPLETED) || allowedStatuses.includes(ReportStatus.INCOMPLETE) ? 'Buka Detail Laporan' : 'Buka Detail Anggaran'}
                   </span>
                   <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
@@ -903,7 +1013,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
           <p className="text-natural-secondary text-sm uppercase tracking-[0.2em] font-light mt-1">{report.unitName}</p>
         </div>
         <div className="flex items-center gap-4">
-           {onPrintRAB && (report.status === ReportStatus.REPORTING || report.status === ReportStatus.COMPLETED || report.status === ReportStatus.ARCHIVED) && (
+           {onPrintRAB && (report.status === ReportStatus.REPORTING || report.status === ReportStatus.INCOMPLETE || report.status === ReportStatus.COMPLETED || report.status === ReportStatus.ARCHIVED) && (
              <button 
                onClick={() => onPrintRAB(report)}
                className="p-3 bg-[#e8f5e9] border border-[#a5d6a7] text-[#2e7d32] rounded-full hover:bg-[#c8e6c9] transition-all shadow-sm flex items-center gap-2 px-6 font-bold uppercase text-[10px] tracking-widest"
@@ -926,18 +1036,18 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
         <div className="bg-white p-8 rounded-[32px] border border-natural-border shadow-sm">
           <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest mb-2 italic">Dana Dari Bendahara</p>
-          <p className="text-3xl font-mono font-bold text-natural-primary">Rp {report.amountReceived.toLocaleString('id-ID')}</p>
+          <p className="text-3xl font-mono font-bold text-natural-primary">Rp {formatCurrency(report.amountReceived)}</p>
         </div>
         <div className="bg-white p-8 rounded-[32px] border border-natural-border shadow-sm">
           <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest mb-2 italic">Total Penggunaan</p>
-          <p className="text-3xl font-mono font-bold text-natural-primary">Rp {report.totalSpent.toLocaleString('id-ID')}</p>
+          <p className="text-3xl font-mono font-bold text-natural-primary">Rp {formatCurrency(report.totalSpent)}</p>
         </div>
         <div className={`p-8 rounded-[32px] border ${balance >= 0 ? 'bg-natural-bg/50 border-natural-secondary/20' : 'bg-red-50 border-red-100'}`}>
           <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 italic ${balance >= 0 ? 'text-natural-secondary' : 'text-red-500'}`}>
             {balance >= 0 ? 'Sisa Saldo di Unit' : 'Defisit Anggaran'}
           </p>
           <p className={`text-3xl font-mono font-bold ${balance >= 0 ? 'text-natural-primary' : 'text-red-700'}`}>
-            Rp {Math.abs(balance).toLocaleString('id-ID')}
+            Rp {formatCurrency(Math.abs(balance))}
           </p>
         </div>
       </div>
@@ -960,12 +1070,12 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                 </tr>
               </thead>
               <tbody className="divide-y divide-natural-bg/50">
-                {(report.proposedDetails || []).map((item, idx) => (
+                {((report as any).proposedDetails || []).map((item: any, idx: number) => (
                   <tr key={idx} className="hover:bg-natural-input transition-colors">
                     <td className="px-10 py-6 font-mono text-xs text-natural-secondary">{String(idx + 1).padStart(2, '0')}</td>
-                    <td className="px-10 py-6 text-natural-primary font-bold text-xs uppercase italic">{item.category}</td>
-                    <td className="px-10 py-6 text-natural-text font-medium italic">"{item.description}"</td>
-                    <td className="px-10 py-6 text-natural-primary font-mono font-bold text-right text-lg">Rp {item.amount.toLocaleString('id-ID')}</td>
+                    <td className="px-10 py-6 text-natural-primary font-bold text-xs uppercase italic">{item?.category || '-'}</td>
+                    <td className="px-10 py-6 text-natural-text font-medium italic">"{item?.description || ''}"</td>
+                    <td className="px-10 py-6 text-natural-primary font-mono font-bold text-right text-lg">Rp {formatCurrency(item?.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -984,7 +1094,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
             </div>
             <div className="col-span-2 text-center mt-5">
               <p className="text-sm text-natural-secondary italic">Mengetahui, {report.unitName}</p>
-              <p className="text-xs text-natural-secondary uppercase tracking-widest mt-2">{report.submissionDate ? `Dibuat pada: ${new Date(report.submissionDate).toLocaleDateString('id-ID', { dateStyle: 'long' })}` : ''}</p>
+              <p className="text-xs text-natural-secondary uppercase tracking-widest mt-2">{report.submissionDate ? `Dibuat pada: ${formatDate(report.submissionDate)}` : ''}</p>
             </div>
           </div>
         </div>
@@ -996,7 +1106,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
               <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-1">Itemized Expense Report</p>
             </div>
           </div>
-          {!isAdmin && (report.status === ReportStatus.BUDGET_PROPOSAL || report.status === ReportStatus.REPORTING || report.status === ReportStatus.REVISION) && (
+          {!isAdmin && (report.status === ReportStatus.BUDGET_PROPOSAL || report.status === ReportStatus.REPORTING || report.status === ReportStatus.REVISION || report.status === ReportStatus.INCOMPLETE) && (
             <button 
               onClick={onEdit}
               className="bg-natural-primary text-white px-6 py-2 rounded-full font-serif italic text-sm hover:bg-natural-primary/90 transition-all shadow-md"
@@ -1028,7 +1138,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
               </button>
             </div>
           )}
-          {isAdmin && report.status === ReportStatus.REPORTING && (
+          {isAdmin && (report.status === ReportStatus.REPORTING || report.status === ReportStatus.INCOMPLETE) && (
             <div className="flex gap-2">
               <button 
                 onClick={() => handleUpdateStatusAction(ReportStatus.REVISION)}
@@ -1064,7 +1174,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                       {item.proposedIndex !== undefined ? report.proposedDetails[item.proposedIndex]?.category : '-'}
                     </td>
                     <td className="px-10 py-6 text-natural-text font-medium italic">"{item.description}"</td>
-                    <td className="px-10 py-6 text-natural-primary font-mono font-bold text-right text-lg">Rp {item.amount.toLocaleString('id-ID')}</td>
+                    <td className="px-10 py-6 text-natural-primary font-mono font-bold text-right text-lg">Rp {formatCurrency(item?.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1136,6 +1246,7 @@ const DashboardStats = ({ reports }: { reports: Report[] }) => {
   const approved = reports.filter(r => r.status === ReportStatus.BUDGET_APPROVED).length;
   const reporting = reports.filter(r => 
     r.status === ReportStatus.REPORTING ||
+    r.status === ReportStatus.INCOMPLETE ||
     (r.status === ReportStatus.REVISION && r.details && r.details.length > 0)
   ).length;
 
@@ -1614,13 +1725,13 @@ const MainDashboard = () => {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [initialUnitNameForAccount, setInitialUnitNameForAccount] = useState('');
 
-  const navigateTo = (path: string, options?: { state?: any }) => {
+  const navigateTo = useCallback((path: string, options?: { state?: any }) => {
     if (path === '/') {
       setSelectedReport(null);
     }
     navigate(path);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, [navigate]);
 
   // --- Auto Logout Logic (5 Minutes Inactivity) ---
   useEffect(() => {
@@ -1723,8 +1834,16 @@ const MainDashboard = () => {
   };
 
   const handlePrintAnggaran = (report: Report) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    let printWindow: Window | null = null;
+    try {
+      printWindow = window.open('', '_blank');
+    } catch (e) {
+      console.error("Popup blocked during print", e);
+    }
+    if (!printWindow) {
+      alert("Popup printer terblokir oleh browser. Silakan izinkan popup atau buka aplikasi di tab baru untuk melakukan cetak.");
+      return;
+    }
 
     const html = `
       <html>
@@ -1761,7 +1880,7 @@ const MainDashboard = () => {
             </table>
           </div>
           <div style="margin-bottom: 20px;">
-             <p style="margin: 0; font-weight: bold;">Tanggal Pengajuan: ${report.submissionDate ? new Date(report.submissionDate).toLocaleDateString('id-ID', { dateStyle: 'long' }) : '-'}</p>
+             <p style="margin: 0; font-weight: bold;">Tanggal Pengajuan: ${formatDate(report.submissionDate)}</p>
           </div>
           <table class="rpt-table" style="width:100%; border-collapse:collapse; margin-top:20px;">
             <thead>
@@ -1776,14 +1895,14 @@ const MainDashboard = () => {
                     <tr>
                         <td style="border:1px solid #000; padding:6px; font-size: 9pt;">${d.category}</td>
                         <td style="border:1px solid #000; padding:6px;">${d.description}</td>
-                        <td style="border:1px solid #000; padding:6px; text-align:right;">${d.amount.toLocaleString('id-ID')}</td>
+                        <td style="border:1px solid #000; padding:6px; text-align:right;">${formatCurrency(d.amount)}</td>
                     </tr>
                 `).join('')}
             </tbody>
             <tfoot>
                 <tr>
                     <td colspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; text-align:right;">Total</td>
-                    <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold;">${report.amountReceived.toLocaleString('id-ID')}</td>
+                    <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold;">${formatCurrency(report.amountReceived)}</td>
                 </tr>
             </tfoot>
           </table>
@@ -1816,8 +1935,16 @@ const MainDashboard = () => {
         alert("Laporan harus disahkan oleh bendahara terlebih dahulu.");
         return;
     }
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    let printWindow: Window | null = null;
+    try {
+      printWindow = window.open('', '_blank');
+    } catch (e) {
+      console.error("Popup blocked during print", e);
+    }
+    if (!printWindow) {
+      alert("Popup printer terblokir oleh browser. Silakan izinkan popup atau buka aplikasi di tab baru untuk melakukan cetak.");
+      return;
+    }
 
     const html = `
       <html>
@@ -1869,7 +1996,7 @@ const MainDashboard = () => {
             <tr>
               <td>Tanggal Pengajuan</td>
               <td>:</td>
-              <td>${report.submissionDate ? new Date(report.submissionDate).toLocaleDateString('id-ID', { dateStyle: 'long' }) : '-'}</td>
+              <td>${formatDate(report.submissionDate)}</td>
             </tr>
             <tr>
               <td>Status Laporan</td>
@@ -1904,9 +2031,9 @@ const MainDashboard = () => {
                     <td class="text-center">${pIdx + 1}</td>
                     <td style="font-size: 9pt;">${p.category}</td>
                     <td>${p.description}</td>
-                    <td class="text-right">${p.amount.toLocaleString('id-ID')}</td>
-                    <td class="text-right">${actualAmount.toLocaleString('id-ID')}</td>
-                    <td class="text-right">${diff.toLocaleString('id-ID')}</td>
+                    <td class="text-right">${formatCurrency(p.amount)}</td>
+                    <td class="text-right">${formatCurrency(actualAmount)}</td>
+                    <td class="text-right">${formatCurrency(diff)}</td>
                   </tr>
                 `;
               }).join('')}
@@ -1914,9 +2041,9 @@ const MainDashboard = () => {
             <tfoot>
               <tr style="font-weight: bold; background: #fafafa;">
                 <td colspan="3" class="text-right">TOTAL</td>
-                <td class="text-right">${report.amountReceived.toLocaleString('id-ID')}</td>
-                <td class="text-right">${report.totalSpent.toLocaleString('id-ID')}</td>
-                <td class="text-right">${(report.amountReceived - report.totalSpent).toLocaleString('id-ID')}</td>
+                <td class="text-right">${formatCurrency(report.amountReceived)}</td>
+                <td class="text-right">${formatCurrency(report.totalSpent)}</td>
+                <td class="text-right">${formatCurrency((report.amountReceived || 0) - (report.totalSpent || 0))}</td>
               </tr>
             </tfoot>
           </table>
@@ -1979,36 +2106,29 @@ const MainDashboard = () => {
                 <th style="width: 5%;">No</th>
                 <th style="width: 12%;">Tanggal</th>
                 <th style="width: 15%;">Jenis</th>
-                <th style="width: 20%;">Pagu Acuan</th>
                 <th>Rincian Belanja</th>
-                <th style="width: 12%;">Pagu (Rp)</th>
-                <th style="width: 12%;">Realisasi (Rp)</th>
+                <th style="width: 15%;">Realisasi (Rp)</th>
               </tr>
             </thead>
             <tbody>
               ${(report.details || []).map((d, index) => {
                 const budgetItem = report.proposedDetails && d.proposedIndex !== undefined ? report.proposedDetails[d.proposedIndex] : null;
-                const budgetDesc = budgetItem ? budgetItem.description : 'Tanpa Acuan';
-                const budgetAmount = budgetItem ? budgetItem.amount.toLocaleString('id-ID') : '-';
                 const category = budgetItem ? budgetItem.category : '-';
                 return `
                   <tr>
                     <td class="text-center">${index + 1}</td>
-                    <td style="font-size: 8pt;">${d.date ? new Date(d.date).toLocaleDateString('id-ID', { dateStyle: 'short' }) : '-'}</td>
+                    <td style="font-size: 8pt;">${formatDate(d.date, { dateStyle: 'short' })}</td>
                     <td style="font-size: 8pt;">${category}</td>
-                    <td style="font-size: 8pt;">${budgetDesc}</td>
                     <td style="font-size: 9pt;">${d.description}</td>
-                    <td class="text-right">${budgetAmount}</td>
-                    <td class="text-right">${d.amount.toLocaleString('id-ID')}</td>
+                    <td class="text-right">${formatCurrency(d.amount)}</td>
                   </tr>
                 `;
               }).join('')}
             </tbody>
             <tfoot>
               <tr style="font-weight: bold; background: #fafafa;">
-                <td colspan="5" class="text-right">TOTAL PENGELUARAN</td>
-                <td class="text-right">${report.amountReceived.toLocaleString('id-ID')}</td>
-                <td class="text-right">${report.totalSpent.toLocaleString('id-ID')}</td>
+                <td colspan="4" class="text-right">TOTAL PENGELUARAN</td>
+                <td class="text-right">${formatCurrency(report.totalSpent)}</td>
               </tr>
             </tfoot>
           </table>
@@ -2161,7 +2281,7 @@ const MainDashboard = () => {
             </div>
           )}
           <AnimatePresence mode="wait">
-            <Routes>
+            <Routes location={location} key={location.pathname}>
               <Route path="/" element={
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                   <div className="mb-12 flex justify-between items-end">
@@ -2269,7 +2389,7 @@ const MainDashboard = () => {
                   <ReportTable 
                     reports={reports} 
                     isAdmin={isAdmin} 
-                    allowedStatuses={[ReportStatus.REPORTING, ReportStatus.COMPLETED, ReportStatus.REVISION]}
+                    allowedStatuses={[ReportStatus.REPORTING, ReportStatus.COMPLETED, ReportStatus.REVISION, ReportStatus.INCOMPLETE]}
                     onSelect={(r) => { setSelectedReport(r); navigateTo('/detail'); }} 
                     onPrint={handlePrintLaporan}
                     onPrintRAB={handlePrintAnggaran}
@@ -2426,7 +2546,7 @@ const MainDashboard = () => {
 
       <footer className="h-10 bg-[#f0eee4] px-8 flex items-center justify-between text-[10px] text-[#a5a58d] font-bold border-t border-natural-border italic">
         <span>SISTEM INFORMASI KEUANGAN MUHIJO • VER 2.0</span>
-        <span>{new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+        <span>{formatDate(new Date(), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
       </footer>
     </div>
   );
@@ -2439,7 +2559,7 @@ export default function App() {
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const login = async (username: string, pass: string): Promise<boolean> => {
+  const login = useCallback(async (username: string, pass: string): Promise<boolean> => {
     try {
       const q = query(collection(db, 'app_users'), where('username', '==', username), where('pass', '==', pass));
       const snap = await getDocs(q);
@@ -2454,8 +2574,8 @@ export default function App() {
         };
         setUser(appUser);
         setIsAdmin(userData.role === 'admin');
-        localStorage.setItem('auth_session', JSON.stringify(appUser));
-        localStorage.setItem('user_role', userData.role);
+        safeStorage.setItem('auth_session', JSON.stringify(appUser));
+        safeStorage.setItem('user_role', userData.role);
         return true;
       }
     } catch (err: any) {
@@ -2467,33 +2587,33 @@ export default function App() {
       }
     }
     return false;
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
     setIsAdmin(false);
-    localStorage.removeItem('auth_session');
-    localStorage.removeItem('user_role');
-  };
+    safeStorage.removeItem('auth_session');
+    safeStorage.removeItem('user_role');
+  }, []);
 
   useEffect(() => {
-    const session = localStorage.getItem('auth_session');
-    const role = localStorage.getItem('user_role');
+    const session = safeStorage.getItem('auth_session');
+    const role = safeStorage.getItem('user_role');
     if (session) {
       try {
         const u = JSON.parse(session) as AppUser;
         setUser(u);
         setIsAdmin(role === 'admin');
       } catch (err) {
-        localStorage.removeItem('auth_session');
-        localStorage.removeItem('user_role');
+        safeStorage.removeItem('auth_session');
+        safeStorage.removeItem('user_role');
       }
     }
     setLoading(false);
 
     // Bootstrap units and users ONLY IF not done before in this browser
     const bootstrap = async () => {
-      if (localStorage.getItem('db_bootstrapped_v2')) return;
+      if (safeStorage.getItem('db_bootstrapped_v2')) return;
 
       try {
         const usersSnap = await getDocs(query(collection(db, 'app_users'), limit(1)));
@@ -2511,7 +2631,7 @@ export default function App() {
             await addDoc(collection(db, 'units'), { name });
           }
         }
-        localStorage.setItem('db_bootstrapped_v2', 'true');
+        safeStorage.setItem('db_bootstrapped_v2', 'true');
       } catch (e: any) {
         console.error("Bootstrap failed", e);
         const errorMessage = e.message || String(e);
@@ -2529,7 +2649,7 @@ export default function App() {
     bootstrap();
   }, []);
 
-  const contextValue = useMemo(() => ({ user, isAdmin, loading, login, logout }), [user, isAdmin, loading]);
+  const contextValue = useMemo(() => ({ user, isAdmin, loading, login, logout }), [user, isAdmin, loading, login, logout]);
 
   if (quotaExceeded) {
     return (
@@ -2557,7 +2677,9 @@ export default function App() {
   return (
     <HashRouter>
       <AuthContext.Provider value={contextValue}>
-        <AppContent />
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
       </AuthContext.Provider>
     </HashRouter>
   );
