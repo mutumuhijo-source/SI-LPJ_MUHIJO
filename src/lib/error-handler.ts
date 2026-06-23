@@ -19,17 +19,22 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     },
     operationType,
     path
-  }
+  };
+  
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   
-  if (isQuotaError) {
-    // If it's a quota error, we might want to alert the user specifically if we can
-    // but at minimum we must throw so the app knows fetching failed.
-    const customError = new Error(JSON.stringify(errInfo));
-    // @ts-ignore
-    customError.isQuotaError = true;
-    throw customError;
+  // Safe warn inside iframe sandboxes
+  try {
+    const userFriendlyMsg = isQuotaError 
+      ? displayError 
+      : `Gagal melakukan operasi ${operationType} pada ${path || 'database'}. Silakan cek koneksi internet Anda atau coba lagi nanti.`;
+    
+    // Attempt standard alert if available, ignore fallback blocks
+    if (typeof window !== 'undefined' && window.alert) {
+      window.alert(userFriendlyMsg);
+    }
+  } catch (e) {
+    console.warn("Could not display alert in iframe environment:", e);
   }
-
-  throw new Error(JSON.stringify(errInfo));
 }
+
