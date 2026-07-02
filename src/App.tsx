@@ -1382,8 +1382,9 @@ const UserList = ({ onAdd, onViewUnits }: { onAdd: () => void, onViewUnits: () =
         const q = query(collection(db, 'app_users'), limit(100));
         const snap = await getDocs(q);
         setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() as any } as DBUser)));
-      } catch (err) {
-        console.error("Error fetching users", err);
+      } catch (err: any) {
+        if (err.message?.includes('Quota') || err.message?.includes('limit')) console.warn("Error fetching users: Quota Exceeded");
+        else console.error("Error fetching users", err);
       } finally {
         setLoading(false);
       }
@@ -1867,19 +1868,28 @@ const MainDashboard = () => {
     const unsubUnits = onSnapshot(collection(db, 'units'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() as any } as Unit));
       setUnits(data);
-    }, (err) => console.error("Units listener failed", err));
+    }, (err: any) => {
+      if (err.message?.includes('Quota') || err.message?.includes('limit')) console.warn("Units listener quota exceeded");
+      else console.error("Units listener failed", err);
+    });
 
     // Listen to expense types
     const unsubExp = onSnapshot(collection(db, 'expense_types'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() as any } as ExpenseType));
       setExpenseTypes(data);
-    }, (err) => console.error("Expense types listener failed", err));
+    }, (err: any) => {
+      if (err.message?.includes('Quota') || err.message?.includes('limit')) console.warn("Expense types listener quota exceeded");
+      else console.error("Expense types listener failed", err);
+    });
 
     // Listen to employees
     const unsubEmp = onSnapshot(collection(db, 'employees'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() as any } as Employee));
       setEmployees(data);
-    }, (err) => console.error("Employees listener failed", err));
+    }, (err: any) => {
+      if (err.message?.includes('Quota') || err.message?.includes('limit')) console.warn("Employees listener quota exceeded");
+      else console.error("Employees listener failed", err);
+    });
 
     // Listen to reports
     const q = isAdmin
@@ -1891,9 +1901,11 @@ const MainDashboard = () => {
       setReports(data);
       setLoading(false);
     }, (err: any) => {
-      console.error("Reports listener failed", err);
       if (err.message?.includes('Quota exceeded') || err.message?.includes('Quota limit exceeded')) {
+        console.warn("Reports listener blocked: Quota Exceeded");
         setErrorInfo('Limit kuota harian database tercapai.');
+      } else {
+        console.error("Reports listener failed", err);
       }
       setLoading(false);
     });
@@ -2740,11 +2752,13 @@ export default function App() {
         return true;
       }
     } catch (err: any) {
-      console.error("Login failed", err);
       const msg = err.message || String(err);
       if (msg.includes('Quota exceeded') || msg.includes('Quota limit exceeded')) {
+        console.warn("Login blocked: Quota Exceeded");
         setQuotaExceeded(true);
         setErrorMessage('Database sedang limit (Quota Exceeded). Tidak dapat memproses login saat ini.');
+      } else {
+        console.error("Login failed", err);
       }
     }
     return false;
@@ -2794,9 +2808,9 @@ export default function App() {
         }
         safeStorage.setItem('db_bootstrapped_v2', 'true');
       } catch (e: any) {
-        console.error("Bootstrap failed", e);
         const errorMessage = e.message || String(e);
         if (errorMessage.includes('Quota exceeded') || errorMessage.includes('Quota limit exceeded')) {
+          console.warn("Bootstrap blocked: Quota Exceeded");
           setQuotaExceeded(true);
           try {
             const parsed = JSON.parse(errorMessage);
@@ -2804,6 +2818,8 @@ export default function App() {
           } catch {
             setErrorMessage('Limit kuota harian database telah tercapai. Mohon coba lagi besok.');
           }
+        } else {
+          console.error("Bootstrap failed", e);
         }
       }
     };

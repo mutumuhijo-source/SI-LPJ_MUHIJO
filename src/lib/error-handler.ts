@@ -21,7 +21,11 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  if (isQuotaError) {
+    console.warn('Firestore Error (Quota Exceeded): ', JSON.stringify(errInfo));
+  } else {
+    console.error('Firestore Error: ', JSON.stringify(errInfo));
+  }
   
   // Safe warn inside iframe sandboxes
   try {
