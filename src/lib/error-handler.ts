@@ -1,4 +1,5 @@
 import { OperationType, FirestoreErrorInfo } from '../types';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errorMessage = error instanceof Error ? error.message : String(error);
@@ -6,7 +7,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
   let displayError = errorMessage;
   if (isQuotaError) {
-    displayError = `🔴 LIMIT KUOTA DATABASE TERCAPAI (50,000 reads/day free tier). \n\nSistem pelaporan sedang non-aktif sementara karena batas penggunaan gratis harian Firestore telah penuh. \n\nReset Otomatis: Besok pukul 14:00 WIB (00:00 PST). \n\nSolusi: Pemilik dapat meningkatkan limit ke paket Pay-as-you-go di: https://console.firebase.google.com/u/0/project/smooth-multiplexer-v8gvj/usage`;
+    displayError = `🔴 LIMIT KUOTA DATABASE TERCAPAI (50,000 reads/day free tier). \n\nSistem pelaporan sedang non-aktif sementara karena batas penggunaan gratis harian Firestore telah penuh. \n\nReset Otomatis: Besok pukul 14:00 WIB (00:00 PST). \n\nSolusi: Pemilik dapat meningkatkan limit ke paket Pay-as-you-go di: https://console.firebase.google.com/u/0/project/${firebaseConfig.projectId}/usage`;
   }
 
   const errInfo: FirestoreErrorInfo = {

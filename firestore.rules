@@ -2,35 +2,8 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Basic rules for all collections
-    
-    match /expense_types/{typeId} {
-      allow read, write: if true;
-    }
-
-    match /app_users/{userId} {
-      allow read, write: if true;
-    }
-
-    match /units/{unitId} {
-      allow read, write: if true;
-    }
-
-    match /reports/{reportId} {
-      allow read, write: if true;
-    }
-
-    match /employees/{employeeId} {
-      allow read, write: if true;
-    }
-
-    match /admins/{userId} {
-      allow read, write: if true;
-    }
-
-    // Default deny
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if true;
     }
   }
 }

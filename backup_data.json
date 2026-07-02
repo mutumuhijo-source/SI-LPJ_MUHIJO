@@ -1,0 +1,2559 @@
+{
+  "app_users": [
+    {
+      "id": "21azUzTiNOW9C8YgEo7Y",
+      "unitName": "Bendahara",
+      "displayName": "Bendahara Utama",
+      "username": "admin",
+      "role": "admin",
+      "pass": "mutugo123"
+    },
+    {
+      "id": "Ar9jVM1dLN1FwUBnvmFn",
+      "username": "sarp",
+      "role": "user",
+      "displayName": "SARPRAS",
+      "unitName": "Sarpras",
+      "pass": "sarp123"
+    },
+    {
+      "id": "Fpqs6V73tWdvJwWwf7kb",
+      "username": "tu",
+      "role": "user",
+      "displayName": "TATA USAHA",
+      "unitName": "Tata Usaha",
+      "pass": "tu123"
+    },
+    {
+      "id": "JhqeFM6CMYnUeHaKKj0v",
+      "pass": "kesis123",
+      "displayName": "KESISWAAN",
+      "unitName": "Kesiswaan",
+      "username": "kesis",
+      "role": "user"
+    },
+    {
+      "id": "RvLYu5LdnoV9arvCwAD2",
+      "pass": "kur123",
+      "displayName": "KURIKULUM",
+      "unitName": "Kurikulum",
+      "role": "user",
+      "username": "kur"
+    },
+    {
+      "id": "WtSbH5uTl63odNFWJTYI",
+      "pass": "akl123",
+      "displayName": "JUR AKUNTANSI",
+      "unitName": "Jur Akuntansi",
+      "role": "user",
+      "username": "akl"
+    },
+    {
+      "id": "X87ywDPoOThJ5kOWspzS",
+      "pass": "bsn123",
+      "role": "user",
+      "username": "bsn",
+      "unitName": "Jur Busana",
+      "displayName": "JUR BUSANA"
+    },
+    {
+      "id": "ZAG0rbhx9VZBQOtxYHWt",
+      "pass": "tsm123",
+      "username": "tsm",
+      "role": "user",
+      "unitName": "Jur Otomotif",
+      "displayName": "JUR OTOMOTIF"
+    },
+    {
+      "id": "fnGEh8IRZy80GUGF8KI4",
+      "username": "desfi",
+      "role": "admin",
+      "unitName": "",
+      "displayName": "Bendahara Sekolah",
+      "pass": "123"
+    },
+    {
+      "id": "rOuP3gpgQ8LoCl7jEjge",
+      "displayName": "JUR TEKNIK ELEKTRO",
+      "unitName": "Jur Teknik Elektro",
+      "role": "user",
+      "username": "tav",
+      "pass": "tav123"
+    },
+    {
+      "id": "ucMkWqHBAFcMmkQk3ysB",
+      "username": "hum",
+      "role": "user",
+      "unitName": "Humas",
+      "displayName": "HUMAS",
+      "pass": "hum123"
+    }
+  ],
+  "units": [
+    {
+      "id": "1CgF8jBRFyAvV36YHpBt",
+      "name": "Humas"
+    },
+    {
+      "id": "Faf4QjC2ulJpjRON4Znj",
+      "name": "Sarpras"
+    },
+    {
+      "id": "LKcv6ll36RX2faHPJ5S5",
+      "name": "Jur Otomotif"
+    },
+    {
+      "id": "Op5jnxXGdmK6elwmnsaw",
+      "name": "Jur Akuntansi"
+    },
+    {
+      "id": "YGqrCyhwf6BCmHUkzdOo",
+      "name": "Kesiswaan"
+    },
+    {
+      "id": "fojKxfuTP3qd8j8GDrss",
+      "name": "Kurikulum"
+    },
+    {
+      "id": "gkA5EVbx3I0EWZ311KrW",
+      "name": "Tata Usaha"
+    },
+    {
+      "id": "no0fmfFkUg32CIWAI154",
+      "name": "Jur Busana"
+    },
+    {
+      "id": "pH4ChVzvnwrCwe9bKS24",
+      "name": "Jur Teknik Elektro"
+    }
+  ],
+  "expense_types": [
+    {
+      "id": "3Od268tWiox7cisVAng2",
+      "name": "Biaya Perawatan"
+    },
+    {
+      "id": "6ADqRTph9KgD6pYC1QjM",
+      "name": "Biaya Transportasi & BBM"
+    },
+    {
+      "id": "9w2aMwnyfp1jCCoakuk0",
+      "name": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+    },
+    {
+      "id": "IsTQaNOwi8sHcmHw8yy4",
+      "name": "Biaya Kegiatan Kesiswaan"
+    },
+    {
+      "id": "Ol9egcsVsHa2SXNVfM0S",
+      "name": "Biaya Bahan Praktikum"
+    },
+    {
+      "id": "YpXAbW1pogsseQx5nMaI",
+      "name": "Biaya Kegiatan Sekolah Lainnya"
+    },
+    {
+      "id": "ZjRwbH7i57Zhre2c6fUH",
+      "name": "Biaya Konsumsi"
+    },
+    {
+      "id": "cSRnvz1sVtn4gd9ucLPB",
+      "name": "Pembelian Aset Tetap"
+    },
+    {
+      "id": "dnkFAiEivNkVy85711Zj",
+      "name": "Biaya Sewa"
+    },
+    {
+      "id": "lzhJORq2JGPjanP13v4q",
+      "name": "Biaya Kegiatan PTK"
+    },
+    {
+      "id": "oHJQZlWedyuG8WFiRlf2",
+      "name": "Pembayaran Kewajiban"
+    },
+    {
+      "id": "uO6Y8IGKDZVrkgAPqLOQ",
+      "name": "Biaya ATK & Percetakan"
+    }
+  ],
+  "employees": [
+    {
+      "id": "2bfESK5d1wN3ADbuDeCF",
+      "name": "Cahyo Permadi, S.Pd"
+    },
+    {
+      "id": "3p03Bt6mqRlzr5Mr2KRy",
+      "name": "Muhammad Idi Amin, S.Pd"
+    },
+    {
+      "id": "71ip4bmE2EzQPTZ0Qsvx",
+      "name": "Sri Rejeki, S.E"
+    },
+    {
+      "id": "950yn0YHjJyQ5TjieVBS",
+      "name": "Arief Hermawan, S.T"
+    },
+    {
+      "id": "95JIc8UatRKovPRaLgsR",
+      "name": "Siti Arifah, S.Pd"
+    },
+    {
+      "id": "HRNf3IhdmhJVe2rEFt4L",
+      "name": "Firman Ardiansah"
+    },
+    {
+      "id": "IGVwrqvpS5XMDPOzbP90",
+      "name": "Desfiana Giant Pratiwi, S.A.P"
+    },
+    {
+      "id": "MOtB7Cg5PCIiYFRcb924",
+      "name": "IIs Rochmayah Fithriyati, S.Pd"
+    },
+    {
+      "id": "MRyEQHxVrfIXOXYX2SV3",
+      "name": "Raychan Assabiq, S.Pd"
+    },
+    {
+      "id": "MrBCcD9iUE1slnquqcdL",
+      "name": "Suparti"
+    },
+    {
+      "id": "PLcH6lp9j8W5SIx7ouRX",
+      "name": "Nur Fithri Widiastuti, S.S.i"
+    },
+    {
+      "id": "PYoL0mvNz1ohaH0uuLn2",
+      "name": "Riris Ekasari, S.Kom"
+    },
+    {
+      "id": "RLh63BL6tiqBC9QoxVPJ",
+      "name": "Herman Kurniawan, A.Md"
+    },
+    {
+      "id": "T5eDoNDfkdEwPGBV9Qc0",
+      "name": "MIsbahu Rohmat, M.Pd"
+    },
+    {
+      "id": "WGuUlyHOFMwZN6r0hJEb",
+      "name": "Dhisa Agesti DM, S.E"
+    },
+    {
+      "id": "XNgX0asB7SsCMRuFyDmD",
+      "name": "MIftahul Rohmah, S.Pd"
+    },
+    {
+      "id": "YF29nZTNC5RlW2gI2cM8",
+      "name": "Selly Dian Prawesti, S.Pd"
+    },
+    {
+      "id": "YP7KEzoJv4h0jRMoDVKA",
+      "name": "Ridwan, S.Pd"
+    },
+    {
+      "id": "ZC3CuIOGELnS0vZmyPxA",
+      "name": "Istikomah, S.Pd"
+    },
+    {
+      "id": "ayulyf1YHQOeEBuLk52l",
+      "name": "Destyan Srie Ravinda, S.Ak"
+    },
+    {
+      "id": "biYGZYWAQDEUH7BRHwJt",
+      "name": "Ikhsan Nuriyanto, S.Pd"
+    },
+    {
+      "id": "cy6pd5gcLlNpoeTxEJ7A",
+      "name": "Sri Astuti, A.Md"
+    },
+    {
+      "id": "e8ymtZrPngZL85e2YpUK",
+      "name": "Arif Nugroho, S.E"
+    },
+    {
+      "id": "efd5gOVDF6H6FydtQEpF",
+      "name": "Salistina Ayu Rizqi, S.Pd"
+    },
+    {
+      "id": "httSkCOg5wSVQKOrOoSs",
+      "name": "Beny Setiawan, S.Pd"
+    },
+    {
+      "id": "lXqjyfynDooGHIQ14s8U",
+      "name": "Tusman Hadi"
+    },
+    {
+      "id": "pSSfStMI0j5aOJpBihIw",
+      "name": "Nafiatus Saadah, S.Pd"
+    },
+    {
+      "id": "rSOU7Xd1T2W8xvNQ7lYP",
+      "name": "Diah Agustini, S.I.Kom"
+    },
+    {
+      "id": "ulGpIVKjDmKyb25K3a9D",
+      "name": "Indri Kurdina Duri, S.Sos"
+    },
+    {
+      "id": "uvRdCOW8PNv6QWSliK0f",
+      "name": "Khulia Sofa Mukarromah"
+    },
+    {
+      "id": "v0Usn1M2w1NIlvttEgHU",
+      "name": "Eni Karimah, S.Pd"
+    },
+    {
+      "id": "zxTp2DgREHzOCPPj7oks",
+      "name": "Ganda Kusuma Mukti"
+    }
+  ],
+  "reports": [
+    {
+      "id": "3PfN04jG7Ym26NTueRX9",
+      "bendaharaName": "Destyan Srie Ravinda, S.Ak",
+      "status": "archived",
+      "ketuaName": "Desfiana Giant Pratiwi, S.AP",
+      "totalSpent": 480500,
+      "bendaharaJabatan": "Bendahara Harian",
+      "proposedDetails": [
+        {
+          "category": "Biaya Konsumsi",
+          "amount": 495000,
+          "description": "Konsumsi Selasa (33 Orang x Rp 15.000)"
+        },
+        {
+          "amount": 110000,
+          "description": "Tinta Hitam Epson (1 Botol x Rp 110.000)",
+          "date": "2026-06-05",
+          "category": "Biaya ATK & Percetakan"
+        },
+        {
+          "date": "2026-06-05",
+          "category": "Biaya ATK & Percetakan",
+          "description": "Kertas HVS F4 (1 Dus x Rp 450.000)",
+          "amount": 450000
+        },
+        {
+          "amount": 52000,
+          "description": "Segarmu",
+          "category": "Biaya Konsumsi",
+          "date": "2026-06-05"
+        },
+        {
+          "date": "2026-06-05",
+          "category": "Biaya Konsumsi",
+          "amount": 54000,
+          "description": "Isi Ulang Air Minum (6 Galon x Rp 9.000)"
+        },
+        {
+          "amount": 30000,
+          "description": "Plastik (2 Pack x Rp 15.000)",
+          "category": "Biaya Perawatan",
+          "date": "2026-06-05"
+        },
+        {
+          "date": "2026-06-05",
+          "category": "Biaya Perawatan",
+          "amount": 50000,
+          "description": "Sterofoam (1 Bal x Rp 50.000)"
+        }
+      ],
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1782194576,
+        "nanoseconds": 785000000
+      },
+      "treasurerNotes": "",
+      "activityName": "RAB Juni Minggu Ke-2",
+      "unitId": "gkA5EVbx3I0EWZ311KrW",
+      "ketuaJabatan": "Bendahara Sekolah",
+      "details": [
+        {
+          "amount": 54000,
+          "proposedIndex": 4,
+          "description": "Pembelian Isi Ulang Air Minum 6 Galon",
+          "date": "2026-06-08"
+        },
+        {
+          "amount": 260000,
+          "proposedIndex": 2,
+          "description": "Pembelian HVS F4 1 Dus",
+          "date": "2026-06-11"
+        },
+        {
+          "description": "Pembelian Tinta Hitam Epson 1 Botol",
+          "proposedIndex": 1,
+          "amount": 110000,
+          "date": "2026-06-11"
+        },
+        {
+          "amount": 42000,
+          "description": "Pembelian Sterofoam 1 Bal",
+          "proposedIndex": 6,
+          "date": "2026-06-12"
+        },
+        {
+          "date": "2026-06-12",
+          "description": "Pembelian Plastik 2 Pack",
+          "amount": 14500,
+          "proposedIndex": 5
+        }
+      ],
+      "amountReceived": 1241000,
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1780634857,
+        "nanoseconds": 298000000
+      },
+      "unitName": "Tata Usaha",
+      "submissionDate": "2026-06-05",
+      "submittedBy": "C8KyGZSx3AIm4dWWIKN1"
+    },
+    {
+      "id": "3RGBYEa5zJ7t56gkPVa7",
+      "amountReceived": 1500000,
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1781833648,
+        "nanoseconds": 832000000
+      },
+      "unitName": "Humas",
+      "submissionDate": "2026-06-19",
+      "submittedBy": "ucMkWqHBAFcMmkQk3ysB",
+      "ketuaJabatan": "Bendahara Sekolah",
+      "details": [
+        {
+          "date": "2026-06-19",
+          "amount": 300000,
+          "description": "pby tali asih an Agus Damarjati ",
+          "proposedIndex": 0
+        },
+        {
+          "amount": 185000,
+          "description": "pby atas pembelian Banner 2,5 x 1 m ",
+          "proposedIndex": 0,
+          "date": "2026-06-12"
+        },
+        {
+          "amount": 31500,
+          "description": "pby atas pembelian (Levi cup, permen kiss)",
+          "proposedIndex": 0,
+          "date": "2026-06-17"
+        }
+      ],
+      "activityName": "RAB SPMB Juni Minggu ke 3",
+      "unitId": "1CgF8jBRFyAvV36YHpBt",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1782539445,
+        "nanoseconds": 417000000
+      },
+      "treasurerNotes": "",
+      "bendaharaJabatan": "Bendahara kegiatan",
+      "proposedDetails": [
+        {
+          "description": "Tali Asih",
+          "amount": 1500000,
+          "category": "Biaya Kegiatan Sekolah Lainnya"
+        }
+      ],
+      "ketuaName": "Desfiana Giant Pratiwi, S.Ap",
+      "totalSpent": 516500,
+      "bendaharaName": "Dhisa Agesti Duroh M, S.E",
+      "status": "completed"
+    },
+    {
+      "id": "4KO5y8X7JCR1glRBdTgh",
+      "unitName": "Kesiswaan",
+      "submissionDate": "2026-06-02",
+      "submittedBy": "JhqeFM6CMYnUeHaKKj0v",
+      "amountReceived": 415000,
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1780364957,
+        "nanoseconds": 428000000
+      },
+      "unitId": "YGqrCyhwf6BCmHUkzdOo",
+      "activityName": "POPDA Pencak Silat Kabupaten Temanggung 2026",
+      "details": [
+        {
+          "proposedIndex": 0,
+          "description": "Pby atas belanja Registrasi Popda Pencak Silat",
+          "amount": 175000,
+          "date": "2026-06-09"
+        },
+        {
+          "description": "Pby atas belanja Transport dan Makan Popda",
+          "proposedIndex": 1,
+          "amount": 140000,
+          "date": "2026-06-09"
+        },
+        {
+          "amount": 0,
+          "description": "Pby atas belanja Ikut Transport dan Makan Popda",
+          "proposedIndex": 2,
+          "date": "2026-06-09"
+        },
+        {
+          "date": "2026-06-09",
+          "description": "Pby atas Transport Pelatih Popda",
+          "proposedIndex": 3,
+          "amount": 100000
+        }
+      ],
+      "ketuaJabatan": "Kepala Sekolah",
+      "proposedDetails": [
+        {
+          "description": "Registrasi",
+          "amount": 175000,
+          "category": "Biaya Kegiatan Kesiswaan"
+        },
+        {
+          "amount": 100000,
+          "description": "Transport Peserta dan Official",
+          "date": "2026-06-02",
+          "category": "Biaya Kegiatan Kesiswaan"
+        },
+        {
+          "date": "2026-06-02",
+          "category": "Biaya Kegiatan Kesiswaan",
+          "description": "Makan dan Snack Peserta dan Official",
+          "amount": 40000
+        },
+        {
+          "description": "Transport Pelatih",
+          "amount": 100000,
+          "category": "Biaya Kegiatan Kesiswaan",
+          "date": "2026-06-02"
+        }
+      ],
+      "bendaharaJabatan": "Waka. Kesiswaan",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1781843929,
+        "nanoseconds": 76000000
+      },
+      "treasurerNotes": "",
+      "status": "archived",
+      "bendaharaName": "Mujib Riyadi, S.Pd",
+      "ketuaName": "Ikhsan Nuriyanto, S.Pd",
+      "totalSpent": 415000
+    },
+    {
+      "id": "8sSvNsZJGYpgCrnCHV4G",
+      "status": "archived",
+      "bendaharaName": "Herman Kurniawan, A.Md",
+      "totalSpent": 367000,
+      "ketuaName": "Desfiana Giant Pratiwi, S.AP",
+      "proposedDetails": [
+        {
+          "category": "Biaya Bahan Praktikum",
+          "description": "Cat dasar 1 Pcs",
+          "amount": 70000
+        },
+        {
+          "date": "2026-05-22",
+          "category": "Biaya Bahan Praktikum",
+          "description": "Dempul 1 Pcs",
+          "amount": 35000
+        },
+        {
+          "category": "Biaya Bahan Praktikum",
+          "date": "2026-05-22",
+          "amount": 200000,
+          "description": "Triplek 18MM 1 Pcs"
+        },
+        {
+          "description": "Baut Cacing 1 Box",
+          "amount": 65000,
+          "date": "2026-05-22",
+          "category": "Biaya Bahan Praktikum"
+        },
+        {
+          "amount": 20000,
+          "description": "Amplas Kayu Grid 800 2 Pcs",
+          "date": "2026-05-22",
+          "category": "Biaya Bahan Praktikum"
+        }
+      ],
+      "bendaharaJabatan": "Kepala Jurusan TSM",
+      "treasurerNotes": "Untuk pelaporan, jika ada barang yang di belanjakan tetapi tidak ada di pengajuan silahkan bisa dilaporkan di anggaran yang di ganti. ",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1780633142,
+        "nanoseconds": 787000000
+      },
+      "unitId": "LKcv6ll36RX2faHPJ5S5",
+      "activityName": "Mapel Pilihina Kelas XI TSM",
+      "details": [
+        {
+          "amount": 58000,
+          "description": "susuai",
+          "proposedIndex": 0,
+          "date": "2026-05-22"
+        },
+        {
+          "date": "2026-05-22",
+          "amount": 20000,
+          "description": "sesuai",
+          "proposedIndex": 1
+        },
+        {
+          "amount": 235000,
+          "description": "sesuai",
+          "proposedIndex": 2,
+          "date": "2026-05-22"
+        },
+        {
+          "amount": 38000,
+          "proposedIndex": 3,
+          "description": "thiner",
+          "date": "2026-05-22"
+        },
+        {
+          "proposedIndex": 4,
+          "description": "sesuai",
+          "amount": 16000,
+          "date": "2026-05-22"
+        }
+      ],
+      "ketuaJabatan": "Bendahara Sekolah",
+      "submittedBy": "ZAG0rbhx9VZBQOtxYHWt",
+      "unitName": "Jur Otomotif",
+      "submissionDate": "2026-05-22",
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1779416910,
+        "nanoseconds": 674000000
+      },
+      "amountReceived": 390000
+    },
+    {
+      "id": "9XSZr29Pw2vdJOGYl75f",
+      "activityName": "Singkronisasi Kurikulum",
+      "unitId": "1CgF8jBRFyAvV36YHpBt",
+      "ketuaJabatan": "Kepala Sekolah ",
+      "details": [
+        {
+          "description": "Pby Atas Bahan bakar Mobil DUDI AK dan TSM",
+          "proposedIndex": 0,
+          "amount": 100000,
+          "date": "2026-06-08"
+        },
+        {
+          "description": "Pby Atas baner singkronisasi",
+          "proposedIndex": 0,
+          "amount": 50000,
+          "date": "2026-06-07"
+        },
+        {
+          "amount": 38000,
+          "description": "Pby Atas KONSUMSI SINGKRON DUDI AK DAN TSM ( 2 Orang x  16.000)",
+          "proposedIndex": 0,
+          "date": "2026-06-08"
+        },
+        {
+          "amount": 250000,
+          "description": "Pby Atas BENSIN KENDARAAN DUDI TE",
+          "proposedIndex": 0,
+          "date": "2026-06-09"
+        },
+        {
+          "description": "Pby Atas SEWA MOBIL TRANSPORT DUDI TE",
+          "amount": 200000,
+          "proposedIndex": 0,
+          "date": "2026-06-09"
+        },
+        {
+          "date": "2026-06-09",
+          "proposedIndex": 0,
+          "amount": 300000,
+          "description": "Pby Atas Kopi Untuk Oleh-Oleh DUDI ( 8Pcs  250 gr X 37.500)"
+        },
+        {
+          "date": "2026-06-09",
+          "amount": 87000,
+          "description": "Pby Atas MINUM SNACK SINGKRON DUDI TE",
+          "proposedIndex": 0
+        },
+        {
+          "date": "2026-06-09",
+          "proposedIndex": 0,
+          "description": "Pby Atas KONSUMSI 2 ORANG SINGKR DUDI TE( 2 orang x 36.500)",
+          "amount": 73000
+        },
+        {
+          "proposedIndex": 0,
+          "description": "Pby Atas GANTI TENAGA SINGKRON DUDI TE ( 2 Orang x 50.000)",
+          "amount": 100000,
+          "date": "2026-06-09"
+        },
+        {
+          "description": "Pby Atas TALI ASIH 2 DUDI (2 Dudi x 500.000)",
+          "proposedIndex": 0,
+          "amount": 1000000,
+          "date": "2026-06-09"
+        }
+      ],
+      "amountReceived": 4100000,
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1779689993,
+        "nanoseconds": 191000000
+      },
+      "unitName": "Humas",
+      "submissionDate": "2026-05-25",
+      "submittedBy": "ucMkWqHBAFcMmkQk3ysB",
+      "bendaharaName": "Arif Nugroho, S.E",
+      "status": "archived",
+      "ketuaName": "Ikhsan Nuryanto, S. Pd",
+      "totalSpent": 2198000,
+      "bendaharaJabatan": "Waka HUMAS",
+      "proposedDetails": [
+        {
+          "category": "Biaya Transportasi & BBM",
+          "amount": 4100000,
+          "description": "Transport Singkronisasi Kurikulum"
+        }
+      ],
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1781843151,
+        "nanoseconds": 31000000
+      },
+      "treasurerNotes": "Untuk pengajuan selanjutnya rincian lebih detail. contoh: BBM, Konsumi (2 Orang x 20.000 x 3 Kali), "
+    },
+    {
+      "id": "BRnMXWyZyQN84gwbKSvu",
+      "totalSpent": 450000,
+      "ketuaName": "Desfiana Giant Pratiwi, S.AP",
+      "bendaharaName": "Destyan Srie Ravinda, S.Ak",
+      "status": "archived",
+      "treasurerNotes": "Dilaporkan hari selasa, karena minggu depan terakhir masuk di hari selasa ",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1780633410,
+        "nanoseconds": 216000000
+      },
+      "bendaharaJabatan": "Bendahara Harian",
+      "proposedDetails": [
+        {
+          "amount": 495000,
+          "description": "Konsumsi Selasa (33 Orang x Rp 15.000)",
+          "category": "Biaya Konsumsi"
+        }
+      ],
+      "ketuaJabatan": "Bendahara Sekolah",
+      "details": [
+        {
+          "amount": 450000,
+          "proposedIndex": 0,
+          "description": "Konsumsi makan selasa 30 Orang",
+          "date": "2026-05-26"
+        }
+      ],
+      "activityName": "RAB Minggu Ke 4",
+      "unitId": "gkA5EVbx3I0EWZ311KrW",
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1779416120,
+        "nanoseconds": 231000000
+      },
+      "amountReceived": 495000,
+      "submittedBy": "Fpqs6V73tWdvJwWwf7kb",
+      "unitName": "Tata Usaha",
+      "submissionDate": "2026-05-22"
+    },
+    {
+      "id": "EZE8BuW5ynPZwzj7fXls",
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1779777537,
+        "nanoseconds": 202000000
+      },
+      "amountReceived": 2959500,
+      "submittedBy": "Fpqs6V73tWdvJwWwf7kb",
+      "submissionDate": "2026-05-26",
+      "unitName": "Tata Usaha",
+      "ketuaJabatan": "Bendahara Sekolah",
+      "details": [
+        {
+          "description": "Pby atas Langganan indihome",
+          "proposedIndex": 3,
+          "amount": 713000,
+          "date": "2026-06-05"
+        },
+        {
+          "date": "2026-06-05",
+          "proposedIndex": 4,
+          "description": "Pby atas langganan Telepon",
+          "amount": 155600
+        },
+        {
+          "date": "2026-06-05",
+          "proposedIndex": 6,
+          "amount": 75000,
+          "description": "Pby atas tagihan Listrik Induk"
+        },
+        {
+          "date": "2026-06-05",
+          "proposedIndex": 7,
+          "description": "Pby atas langganan Air )PDAM)",
+          "amount": 211400
+        },
+        {
+          "proposedIndex": 0,
+          "description": "Pby atas Konsumsi Lembur Revitalisasi (4 Orang x Rp 15.000)",
+          "amount": 60000,
+          "date": "2026-06-05"
+        },
+        {
+          "amount": 103500,
+          "description": "Pby atas Token Listrik Masjid",
+          "proposedIndex": 5,
+          "date": "2026-06-11"
+        },
+        {
+          "date": "2026-06-11",
+          "description": "Pby atas Token Listrik Lab TSM",
+          "amount": 103500,
+          "proposedIndex": 5
+        },
+        {
+          "proposedIndex": 5,
+          "amount": 103500,
+          "description": "Pby atas Token Listrik Lab TB",
+          "date": "2026-06-11"
+        }
+      ],
+      "activityName": "RAB Juni Minggu Ke 1",
+      "unitId": "gkA5EVbx3I0EWZ311KrW",
+      "treasurerNotes": "",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1781233526,
+        "nanoseconds": 114000000
+      },
+      "bendaharaJabatan": "Bendahara Harian",
+      "proposedDetails": [
+        {
+          "description": "Konsumsi Selasa (33 Orang x 15.000)",
+          "amount": 495000,
+          "category": "Biaya Konsumsi",
+          "date": "2026-05-26"
+        },
+        {
+          "description": "Tinta Hitam (1 Botol x 110.000)",
+          "amount": 110000,
+          "date": "2026-05-26",
+          "category": "Biaya ATK & Percetakan"
+        },
+        {
+          "category": "Biaya ATK & Percetakan",
+          "date": "2026-05-26",
+          "description": "Kertas HVS F4 (1 Dus x 450.000)",
+          "amount": 450000
+        },
+        {
+          "category": "Pembayaran Kewajiban",
+          "date": "2026-05-26",
+          "amount": 713000,
+          "description": "Langganan Internet"
+        },
+        {
+          "amount": 160000,
+          "description": "Langganan Telepon",
+          "category": "Pembayaran Kewajiban",
+          "date": "2026-05-26"
+        },
+        {
+          "category": "Pembayaran Kewajiban",
+          "date": "2026-05-26",
+          "amount": 310500,
+          "description": "Biaya Langganan Listrik (3 Kegiatan x 103.500)"
+        },
+        {
+          "date": "2026-05-26",
+          "category": "Pembayaran Kewajiban",
+          "amount": 115000,
+          "description": "Biaya Listrik Prabayar"
+        },
+        {
+          "amount": 500000,
+          "description": "PDAM ",
+          "date": "2026-05-26",
+          "category": "Pembayaran Kewajiban"
+        },
+        {
+          "amount": 52000,
+          "description": "Segarmu",
+          "date": "2026-05-26",
+          "category": "Biaya Konsumsi"
+        },
+        {
+          "date": "2026-05-26",
+          "category": "Biaya Konsumsi",
+          "amount": 54000,
+          "description": "Isi Ulang Air Minum (6 Galon x 9.000)"
+        }
+      ],
+      "totalSpent": 1525500,
+      "ketuaName": "Desfiana Giant Pratiwi, S.AP",
+      "status": "archived",
+      "bendaharaName": "Destyan Srie Ravinda, S.Ak"
+    },
+    {
+      "id": "KxL2ZcrWCi9MKTiub9FJ",
+      "bendaharaName": "Destyan Srie Ravinda, S.Ak",
+      "status": "archived",
+      "ketuaName": "Desfiana Giant Pratiwi, S.AP",
+      "totalSpent": 3886000,
+      "bendaharaJabatan": "Bendahara Harian",
+      "proposedDetails": [
+        {
+          "description": "Konsumsi Selasa (33 Orang x Rp 15.000)",
+          "amount": 495000,
+          "category": "Biaya Konsumsi"
+        },
+        {
+          "description": "Koperasi Mentari",
+          "amount": 520000,
+          "date": "2026-06-12",
+          "category": "Pembayaran Kewajiban"
+        },
+        {
+          "category": "Pembayaran Kewajiban",
+          "date": "2026-06-12",
+          "description": "Top Up Web",
+          "amount": 300000
+        },
+        {
+          "category": "Biaya Perawatan",
+          "date": "2026-06-12",
+          "amount": 20000,
+          "description": "Super Pel (2 Pcs x Rp 10.000)"
+        },
+        {
+          "amount": 30000,
+          "description": "Kresek Besar  (3 Pack x Rp 10.000)",
+          "category": "Biaya Perawatan",
+          "date": "2026-06-12"
+        },
+        {
+          "date": "2026-06-12",
+          "category": "Biaya Perawatan",
+          "description": "Kapur Barus (2 Bks x Rp 10.000)",
+          "amount": 20000
+        },
+        {
+          "amount": 500000,
+          "description": "Transport Narasumber Workshop",
+          "date": "2026-06-12",
+          "category": "Biaya Kegiatan PTK"
+        },
+        {
+          "description": "Snek Workshop (34x7000)",
+          "amount": 238000,
+          "category": "Biaya Konsumsi",
+          "date": "2026-06-12"
+        },
+        {
+          "amount": 680000,
+          "description": "Konsumsi Workshop (20000x34)",
+          "category": "Biaya Konsumsi",
+          "date": "2026-06-12"
+        },
+        {
+          "amount": 25000,
+          "description": "Snek Piringan ",
+          "date": "2026-06-12",
+          "category": "Biaya Konsumsi"
+        },
+        {
+          "date": "2026-06-12",
+          "category": "Biaya Perawatan",
+          "amount": 200000,
+          "description": "Oleh oleh Pengawas"
+        },
+        {
+          "date": "2026-06-12",
+          "category": "Biaya Konsumsi",
+          "description": "Snek Rapat Penegas Kenaikan Kelas (33x5000)",
+          "amount": 165000
+        },
+        {
+          "amount": 660000,
+          "description": "Konsumsi Rapat Penegas Kenaikan Kelas (33x20000)",
+          "date": "2026-06-12",
+          "category": "Biaya Konsumsi"
+        },
+        {
+          "date": "2026-06-12",
+          "category": "Biaya Konsumsi",
+          "description": "Konsumsi Pembagian Raport (33x20000)",
+          "amount": 660000
+        }
+      ],
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1782194514,
+        "nanoseconds": 651000000
+      },
+      "treasurerNotes": "",
+      "activityName": "RAB TU Minggu Ke-3",
+      "unitId": "gkA5EVbx3I0EWZ311KrW",
+      "ketuaJabatan": "Bendahara Sekolah",
+      "details": [
+        {
+          "proposedIndex": 6,
+          "amount": 500000,
+          "description": "Transport Narasumber Workshop ",
+          "date": "2026-06-15"
+        },
+        {
+          "date": "2026-06-15",
+          "amount": 59000,
+          "description": "Oleh Oleh Pengawas (Sagu Tempe, Pralon Ungu, Pisang) dan Parkir",
+          "proposedIndex": 10
+        },
+        {
+          "date": "2026-06-15",
+          "amount": 238000,
+          "description": "34 Snack box Workshop ",
+          "proposedIndex": 7
+        },
+        {
+          "proposedIndex": 8,
+          "description": "34 Nasi Box Workshop (Nila Bakar)",
+          "amount": 680000,
+          "date": "2026-06-15"
+        },
+        {
+          "date": "2026-06-15",
+          "description": "Koperasi Mentari",
+          "amount": 520000,
+          "proposedIndex": 1
+        },
+        {
+          "date": "2026-06-17",
+          "description": "33 Snack Rapat Penegas ",
+          "amount": 165000,
+          "proposedIndex": 11
+        },
+        {
+          "date": "2026-06-17",
+          "amount": 660000,
+          "proposedIndex": 12,
+          "description": "33 Nasi Box (Sate)"
+        },
+        {
+          "description": "Konsumsi Lembur Pengerjaan Raport Malam",
+          "amount": 100000,
+          "proposedIndex": 0,
+          "date": "2026-06-18"
+        },
+        {
+          "date": "2026-06-18",
+          "description": "Konsumsi Lembur Pengerjaan Raport Sore",
+          "amount": 154000,
+          "proposedIndex": 0
+        },
+        {
+          "proposedIndex": 2,
+          "description": "Top Up Web",
+          "amount": 181000,
+          "date": "2026-06-18"
+        },
+        {
+          "proposedIndex": 2,
+          "amount": 27000,
+          "description": "Pembayaran Hosting",
+          "date": "2026-06-18"
+        },
+        {
+          "date": "2026-06-18",
+          "proposedIndex": 2,
+          "description": "Fotokopi Pengumuman Libur",
+          "amount": 58500
+        },
+        {
+          "description": "Pembelian Super Pel",
+          "proposedIndex": 3,
+          "amount": 10000,
+          "date": "2026-06-19"
+        },
+        {
+          "amount": 30000,
+          "description": "Pembelian Kapur Barus",
+          "proposedIndex": 5,
+          "date": "2026-06-19"
+        },
+        {
+          "proposedIndex": 4,
+          "amount": 43500,
+          "description": "Pembelian Kresek",
+          "date": "2026-06-19"
+        },
+        {
+          "date": "2026-06-19",
+          "proposedIndex": 0,
+          "description": "Langganan Koran",
+          "amount": 85000
+        },
+        {
+          "date": "2026-06-19",
+          "proposedIndex": 13,
+          "description": "Konsumsi Pembagian Raport (Tahu Kupat)",
+          "amount": 375000
+        }
+      ],
+      "amountReceived": 4513000,
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1781232015,
+        "nanoseconds": 743000000
+      },
+      "unitName": "Tata Usaha",
+      "submissionDate": "2026-06-12",
+      "submittedBy": "C8KyGZSx3AIm4dWWIKN1"
+    },
+    {
+      "id": "UBNFL8iXZuL9LUvreuyW",
+      "treasurerNotes": "",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1781843767,
+        "nanoseconds": 604000000
+      },
+      "bendaharaJabatan": "Bendahara Kegiatan",
+      "proposedDetails": [
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "description": "Tali Asih",
+          "amount": 1000000
+        },
+        {
+          "date": "2026-05-26",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "description": "Vakasi Tim Sosialisasi",
+          "amount": 1000000
+        },
+        {
+          "description": "Konsumsi Tim Sosialisasi",
+          "amount": 1000000,
+          "date": "2026-05-26",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        },
+        {
+          "date": "2026-05-26",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "description": "Transpot Sosialisasi",
+          "amount": 1000000
+        }
+      ],
+      "totalSpent": 3720000,
+      "ketuaName": "Desfiana Giant Pratiwi S.Ap",
+      "bendaharaName": "Dhisa Agesti Duroh M. S.E",
+      "status": "archived",
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1779762845,
+        "nanoseconds": 926000000
+      },
+      "amountReceived": 4000000,
+      "submittedBy": "ucMkWqHBAFcMmkQk3ysB",
+      "unitName": "Humas",
+      "submissionDate": "2026-05-26",
+      "ketuaJabatan": "Bendahara Sekolah",
+      "details": [
+        {
+          "amount": 200000,
+          "description": "Pby ats belanja tali asih 2 orang siswa (amrina dan bening)",
+          "proposedIndex": 0,
+          "date": "2026-06-03"
+        },
+        {
+          "date": "2026-06-05",
+          "description": "Pby atas belanja vakasi pemateri tim sosialisasi ",
+          "amount": 1600000,
+          "proposedIndex": 1
+        },
+        {
+          "amount": 800000,
+          "description": "Per tim 50.000 (total 33 orang)",
+          "proposedIndex": 2,
+          "date": "2026-06-05"
+        },
+        {
+          "date": "2026-06-05",
+          "amount": 520000,
+          "proposedIndex": 3,
+          "description": "Pby atas belanja transport sosialisasi (16 sekolah)"
+        },
+        {
+          "proposedIndex": 0,
+          "description": "Pby atas belanja brosur",
+          "amount": 500000,
+          "date": "2026-06-05"
+        },
+        {
+          "description": "Pby atas belanja map dan bolpen",
+          "amount": 100000,
+          "proposedIndex": 0,
+          "date": "2026-06-04"
+        }
+      ],
+      "activityName": "Anggaran SPMB Juni Minggu 1",
+      "unitId": "1CgF8jBRFyAvV36YHpBt"
+    },
+    {
+      "id": "Wd2DomdpAfIK8ABojhk7",
+      "totalSpent": 1110000,
+      "ketuaName": "Ikhsan Nuriyanto, S,.Pd",
+      "bendaharaName": "Siti Arifah",
+      "status": "incomplete",
+      "treasurerNotes": "",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1782201958,
+        "nanoseconds": 672000000
+      },
+      "bendaharaJabatan": "Bendahara",
+      "proposedDetails": [
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "description": "Vakasi Fasilitator Workshop Pengembangan Kurikulum\t2\tOrang\tx\t1\tHari",
+          "amount": 100000
+        },
+        {
+          "description": "Vakasi narasumber Internal\t3\tOrang\tx\t1\tHari",
+          "amount": 450000,
+          "date": "2026-06-05",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        },
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-05",
+          "amount": 20000,
+          "description": "Vakasi Dirigen\t1\tOrang\tx\t1\tHari"
+        },
+        {
+          "description": "Vakasi Kultum\t1\tOrang\tx\t1\tHari",
+          "amount": 20000,
+          "date": "2026-06-05",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        },
+        {
+          "date": "2026-06-05",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "amount": 510000,
+          "description": "Vakasi kehadiran peserta workshop pengembangan kurikulum\t34\tOrang\tx\t1\tHari "
+        },
+        {
+          "date": "2026-06-05",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "description": "Vakasi Fasilitator Sinkronisasi Kurikulum\t1\tOrang\tx\t1\tHari",
+          "amount": 100000
+        }
+      ],
+      "ketuaJabatan": "Ketua Panitia",
+      "details": [
+        {
+          "employeeId": "",
+          "proposedIndex": 0,
+          "amount": 100000,
+          "description": "Vakasi Fasilitator Workshop Pengembangan Kurikulum",
+          "date": "2026-06-12",
+          "employeeName": ""
+        },
+        {
+          "date": "2026-06-12",
+          "proposedIndex": 1,
+          "amount": 450000,
+          "description": "Vakasi narasumber Internal"
+        },
+        {
+          "description": "Vakasi Dirigen",
+          "amount": 20000,
+          "proposedIndex": 2,
+          "date": "2026-06-12"
+        },
+        {
+          "date": "2026-06-12",
+          "proposedIndex": 3,
+          "description": "Vakasi Kultum",
+          "amount": 20000
+        },
+        {
+          "proposedIndex": 4,
+          "amount": 420000,
+          "description": "Vakasi kehadiran peserta workshop pengembangan kurikulum",
+          "date": "2026-06-12"
+        },
+        {
+          "date": "2026-06-12",
+          "proposedIndex": 5,
+          "description": "Vakasi Fasilitator Sinkronisasi Kurikulum",
+          "amount": 100000
+        }
+      ],
+      "activityName": "KEGIATAN  PENYUSUNAN KURIKULUM TAHUN AJARAN 2026/2027 ",
+      "unitId": "fojKxfuTP3qd8j8GDrss",
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1780622976,
+        "nanoseconds": 758000000
+      },
+      "amountReceived": 1200000,
+      "submittedBy": "RvLYu5LdnoV9arvCwAD2",
+      "submissionDate": "2026-06-05",
+      "unitName": "Kurikulum"
+    },
+    {
+      "id": "aM4rsV8fMVQeafqbgrUC",
+      "treasurerNotes": "",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1782978901,
+        "nanoseconds": 553000000
+      },
+      "bendaharaJabatan": "Bendahara",
+      "proposedDetails": [
+        {
+          "date": "2026-06-19",
+          "category": "Biaya Kegiatan Sekolah Lainnya",
+          "description": "Vakasi Penandatanganan Sertifikat UKK TAV (6 Siswa x 1 Kegiatan x Rp 30.000)",
+          "amount": 180000
+        },
+        {
+          "category": "Biaya Kegiatan Sekolah Lainnya",
+          "date": "2026-06-19",
+          "amount": 390000,
+          "description": "Vakasi Penandatanganan Sertifikat UKK AK (13 Siswa x 1 Kegiatan x Rp 30.000)"
+        },
+        {
+          "description": "Vakasi Penandatanganan Sertifikat UKK DPB (6 Siswa x 1 Kegiatan x Rp 30.000)",
+          "amount": 180000,
+          "category": "Biaya Kegiatan Sekolah Lainnya",
+          "date": "2026-06-19"
+        },
+        {
+          "description": "Vakasi Penandatanganan Sertifikat UKK TSM (36 Siswa x 1 Kegiatan x Rp 30.000)",
+          "amount": 1080000,
+          "date": "2026-06-19",
+          "category": "Biaya Kegiatan Sekolah Lainnya"
+        },
+        {
+          "description": "Akomodasi Penandatanganan Sertifikat UKK TAV (2 Orang x 1 Hari x Rp 150.000)",
+          "amount": 300000,
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-19"
+        },
+        {
+          "amount": 60000,
+          "description": "Akomodasi Penandatanganan Sertifikat UKK AK (2 Orang x 1 Hari x Rp 30.000)",
+          "date": "2026-06-19",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        },
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-19",
+          "amount": 20000,
+          "description": "Akomodasi Penandatanganan Sertifikat UKK DPB (2 Orang x 1 Hari x Rp 10.000)"
+        },
+        {
+          "description": "Akomodasi Penandatanganan Sertifikat UKK TSM (2 Orang x 1 Hari x Rp 30.000)",
+          "amount": 60000,
+          "date": "2026-06-19",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        }
+      ],
+      "totalSpent": 1905000,
+      "ketuaName": "Cahyo Permadi, S.Pd",
+      "bendaharaName": "Destyan Srie Ravinda, S.Ak",
+      "status": "completed",
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1781847045,
+        "nanoseconds": 120000000
+      },
+      "amountReceived": 2270000,
+      "submittedBy": "RvLYu5LdnoV9arvCwAD2",
+      "unitName": "Kurikulum",
+      "submissionDate": "2026-06-19",
+      "ketuaJabatan": "Ketua Panitia",
+      "details": [
+        {
+          "date": "2026-06-22",
+          "description": "Transfer Vakasi Penandatanganan Sertifikat UKK TAV ( 6 Siswa x 1 Kegiatan x Rp 30.000) dan Biaya Admin Rp 5.000",
+          "proposedIndex": 0,
+          "amount": 185000
+        },
+        {
+          "amount": 390000,
+          "description": "Vakasi Penandatanganan Sertifikat AK ( 13 Siswa x 1 Kegiatan x Rp 30.000)",
+          "proposedIndex": 1,
+          "date": "2026-06-22"
+        },
+        {
+          "date": "2026-06-22",
+          "proposedIndex": 2,
+          "description": "Vakasi Penandatanganan Sertifikat DPB (6 Siswa x 1 Kegiatan x Rp 30.000)",
+          "amount": 180000
+        },
+        {
+          "amount": 1080000,
+          "description": "Vakasi Penandatanganan Sertifikat TSM ( 36 Siswa x 1 Kegiatan x Rp 30.000)",
+          "proposedIndex": 3,
+          "date": "2026-06-22"
+        },
+        {
+          "employeeName": "Ridwan, S.Pd",
+          "date": "2026-06-22",
+          "proposedIndex": 4,
+          "amount": 0,
+          "description": "Akomodasi Penandatanganan Sertifikat UKK TAV dilaksanakan pada saat UKK ",
+          "employeeId": "YP7KEzoJv4h0jRMoDVKA"
+        },
+        {
+          "date": "2025-06-22",
+          "employeeName": "Sri Astuti, A.Md",
+          "employeeId": "cy6pd5gcLlNpoeTxEJ7A",
+          "amount": 30000,
+          "description": "Akomodasi Penandatanganan Sertifikat UKK AK dimintakan oleh 1 Orang yaitu Kajur",
+          "proposedIndex": 5
+        },
+        {
+          "employeeName": "Eni Karimah, S.Pd",
+          "date": "2026-06-22",
+          "amount": 10000,
+          "description": "Akomodasi Penandatanganan Sertifikat UKK DPB dimintakan oleh 1 Orang yaitu Kajur",
+          "proposedIndex": 6,
+          "employeeId": "v0Usn1M2w1NIlvttEgHU"
+        },
+        {
+          "date": "2026-06-22",
+          "employeeName": "Herman Kurniawan, A.Md",
+          "employeeId": "RLh63BL6tiqBC9QoxVPJ",
+          "amount": 30000,
+          "description": "Akomodasi Penandatanganan Sertifikat UKK TSM dimintakan oleh 1 Orang yaitu Kajur",
+          "proposedIndex": 7
+        }
+      ],
+      "activityName": "RAB UKK",
+      "unitId": "fojKxfuTP3qd8j8GDrss"
+    },
+    {
+      "id": "cHElQuJq2CfNLi6qu61o",
+      "treasurerNotes": "",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1781843773,
+        "nanoseconds": 712000000
+      },
+      "proposedDetails": [
+        {
+          "category": "Biaya Kegiatan Kesiswaan",
+          "description": "Vakasi Pelatih Tapak Suci",
+          "amount": 225000
+        },
+        {
+          "category": "Biaya Kegiatan Kesiswaan",
+          "date": "2026-06-02",
+          "amount": 90000,
+          "description": "Vakasi Pendamping Ekstra"
+        },
+        {
+          "category": "Biaya Kegiatan Kesiswaan",
+          "date": "2026-06-02",
+          "description": "Snack Pelatih Tapak Suci",
+          "amount": 20000
+        }
+      ],
+      "bendaharaJabatan": "Waka. Kesiswaan",
+      "totalSpent": 315000,
+      "ketuaName": "Ikhsan Nuriyanto, S.Pd",
+      "bendaharaName": "Mujib Riyadi, S.Pd",
+      "status": "archived",
+      "submittedBy": "JhqeFM6CMYnUeHaKKj0v",
+      "unitName": "Kesiswaan",
+      "submissionDate": "2026-06-02",
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1780364694,
+        "nanoseconds": 524000000
+      },
+      "amountReceived": 335000,
+      "details": [
+        {
+          "proposedIndex": 0,
+          "description": "Pby atas belanja Vakasi Pelatih Tapak Suci",
+          "amount": 225000,
+          "date": "2026-06-09"
+        },
+        {
+          "date": "2026-06-09",
+          "proposedIndex": 1,
+          "description": "Pby atas belanja Vakasi Pendamping Tapak Suci",
+          "amount": 90000
+        }
+      ],
+      "ketuaJabatan": "Kepala Sekolah",
+      "unitId": "YGqrCyhwf6BCmHUkzdOo",
+      "activityName": "Vakasi Pendamping dan Pelatih Ekstrakurikuler Semester Genap"
+    },
+    {
+      "id": "dquWDe5qqgh5J6KYdoV4",
+      "details": [
+        {
+          "employeeName": "Riris Ekasari, S.Kom",
+          "date": "2026-06-22",
+          "description": "Konseptor Ijazah (1 Orang x 61 Lembar x Rp 10.000)",
+          "proposedIndex": 0,
+          "amount": 610000,
+          "employeeId": "PYoL0mvNz1ohaH0uuLn2"
+        },
+        {
+          "date": "2026-06-22",
+          "employeeName": "Cahyo Permadi, S.Pd",
+          "employeeId": "2bfESK5d1wN3ADbuDeCF",
+          "amount": 610000,
+          "proposedIndex": 1,
+          "description": "Konseptor SKL, Transkrip, Sahadah ( 1  Orang x 61 Lembar x Rp 10.000)"
+        },
+        {
+          "amount": 305000,
+          "description": "Korektor Ijazah (1 Orang x 61 Lembar x Rp 5.000)",
+          "proposedIndex": 2,
+          "employeeId": "PYoL0mvNz1ohaH0uuLn2",
+          "employeeName": "Riris Ekasari, S.Kom",
+          "date": "2026-06-22"
+        },
+        {
+          "employeeName": "Destyan Srie Ravinda, S.Ak",
+          "date": "2026-06-22",
+          "proposedIndex": 2,
+          "amount": 305000,
+          "description": "Korektor Ijazah ( 1 Orang x 61 Lembar x Rp 5.000)",
+          "employeeId": "ayulyf1YHQOeEBuLk52l"
+        },
+        {
+          "proposedIndex": 3,
+          "amount": 61000,
+          "description": "Validator Ijazah dan Transkrip ( 1 Orang x 61 Lembar x Rp 1.000)",
+          "employeeId": "XNgX0asB7SsCMRuFyDmD",
+          "employeeName": "MIftahul Rohmah, S.Pd",
+          "date": "2026-06-22"
+        },
+        {
+          "employeeId": "uvRdCOW8PNv6QWSliK0f",
+          "proposedIndex": 4,
+          "amount": 122000,
+          "description": "Tempel Foto dan Stempel ( 1 Orang x 61 Lembar x Rp 2.000)",
+          "date": "2026-06-22",
+          "employeeName": "Khulia Sofa Mukarromah"
+        },
+        {
+          "date": "2026-06-22",
+          "employeeName": "Ikhsan Nuriyanto, S.Pd",
+          "employeeId": "biYGZYWAQDEUH7BRHwJt",
+          "amount": 610000,
+          "proposedIndex": 5,
+          "description": "Penandatanganan Ijazah ( 1 Orang x 61 Lembar x Rp 10.000)"
+        },
+        {
+          "description": "Penandatanganan SKL ( 1 Orang x 61 Lembar x Rp 5.000)",
+          "proposedIndex": 6,
+          "amount": 305000,
+          "employeeId": "biYGZYWAQDEUH7BRHwJt",
+          "employeeName": "Ikhsan Nuriyanto, S.Pd",
+          "date": "2026-06-22"
+        },
+        {
+          "employeeId": "biYGZYWAQDEUH7BRHwJt",
+          "description": "Penandatanganan Transkrip ( 1 Orang x 61 Lembar x Rp 5.000)",
+          "amount": 305000,
+          "proposedIndex": 7,
+          "date": "2026-06-22",
+          "employeeName": "Ikhsan Nuriyanto, S.Pd"
+        },
+        {
+          "date": "2026-06-22",
+          "employeeName": "Ikhsan Nuriyanto, S.Pd",
+          "employeeId": "biYGZYWAQDEUH7BRHwJt",
+          "description": "Penandatanganan Sertifikat Sahadah ( 1 Orang x 61 Lembar x Rp 3.000)",
+          "proposedIndex": 8,
+          "amount": 183000
+        }
+      ],
+      "ketuaJabatan": "Ketua Panitia",
+      "unitId": "fojKxfuTP3qd8j8GDrss",
+      "activityName": "RAB PENULISAN IJAZAH",
+      "unitName": "Kurikulum",
+      "submissionDate": "2026-06-19",
+      "submittedBy": "Fpqs6V73tWdvJwWwf7kb",
+      "amountReceived": 3416000,
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1781840554,
+        "nanoseconds": 687000000
+      },
+      "ketuaName": "Cahyo Permadi, S.Pd",
+      "totalSpent": 3416000,
+      "status": "completed",
+      "bendaharaName": "Destyan Srie Ravinda, S.Ak",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1782539432,
+        "nanoseconds": 67000000
+      },
+      "treasurerNotes": "",
+      "proposedDetails": [
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "description": "Konseptor Ijazah (1 Orang x 61 Lembar x Rp 10.000 )",
+          "amount": 610000
+        },
+        {
+          "amount": 610000,
+          "description": "Konseptor SKL,Transkrip, Sahadah (1 Orang x 61 Lembar x Rp 10.000)",
+          "date": "2026-06-19",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        },
+        {
+          "description": "Korektor Ijazah dan Transkrip ( 2 Orang x 61 Lembar x Rp 5.000)",
+          "amount": 610000,
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-19"
+        },
+        {
+          "date": "2026-06-19",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "amount": 61000,
+          "description": "Validator Ijazah dan Transkrip (1 Orang x 61 Lembar x Rp 1.000)"
+        },
+        {
+          "description": "Tempel Foto dan Stempel ( 1 Orang x 61 Lembar x Rp 2.000)",
+          "amount": 122000,
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-19"
+        },
+        {
+          "date": "2026-06-19",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "description": "Penandatanganan Ijazah ( 1 Orang x 61 Lembar  x Rp 10.000)",
+          "amount": 610000
+        },
+        {
+          "date": "2026-06-19",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "description": "Penandatanganan SKL (1  Orang x 61 Lembar x Rp 5.000)",
+          "amount": 305000
+        },
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-19",
+          "amount": 305000,
+          "description": "Penandatanganan Transkrip ( 1 Orang x 61 Lembar x Rp 5.000)"
+        },
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-19",
+          "amount": 183000,
+          "description": "Penandatanganan Sertifikat Sahadah (1 Orang x 61 Lembar x Rp 3.000)"
+        }
+      ],
+      "bendaharaJabatan": "Bendahara"
+    },
+    {
+      "id": "hUOSExJmlEAySLAx7LHy",
+      "activityName": "Pengajuan Buku Ajar Kejuruan dan Koleksi",
+      "unitId": "Faf4QjC2ulJpjRON4Znj",
+      "ketuaJabatan": "Bendahara Sekolah",
+      "details": [
+        {
+          "amount": 1215000,
+          "proposedIndex": 0,
+          "description": "pby buku pemrograman dan aplikasi mikrometer kelas Xi",
+          "date": "2026-06-18"
+        },
+        {
+          "date": "2026-06-18",
+          "amount": 1155000,
+          "description": "pby buku penerapan rangkaian elekrtonika kelas XI",
+          "proposedIndex": 1
+        },
+        {
+          "date": "2026-06-18",
+          "description": "pby perencanaan dan instalasi Sistem audio video kelas XI",
+          "proposedIndex": 2,
+          "amount": 630000
+        },
+        {
+          "amount": 730000,
+          "description": "pby penerapan sistem radio dan televisi Kelas XI",
+          "proposedIndex": 3,
+          "date": "2026-06-18"
+        },
+        {
+          "description": "pby perawatan dan perbaikan eketronika audio video kelas xi",
+          "proposedIndex": 4,
+          "amount": 1170000,
+          "date": "2026-06-18"
+        },
+        {
+          "description": "pby buku tereliye daun yang jatuh tak pernah membenci angin",
+          "proposedIndex": 5,
+          "amount": 99000,
+          "date": "2026-06-18"
+        },
+        {
+          "amount": 105000,
+          "proposedIndex": 6,
+          "description": "pby buku tereliye  sunset bersama rosie",
+          "date": "2026-06-18"
+        },
+        {
+          "proposedIndex": 7,
+          "amount": 109000,
+          "description": "pby buku terelite kau, aku & angpao merah",
+          "date": "2026-06-18"
+        }
+      ],
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1781235514,
+        "nanoseconds": 30000000
+      },
+      "amountReceived": 6833000,
+      "submittedBy": "Ar9jVM1dLN1FwUBnvmFn",
+      "submissionDate": "2026-06-12",
+      "unitName": "Sarpras",
+      "bendaharaName": "Arif Hermawan, S.T",
+      "status": "archived",
+      "totalSpent": 5213000,
+      "ketuaName": "Desfiana Giant Pratiwi, S.Ap",
+      "bendaharaJabatan": "Waka Sarpras",
+      "proposedDetails": [
+        {
+          "category": "Pembelian Aset Tetap",
+          "amount": 1300000,
+          "description": "Pemrograman dan Aplikasi Mikrometer Kelas Xi"
+        },
+        {
+          "category": "Pembelian Aset Tetap",
+          "date": "2026-06-12",
+          "description": "Penerapan Rangkaian Elekrtonika  Kelas XI",
+          "amount": 1300000
+        },
+        {
+          "description": "Perencanaan dan Instalasi Sistem Audio Video Kelas XI",
+          "amount": 1300000,
+          "category": "Pembelian Aset Tetap",
+          "date": "2026-06-12"
+        },
+        {
+          "description": "Penerapan Sistem radio dan Televisi Kelas XI",
+          "amount": 1300000,
+          "date": "2026-06-12",
+          "category": "Pembelian Aset Tetap"
+        },
+        {
+          "category": "Pembelian Aset Tetap",
+          "date": "2026-06-12",
+          "amount": 1300000,
+          "description": "Perawatan dan Perbankan Peralatan Elektronika Audio Video Kelas XI"
+        },
+        {
+          "category": "Pembelian Aset Tetap",
+          "date": "2026-06-12",
+          "amount": 106000,
+          "description": "Tereliye harga sebuah percaya ISBN 9786239607456"
+        },
+        {
+          "description": "\"Tereliye rindu ISBN 9786028997904 \"",
+          "amount": 111000,
+          "category": "Pembelian Aset Tetap",
+          "date": "2026-06-12"
+        },
+        {
+          "amount": 116000,
+          "description": "Tereliye about love ",
+          "category": "Pembelian Aset Tetap",
+          "date": "2026-06-12"
+        }
+      ],
+      "treasurerNotes": "",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1782194545,
+        "nanoseconds": 938000000
+      }
+    },
+    {
+      "id": "i2874GT1fEHN7rR8LQ16",
+      "activityName": "PENGAJUAN ANGGRAN psat TAHAP 2",
+      "unitId": "fojKxfuTP3qd8j8GDrss",
+      "ketuaJabatan": "KETUA PANITIA",
+      "details": [
+        {
+          "employeeName": "Ikhsan Nuriyanto, S.Pd",
+          "date": "2026-06-19",
+          "proposedIndex": 0,
+          "amount": 275000,
+          "description": "Penanggung Jawab 1 orang x 1 kegiatan",
+          "employeeId": "biYGZYWAQDEUH7BRHwJt"
+        },
+        {
+          "date": "2026-06-19",
+          "description": "Koordinator 1 orang x 1 kegiatan",
+          "amount": 225000,
+          "proposedIndex": 1
+        },
+        {
+          "description": "Ketua Panitia 1 orang x 1 kegiatan",
+          "amount": 200000,
+          "proposedIndex": 2,
+          "date": "2026-06-19"
+        },
+        {
+          "date": "2026-06-19",
+          "amount": 200000,
+          "description": "Bendahara 1 orang x 1 kegiatan",
+          "proposedIndex": 3
+        },
+        {
+          "date": "2026-06-19",
+          "description": "Sekretaris 1 orang x 1 kegiatan",
+          "proposedIndex": 4,
+          "amount": 200000
+        },
+        {
+          "description": "Seksi Perlengkapan 2 orang x 1 kegiatan",
+          "proposedIndex": 5,
+          "amount": 300000,
+          "date": "2026-06-19"
+        },
+        {
+          "description": "Vakasi proktor 1 ISMUBA 1 orang x 1 kegiata",
+          "proposedIndex": 6,
+          "amount": 150000,
+          "date": "2026-06-19"
+        },
+        {
+          "date": "2026-06-19",
+          "proposedIndex": 7,
+          "amount": 100000,
+          "description": "Vakasi proktor 2 ISMUBA 1 orang x 1 kegiatan"
+        },
+        {
+          "description": "Proktor 1 (Soal kelas 10) 1 orang x 24 Paket Soal  Pagu: Rp 360.000  Sisa",
+          "proposedIndex": 8,
+          "amount": 360000,
+          "date": "2026-06-19"
+        },
+        {
+          "date": "2026-06-19",
+          "amount": 375000,
+          "description": "Proktor 2 (Soal kelas 11) 1 orang x 25 Paket Soal",
+          "proposedIndex": 9
+        },
+        {
+          "amount": 300000,
+          "proposedIndex": 10,
+          "description": "Teknisi 2 orang x 1 kegiatan",
+          "date": "2026-06-19"
+        },
+        {
+          "date": "2026-06-19",
+          "amount": 877500,
+          "description": "Vakasi penyusunan kisi-kisi soal Kelas 10 24 paket soal x 1 kegiatan",
+          "proposedIndex": 11
+        },
+        {
+          "date": "2026-06-19",
+          "description": "Vakasi penyusunan kisi-kisi soal Kelas 11 25 paket soal x 1 kegiatan",
+          "proposedIndex": 12,
+          "amount": 682500
+        },
+        {
+          "description": "Vakasi penyusunan soal proktor utama Kelas 10 24 paket soal x 1 kegiatan",
+          "amount": 1150000,
+          "proposedIndex": 13,
+          "date": "2026-06-19"
+        },
+        {
+          "date": "2026-06-19",
+          "description": "Vakasi penyusunan soal proktor utama Kelas 11 25 paket soal x 1 kegiatan",
+          "proposedIndex": 14,
+          "amount": 1110000
+        },
+        {
+          "date": "2026-06-19",
+          "amount": 1110000,
+          "proposedIndex": 15,
+          "description": "Vakasi penyusunan soal proktor susulan Kelas 10 24 paket soal x 1 kegiatan"
+        },
+        {
+          "proposedIndex": 16,
+          "description": "Vakasi penyusunan soal proktor susulan Kelas 11 25 paket soal x 1 kegiatan",
+          "amount": 1095000,
+          "date": "2026-06-19"
+        },
+        {
+          "proposedIndex": 17,
+          "amount": 140000,
+          "description": "Vakasi Kehadiran PSAT ISMUBA 7 orang x 2 hari",
+          "date": "2026-06-19"
+        },
+        {
+          "date": "2026-06-19",
+          "amount": 370000,
+          "description": "Vakasi kehadiran PSAT utama 7 orang x 6 hari",
+          "proposedIndex": 18
+        },
+        {
+          "proposedIndex": 19,
+          "description": "Vakasi kehadiran PSAT susulan 7 orang x 2 hari",
+          "amount": 120000,
+          "date": "2026-06-19"
+        },
+        {
+          "proposedIndex": 20,
+          "description": "Vakasi entry hasil PSAT 196 siswa x 1 kegiatan",
+          "amount": 975000,
+          "date": "2026-06-19"
+        },
+        {
+          "description": "Vakasi pencetakan hasil Vakasi pencetakan hasil PSAT 196 siswa x 1 kegiatanPSAT 196 siswa x 1 kegiatan",
+          "amount": 195000,
+          "proposedIndex": 21,
+          "date": "2026-06-19"
+        },
+        {
+          "date": "2026-06-19",
+          "proposedIndex": 22,
+          "description": "Vakasi pelaporan hasil PSAT 196 siswa x 1 kegiatan",
+          "amount": 195000
+        },
+        {
+          "amount": 189000,
+          "proposedIndex": 23,
+          "description": "Vakasi pengawas ISMUBA Utama 3 pengawasan x 9 ruang",
+          "date": "2026-06-19"
+        },
+        {
+          "date": "2026-06-19",
+          "amount": 0,
+          "description": "Vakasi pengawas ISMUBA Susulan 4 pengawasan x 2 hari",
+          "proposedIndex": 24
+        },
+        {
+          "date": "2026-06-19",
+          "proposedIndex": 25,
+          "amount": 756000,
+          "description": "Vakasi pengawas ruang PSAT utama 12 pengawasan x 9 ruang"
+        },
+        {
+          "amount": 21000,
+          "description": "akasi pengawas ruang PSAT susulan 4 pengawasan x 2 hari",
+          "proposedIndex": 26,
+          "date": "2026-06-19"
+        },
+        {
+          "description": "Vakasi Olah Nilai Kelas 10 75 mapel x 1 pengampu",
+          "amount": 750000,
+          "proposedIndex": 27,
+          "date": "2026-06-19"
+        },
+        {
+          "date": "2026-06-19",
+          "amount": 890000,
+          "description": "Vakasi Olah Nilai Kelas 11 89 mapel x 1 pengampu",
+          "proposedIndex": 28
+        },
+        {
+          "date": "2026-06-19",
+          "description": "Konsumsi persiapan penataan ruang ujian 7 orang x 1 kegiatan",
+          "amount": 90000,
+          "proposedIndex": 29
+        },
+        {
+          "amount": 0,
+          "description": "Konsumsi olah nilai rapor 11 orang x 1 kegiatan",
+          "proposedIndex": 31,
+          "date": "2026-06-19"
+        },
+        {
+          "date": "2026-06-19",
+          "amount": 71400,
+          "description": "Cetak berita acara, daftar hadir, tata tertib, pengawas dan jadwal",
+          "proposedIndex": 31
+        }
+      ],
+      "amountReceived": 14500500,
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1780889695,
+        "nanoseconds": 314000000
+      },
+      "unitName": "Kurikulum",
+      "submissionDate": "2026-06-08",
+      "submittedBy": "RvLYu5LdnoV9arvCwAD2",
+      "bendaharaName": "SITI ARIFAH",
+      "status": "incomplete",
+      "ketuaName": "CAHYO PERMADI",
+      "totalSpent": 13472400,
+      "bendaharaJabatan": "BENDAHARA",
+      "proposedDetails": [
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "amount": 275000,
+          "description": "Penanggung Jawab\t1\torang \tx\t1 \tkegiatan"
+        },
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-08",
+          "description": "Koordinator\t1\torang \tx\t1 \tkegiatan",
+          "amount": 225000
+        },
+        {
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "description": "Ketua Panitia\t1\torang \tx\t1 \tkegiatan",
+          "amount": 200000
+        },
+        {
+          "amount": 200000,
+          "description": "Bendahara\t1\torang \tx\t1 \tkegiatan",
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        },
+        {
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "description": "Sekretaris\t1\torang \tx\t1 \tkegiatan",
+          "amount": 200000
+        },
+        {
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "description": "Seksi Perlengkapan\t2\torang \tx\t1 \tkegiatan",
+          "amount": 300000
+        },
+        {
+          "description": "Vakasi proktor 1 ISMUBA\t1\torang \tx\t1\tkegiatan",
+          "amount": 150000,
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-08"
+        },
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-08",
+          "description": "Vakasi proktor 2 ISMUBA\t1\torang \tx\t1\tkegiatan",
+          "amount": 100000
+        },
+        {
+          "amount": 360000,
+          "description": "Proktor 1 (Soal kelas 10)\t1\torang\tx\t24 \tPaket Soal",
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        },
+        {
+          "description": "Proktor 2 (Soal kelas 11) \t1\torang\tx\t25 \tPaket Soal",
+          "amount": 375000,
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-08"
+        },
+        {
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "amount": 300000,
+          "description": "Teknisi\t2\torang \tx\t1 \tkegiatan"
+        },
+        {
+          "description": "Vakasi penyusunan kisi-kisi soal Kelas 10\t24\tpaket soal\tx\t1\tkegiatan",
+          "amount": 900000,
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-08"
+        },
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-08",
+          "description": "Vakasi penyusunan kisi-kisi soal Kelas 11\t25\tpaket soal\tx\t1\tkegiatan",
+          "amount": 937500
+        },
+        {
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "description": "Vakasi penyusunan soal proktor utama Kelas 10\t24\tpaket soal\tx\t1\tkegiatan",
+          "amount": 1200000
+        },
+        {
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "amount": 1250000,
+          "description": "Vakasi penyusunan soal proktor utama Kelas 11\t25\tpaket soal\tx\t1\tkegiatan"
+        },
+        {
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "amount": 1200000,
+          "description": "Vakasi penyusunan soal proktor susulan Kelas 10\t24\tpaket soal\tx\t1\tkegiatan"
+        },
+        {
+          "description": "Vakasi penyusunan soal proktor susulan Kelas 11\t25\tpaket soal\tx\t1\tkegiatan",
+          "amount": 1250000,
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        },
+        {
+          "amount": 140000,
+          "description": "Vakasi Kehadiran PSAT ISMUBA\t7\torang \tx\t2 \thari",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-08"
+        },
+        {
+          "description": "Vakasi kehadiran PSAT utama\t7\torang \tx\t6 \thari",
+          "amount": 420000,
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        },
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-08",
+          "amount": 140000,
+          "description": "Vakasi kehadiran PSAT susulan\t7\torang \tx\t2 \thari"
+        },
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-08",
+          "amount": 980000,
+          "description": "Vakasi entry hasil PSAT\t196\tsiswa\tx\t1\tkegiatan"
+        },
+        {
+          "description": "Vakasi pencetakan hasil PSAT\t196\tsiswa\tx\t1\tkegiatan",
+          "amount": 196000,
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-08"
+        },
+        {
+          "description": "Vakasi pelaporan hasil PSAT\t196\tsiswa\tx\t1\tkegiatan",
+          "amount": 196000,
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        },
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-08",
+          "description": "Vakasi pengawas ISMUBA Utama\t3\tpengawasan\tx\t9\truang",
+          "amount": 189000
+        },
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-08",
+          "description": "Vakasi pengawas ISMUBA Susulan\t4\tpengawasan\tx\t2\thari",
+          "amount": 56000
+        },
+        {
+          "amount": 756000,
+          "description": "Vakasi pengawas ruang PSAT utama\t12\tpengawasan\tx\t9\truang",
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        },
+        {
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "date": "2026-06-08",
+          "description": "Vakasi pengawas ruang PSAT susulan\t4\tpengawasan\tx\t2\thari",
+          "amount": 56000
+        },
+        {
+          "description": "Vakasi Olah Nilai Kelas 10\t75\tmapel\tx\t1\tpengampu",
+          "amount": 750000,
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        },
+        {
+          "date": "2026-06-08",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)",
+          "description": "Vakasi Olah Nilai Kelas 11\t\t89 mapel\tx\t1\tpengampu",
+          "amount": 890000
+        },
+        {
+          "category": "Biaya Konsumsi",
+          "date": "2026-06-08",
+          "amount": 70000,
+          "description": "Konsumsi persiapan penataan ruang ujian\t7\torang \tx\t1\tkegiatan"
+        },
+        {
+          "date": "2026-06-08",
+          "category": "Biaya Konsumsi",
+          "description": "Konsumsi olah nilai rapor\t11\torang\tx\t1\tkegiatan",
+          "amount": 110000
+        },
+        {
+          "category": "Biaya ATK & Percetakan",
+          "date": "2026-06-08",
+          "amount": 129000,
+          "description": "Cetak berita acara, daftar hadir, tata tertib, pengawas dan jadwal"
+        }
+      ],
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1782201916,
+        "nanoseconds": 494000000
+      },
+      "treasurerNotes": ""
+    },
+    {
+      "id": "n5JKlXtpkyyG6KyECITg",
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1780632763,
+        "nanoseconds": 275000000
+      },
+      "amountReceived": 834000,
+      "submittedBy": "JhqeFM6CMYnUeHaKKj0v",
+      "submissionDate": "2026-06-05",
+      "unitName": "Kesiswaan",
+      "ketuaJabatan": "Kepala Sekolah",
+      "details": [
+        {
+          "amount": 24000,
+          "description": "Tisu Jolly Kotak",
+          "proposedIndex": 9,
+          "date": "2026-06-09"
+        },
+        {
+          "date": "2026-06-09",
+          "amount": 15000,
+          "proposedIndex": 6,
+          "description": "Es Batu"
+        },
+        {
+          "date": "2026-06-09",
+          "proposedIndex": 9,
+          "amount": 79000,
+          "description": "Jam Dinding, Solasi, Kertas Coklat"
+        },
+        {
+          "date": "2026-06-09",
+          "proposedIndex": 1,
+          "description": "Melon",
+          "amount": 41000
+        },
+        {
+          "date": "2026-06-10",
+          "amount": 25000,
+          "description": "Pear Century",
+          "proposedIndex": 2
+        },
+        {
+          "description": "Semangka non Biji",
+          "amount": 85000,
+          "proposedIndex": 0,
+          "date": "2026-06-11"
+        },
+        {
+          "description": "Kertas Linen A4, Nota KI",
+          "amount": 40000,
+          "proposedIndex": 9,
+          "date": "2026-06-12"
+        },
+        {
+          "description": "Kue Lapis, Risol, Arem-arem, Brownies, Apem Coklat, Kue Putu Ayu",
+          "proposedIndex": 10,
+          "amount": 20000,
+          "date": "2026-06-12"
+        },
+        {
+          "amount": 30000,
+          "proposedIndex": 13,
+          "description": "Pertalite",
+          "date": "2026-06-12"
+        },
+        {
+          "description": "Le Minerale",
+          "proposedIndex": 11,
+          "amount": 6000,
+          "date": "2026-06-12"
+        },
+        {
+          "date": "2026-06-12",
+          "proposedIndex": 9,
+          "amount": 22000,
+          "description": "Cup Plastik "
+        },
+        {
+          "description": "Susu Pouch",
+          "amount": 34000,
+          "proposedIndex": 5,
+          "date": "2026-06-12"
+        },
+        {
+          "description": "Marjan",
+          "amount": 22000,
+          "proposedIndex": 8,
+          "date": "2026-06-12"
+        },
+        {
+          "amount": 18500,
+          "proposedIndex": 4,
+          "description": "Gula",
+          "date": "2026-06-12"
+        },
+        {
+          "proposedIndex": 3,
+          "amount": 22000,
+          "description": "Nutrijel",
+          "date": "2026-06-12"
+        },
+        {
+          "date": "2026-06-12",
+          "description": "Juara II Free Fire Turnamen",
+          "proposedIndex": 14,
+          "amount": 25000
+        },
+        {
+          "date": "2026-06-12",
+          "description": "Juara I Free Fire Turnamen",
+          "proposedIndex": 14,
+          "amount": 75000
+        },
+        {
+          "proposedIndex": 14,
+          "description": "Juara Kontes Motor Kategori Motor Bebek",
+          "amount": 150000,
+          "date": "2026-06-12"
+        },
+        {
+          "description": "Juara Kontes Motor Kategori Matic",
+          "proposedIndex": 14,
+          "amount": 150000,
+          "date": "2026-06-12"
+        },
+        {
+          "amount": 150000,
+          "description": "Juara Kontes Motor Kategori Sport",
+          "proposedIndex": 14,
+          "date": "2026-06-12"
+        },
+        {
+          "amount": 100000,
+          "description": "Vakasi Juri",
+          "proposedIndex": 12,
+          "date": "2026-06-12"
+        }
+      ],
+      "activityName": "(IPM) -- CLASSMEET Sem. Genap 2025/2026",
+      "unitId": "YGqrCyhwf6BCmHUkzdOo",
+      "treasurerNotes": "",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1782194521,
+        "nanoseconds": 449000000
+      },
+      "bendaharaJabatan": "Waka Kesiswaan",
+      "proposedDetails": [
+        {
+          "category": "Biaya Kegiatan Kesiswaan",
+          "amount": 25000,
+          "description": "Semangka"
+        },
+        {
+          "amount": 40000,
+          "description": "Melon",
+          "date": "2026-06-05",
+          "category": "Biaya Kegiatan Kesiswaan"
+        },
+        {
+          "category": "Biaya Kegiatan Kesiswaan",
+          "date": "2026-06-05",
+          "description": "Pir",
+          "amount": 30000
+        },
+        {
+          "amount": 23000,
+          "description": "NutriJelly",
+          "category": "Biaya Kegiatan Kesiswaan",
+          "date": "2026-06-05"
+        },
+        {
+          "category": "Biaya Kegiatan Kesiswaan",
+          "date": "2026-06-05",
+          "description": "Gula",
+          "amount": 20000
+        },
+        {
+          "amount": 34000,
+          "description": "Susu Kental Manis",
+          "date": "2026-06-05",
+          "category": "Biaya Kegiatan Kesiswaan"
+        },
+        {
+          "amount": 20000,
+          "description": "Es Batu",
+          "date": "2026-06-05",
+          "category": "Biaya Kegiatan Kesiswaan"
+        },
+        {
+          "amount": 10000,
+          "description": "Galon",
+          "date": "2026-06-05",
+          "category": "Biaya Kegiatan Kesiswaan"
+        },
+        {
+          "date": "2026-06-05",
+          "category": "Biaya Kegiatan Kesiswaan",
+          "amount": 40000,
+          "description": "Sirup"
+        },
+        {
+          "date": "2026-06-05",
+          "category": "Biaya Kegiatan Kesiswaan",
+          "amount": 36000,
+          "description": "Cup Plastik"
+        },
+        {
+          "description": "Snack Tamu Undangan",
+          "amount": 20000,
+          "category": "Biaya Kegiatan Kesiswaan",
+          "date": "2026-06-05"
+        },
+        {
+          "date": "2026-06-05",
+          "category": "Biaya Kegiatan Kesiswaan",
+          "description": "Le Minerale",
+          "amount": 6000
+        },
+        {
+          "description": "Vakasi Juri ",
+          "amount": 200000,
+          "category": "Biaya Kegiatan Kesiswaan",
+          "date": "2026-06-05"
+        },
+        {
+          "description": "Pertalite",
+          "amount": 30000,
+          "category": "Biaya Kegiatan Kesiswaan",
+          "date": "2026-06-05"
+        },
+        {
+          "category": "Biaya Kegiatan Kesiswaan",
+          "date": "2026-06-05",
+          "amount": 300000,
+          "description": "Hadiah Lomba"
+        }
+      ],
+      "totalSpent": 1133500,
+      "ketuaName": "Ikhsan Nuriyanto, S.Pd",
+      "bendaharaName": "Mujib Riyadi, S.Pd",
+      "status": "archived"
+    },
+    {
+      "id": "rdhvBw6doAuIMO0Ci4rA",
+      "bendaharaJabatan": "Bendahara Kegiatan",
+      "proposedDetails": [
+        {
+          "amount": 1500000,
+          "description": "Tali Asih",
+          "category": "Biaya Pegawai (Gaji, Tunjangan, Vakasi)"
+        }
+      ],
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1781843945,
+        "nanoseconds": 22000000
+      },
+      "treasurerNotes": "",
+      "status": "archived",
+      "bendaharaName": "Dhisa Agesti D M, S.E",
+      "ketuaName": "Desfiana Giant P, S.AP",
+      "totalSpent": 255000,
+      "amountReceived": 1500000,
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1780581367,
+        "nanoseconds": 718000000
+      },
+      "unitName": "Humas",
+      "submissionDate": "2026-06-04",
+      "submittedBy": "ucMkWqHBAFcMmkQk3ysB",
+      "activityName": "RAB SPMB Juni Minggu ke 2",
+      "unitId": "1CgF8jBRFyAvV36YHpBt",
+      "ketuaJabatan": "Bendahara Sekolah",
+      "details": [
+        {
+          "amount": 200000,
+          "description": "Pby atas Tali asih ( Dalfin dan Rizki kamal)",
+          "proposedIndex": 0,
+          "date": "2026-06-09"
+        },
+        {
+          "proposedIndex": 0,
+          "amount": 55000,
+          "description": "Pby atas kabel usb printer",
+          "date": "2026-06-11"
+        }
+      ]
+    },
+    {
+      "id": "sMSfDIvvCIfGAHycFJwU",
+      "treasurerNotes": "",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1780633148,
+        "nanoseconds": 92000000
+      },
+      "proposedDetails": [
+        {
+          "description": "Buku Erlangga Matematika",
+          "amount": 2375000,
+          "category": "Pembelian Aset Tetap"
+        },
+        {
+          "category": "Pembelian Aset Tetap",
+          "date": "2026-05-22",
+          "description": "Buku Erlangga Pendidikan Agama Islam Kelas XI",
+          "amount": 4275000
+        },
+        {
+          "category": "Pembelian Aset Tetap",
+          "date": "2026-05-22",
+          "amount": 3650000,
+          "description": "Buku Erlangga Pendidikan Agama Islam Kelas XII"
+        },
+        {
+          "amount": 3525000,
+          "description": "Buku Erlangga Pendidikan Pancasila Kelas X",
+          "category": "Pembelian Aset Tetap",
+          "date": "2026-05-22"
+        },
+        {
+          "amount": 3500000,
+          "description": "Buku Erlangga Pendidikan Pancasila Kelas XI",
+          "date": "2026-05-22",
+          "category": "Pembelian Aset Tetap"
+        }
+      ],
+      "bendaharaJabatan": "Bendahara BOS",
+      "totalSpent": 0,
+      "ketuaName": "Desfiana Giant Pratiwi",
+      "status": "archived",
+      "bendaharaName": "Desfiana Giant Pratiwi",
+      "submittedBy": "Fpqs6V73tWdvJwWwf7kb",
+      "unitName": "Tata Usaha",
+      "submissionDate": "2026-05-22",
+      "submittedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1779426658,
+        "nanoseconds": 457000000
+      },
+      "amountReceived": 17325000,
+      "details": [],
+      "ketuaJabatan": "Bendahara Sekolah ",
+      "unitId": "gkA5EVbx3I0EWZ311KrW",
+      "activityName": "Pembayaran Buku Erlangga "
+    }
+  ]
+}

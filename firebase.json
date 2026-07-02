@@ -1,0 +1,8 @@
+{
+  "firestore": [
+    {
+      "database": "ai-studio-elaporbendaharas-de4ebc5d-f7b4-4db3-bc93-cbfa4d001eda",
+      "rules": "firestore.rules"
+    }
+  ]
+}
