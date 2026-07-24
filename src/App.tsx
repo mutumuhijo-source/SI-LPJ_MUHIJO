@@ -145,9 +145,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 
 // --- Helper Utilities ---
 
-const safeStorage = (() => {
+const safeLocalStorage = (() => {
   try {
-    const testKey = '__test__';
+    const testKey = '__test_local__';
     window.localStorage.setItem(testKey, testKey);
     window.localStorage.removeItem(testKey);
     return window.localStorage;
@@ -163,6 +163,28 @@ const safeStorage = (() => {
     } as any;
   }
 })();
+
+const safeSessionStorage = (() => {
+  try {
+    const testKey = '__test_session__';
+    window.sessionStorage.setItem(testKey, testKey);
+    window.sessionStorage.removeItem(testKey);
+    return window.sessionStorage;
+  } catch (e) {
+    const mem: Record<string, string> = {};
+    return {
+      getItem: (key: string) => (key in mem ? mem[key] : null),
+      setItem: (key: string, value: string) => { mem[key] = String(value); },
+      removeItem: (key: string) => { delete mem[key]; },
+      clear: () => { for (const k in mem) delete mem[k]; },
+      key: (i: number) => Object.keys(mem)[i] || null,
+      get length() { return Object.keys(mem).length; }
+    } as any;
+  }
+})();
+
+// Alias safeStorage to safeSessionStorage so user session is automatically cleared when tab/browser is closed
+const safeStorage = safeSessionStorage;
 
 const formatDate = (dateValue: string | number | Date | undefined | null, options: Intl.DateTimeFormatOptions = { dateStyle: 'long' }) => {
   if (!dateValue) return '-';
@@ -2772,6 +2794,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Clear legacy localStorage auth keys if present
+    try {
+      safeLocalStorage.removeItem('auth_session');
+      safeLocalStorage.removeItem('user_role');
+    } catch (e) {
+      // ignore
+    }
+
     const session = safeStorage.getItem('auth_session');
     const role = safeStorage.getItem('user_role');
     if (session) {
@@ -2788,7 +2818,7 @@ export default function App() {
 
     // Bootstrap units and users ONLY IF not done before in this browser
     const bootstrap = async () => {
-      if (safeStorage.getItem('db_bootstrapped_v2')) return;
+      if (safeLocalStorage.getItem('db_bootstrapped_v2')) return;
 
       try {
         const usersSnap = await getDocs(query(collection(db, 'app_users'), limit(1)));
@@ -2806,7 +2836,7 @@ export default function App() {
             await addDoc(collection(db, 'units'), { name });
           }
         }
-        safeStorage.setItem('db_bootstrapped_v2', 'true');
+        safeLocalStorage.setItem('db_bootstrapped_v2', 'true');
       } catch (e: any) {
         const errorMessage = e.message || String(e);
         if (errorMessage.includes('Quota exceeded') || errorMessage.includes('Quota limit exceeded')) {
@@ -2825,6 +2855,37 @@ export default function App() {
     };
     bootstrap();
   }, []);
+
+  // 15-Minute Inactivity Auto-Logout
+  useEffect(() => {
+    if (!user) return;
+
+    let lastActivity = Date.now();
+    const INACTIVITY_LIMIT_MS = 15 * 60 * 1000; // 15 minutes
+
+    const updateActivity = () => {
+      lastActivity = Date.now();
+    };
+
+    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'pointerdown'];
+    activityEvents.forEach(evt => {
+      window.addEventListener(evt, updateActivity, { passive: true });
+    });
+
+    const checkInterval = setInterval(() => {
+      if (Date.now() - lastActivity >= INACTIVITY_LIMIT_MS) {
+        logout();
+        safeAlert('Sesi Anda telah berakhir karena tidak ada aktivitas selama 15 menit. Silakan login kembali.');
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => {
+      activityEvents.forEach(evt => {
+        window.removeEventListener(evt, updateActivity);
+      });
+      clearInterval(checkInterval);
+    };
+  }, [user, logout]);
 
   const contextValue = useMemo(() => ({ user, isAdmin, loading, login, logout }), [user, isAdmin, loading, login, logout]);
 
