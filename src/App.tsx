@@ -406,7 +406,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
     if (isProposed) {
       updateProposedDetails([...formData.proposedDetails, { date: new Date().toISOString().split('T')[0], description: '', amount: 0, category: '' }]);
     } else {
-      setFormData({ ...formData, details: [...formData.details, { date: '', description: '', amount: 0, proposedIndex: undefined }] });
+      setFormData({ ...formData, details: [...formData.details, { noBukti: '', date: '', description: '', amount: 0, proposedIndex: undefined }] });
     }
   };
 
@@ -752,7 +752,29 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
 
             <div className="space-y-4">
               {formData.details.map((detail, idx) => (
-                <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end bg-natural-bg/20 p-6 rounded-[24px] border border-natural-bg relative group">
+                <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end bg-natural-bg/20 p-6 rounded-[24px] border border-natural-bg relative group">
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60">No. Bukti Transaksi</label>
+                    <input 
+                      type="text"
+                      list={`bukti-list-${idx}`}
+                      disabled={isAdmin}
+                      className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold font-mono disabled:bg-transparent"
+                      placeholder="E.g. BK-01"
+                      value={detail.noBukti || ''}
+                      onChange={(e) => {
+                        const newD = [...formData.details];
+                        newD[idx].noBukti = e.target.value;
+                        setFormData({...formData, details: newD});
+                      }}
+                    />
+                    <datalist id={`bukti-list-${idx}`}>
+                      {Array.from(new Set(formData.details.map(d => d.noBukti).filter(Boolean))).map((nb, nbi) => (
+                        <option key={nbi} value={nb} />
+                      ))}
+                    </datalist>
+                  </div>
+
                   <div className="md:col-span-2 space-y-1">
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Tgl</label>
                     <input 
@@ -797,7 +819,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                     </select>
                   </div>
 
-                  <div className={detail.proposedIndex !== undefined && formData.proposedDetails[detail.proposedIndex]?.category?.toLowerCase().includes('pegawai') ? "md:col-span-3 space-y-1" : "md:col-span-5 space-y-1"}>
+                  <div className={detail.proposedIndex !== undefined && formData.proposedDetails[detail.proposedIndex]?.category?.toLowerCase().includes('pegawai') ? "md:col-span-2 space-y-1" : "md:col-span-3 space-y-1"}>
                     <label className="text-[9px] uppercase font-bold text-natural-secondary/60">Deskripsi Realisasi</label>
                     <input 
                       required
@@ -1198,7 +1220,8 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-natural-bg/30">
-                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] w-20 italic">#</th>
+                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] w-16 italic">#</th>
+                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">No. Bukti</th>
                   <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Tanggal</th>
                   <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Kategori</th>
                   <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Deskripsi Item</th>
@@ -1213,6 +1236,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                   return (
                     <tr key={idx} className="hover:bg-natural-input transition-colors">
                       <td className="px-10 py-6 font-mono text-xs text-natural-secondary">{String(idx + 1).padStart(2, '0')}</td>
+                      <td className="px-10 py-6 font-mono font-bold text-xs text-natural-primary">{item.noBukti || '-'}</td>
                       <td className="px-10 py-6 text-natural-text text-sm">{item.date}</td>
                       <td className="px-10 py-6 text-natural-secondary font-bold text-[10px] uppercase italic">
                         {item.proposedIndex !== undefined ? report.proposedDetails[item.proposedIndex]?.category : '-'}
@@ -2237,8 +2261,9 @@ const MainDashboard = () => {
             <thead>
               <tr style="background: #f5f5f5;">
                 <th style="width: 5%;">No</th>
+                <th style="width: 15%;">No. Bukti</th>
                 <th style="width: 12%;">Tanggal</th>
-                <th style="width: 20%;">Pagu Anggaran</th>
+                <th style="width: 18%;">Pagu Anggaran</th>
                 <th>Rincian Belanja</th>
                 <th style="width: 15%;">Pegawai</th>
                 <th style="width: 15%;">Realisasi (Rp)</th>
@@ -2253,6 +2278,7 @@ const MainDashboard = () => {
                 return `
                   <tr>
                     <td class="text-center">${index + 1}</td>
+                    <td style="font-size: 8pt; font-family: monospace; font-weight: bold;">${d.noBukti || '-'}</td>
                     <td style="font-size: 8pt;">${formatDate(d.date, { dateStyle: 'short' })}</td>
                     <td style="font-size: 8pt;">${budgetDesc}</td>
                     <td style="font-size: 9pt;">${d.description}</td>

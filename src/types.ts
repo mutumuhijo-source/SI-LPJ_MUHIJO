@@ -10,6 +10,7 @@ export enum ReportStatus {
 }
 
 export interface ExpenseDetail {
+  noBukti?: string;
   date?: string;
   description: string;
   amount: number;
