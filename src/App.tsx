@@ -432,6 +432,16 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
     try {
       const selectedUnit = units.find(u => u.id === formData.unitId);
 
+      // Check if any details are missing No. Bukti Transaksi
+      if (formData.details && formData.details.length > 0) {
+        const missingNoBukti = formData.details.some(d => !d.noBukti || !d.noBukti.trim());
+        if (missingNoBukti) {
+          safeAlert('No. Bukti Transaksi wajib diisi untuk setiap rincian realisasi anggaran!');
+          setLoading(false);
+          return;
+        }
+      }
+
       // Check if any "belanja pegawai" details are missing an employee selection
       let isEmployeeMissing = false;
       if (formData.details && formData.details.length > 0) {
@@ -754,9 +764,12 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
               {formData.details.map((detail, idx) => (
                 <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end bg-natural-bg/20 p-6 rounded-[24px] border border-natural-bg relative group">
                   <div className="md:col-span-2 space-y-1">
-                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60">No. Bukti Transaksi</label>
+                    <label className="text-[9px] uppercase font-bold text-natural-secondary/60">
+                      No. Bukti Transaksi <span className="text-red-500">*</span>
+                    </label>
                     <input 
                       type="text"
+                      required
                       list={`bukti-list-${idx}`}
                       disabled={isAdmin}
                       className="w-full p-2 bg-white rounded-xl border border-natural-border outline-none text-xs font-bold font-mono disabled:bg-transparent"
