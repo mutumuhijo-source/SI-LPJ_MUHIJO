@@ -2895,12 +2895,12 @@ export default function App() {
     bootstrap();
   }, []);
 
-  // 15-Minute Inactivity Auto-Logout
+  // 90-Minute Inactivity Auto-Logout
   useEffect(() => {
     if (!user) return;
 
     let lastActivity = Date.now();
-    const INACTIVITY_LIMIT_MS = 15 * 60 * 1000; // 15 minutes
+    const INACTIVITY_LIMIT_MS = 90 * 60 * 1000; // 90 minutes
 
     const updateActivity = () => {
       lastActivity = Date.now();
@@ -2914,7 +2914,7 @@ export default function App() {
     const checkInterval = setInterval(() => {
       if (Date.now() - lastActivity >= INACTIVITY_LIMIT_MS) {
         logout();
-        safeAlert('Sesi Anda telah berakhir karena tidak ada aktivitas selama 15 menit. Silakan login kembali.');
+        safeAlert('Sesi Anda telah berakhir karena tidak ada aktivitas selama 90 menit. Silakan login kembali.');
       }
     }, 10000); // Check every 10 seconds
 
