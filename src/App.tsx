@@ -183,8 +183,8 @@ const safeSessionStorage = (() => {
   }
 })();
 
-// Alias safeStorage to safeSessionStorage so user session is automatically cleared when tab/browser is closed
-const safeStorage = safeSessionStorage;
+// Alias safeStorage to safeLocalStorage for reliable data persistence
+const safeStorage = safeLocalStorage;
 
 const formatDate = (dateValue: string | number | Date | undefined | null, options: Intl.DateTimeFormatOptions = { dateStyle: 'long' }) => {
   if (!dateValue) return '-';
@@ -2806,10 +2806,20 @@ export default function App() {
           displayName: userData.displayName,
           unitName: userData.unitName
         };
+        const now = String(Date.now());
         setUser(appUser);
         setIsAdmin(userData.role === 'admin');
-        safeStorage.setItem('auth_session', JSON.stringify(appUser));
-        safeStorage.setItem('user_role', userData.role);
+
+        // Store session alive indicator in sessionStorage (cleared when browser/tab closes)
+        safeSessionStorage.setItem('session_alive', 'true');
+        safeSessionStorage.setItem('auth_session', JSON.stringify(appUser));
+        safeSessionStorage.setItem('user_role', userData.role);
+        safeSessionStorage.setItem('last_active_time', now);
+
+        // Store in localStorage as backup for active session
+        safeLocalStorage.setItem('auth_session', JSON.stringify(appUser));
+        safeLocalStorage.setItem('user_role', userData.role);
+        safeLocalStorage.setItem('last_active_time', now);
         return true;
       }
     } catch (err: any) {
@@ -2825,32 +2835,57 @@ export default function App() {
     return false;
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback((isTimeout = false) => {
     setUser(null);
     setIsAdmin(false);
-    safeStorage.removeItem('auth_session');
-    safeStorage.removeItem('user_role');
+    safeLocalStorage.removeItem('auth_session');
+    safeLocalStorage.removeItem('user_role');
+    safeLocalStorage.removeItem('last_active_time');
+    safeSessionStorage.removeItem('auth_session');
+    safeSessionStorage.removeItem('user_role');
+    safeSessionStorage.removeItem('session_alive');
+    safeSessionStorage.removeItem('last_active_time');
+    if (isTimeout) {
+      safeAlert('Sesi Anda telah berakhir karena tidak ada aktivitas selama 90 menit. Silakan login kembali.');
+    }
   }, []);
 
   useEffect(() => {
-    // Clear legacy localStorage auth keys if present
-    try {
+    const INACTIVITY_LIMIT_MS = 90 * 60 * 1000; // 90 minutes
+    const sessionAlive = safeSessionStorage.getItem('session_alive');
+    const sessionData = safeLocalStorage.getItem('auth_session') || safeSessionStorage.getItem('auth_session');
+    const role = safeLocalStorage.getItem('user_role') || safeSessionStorage.getItem('user_role');
+    const lastActiveStr = safeLocalStorage.getItem('last_active_time') || safeSessionStorage.getItem('last_active_time');
+    const lastActive = lastActiveStr ? parseInt(lastActiveStr, 10) : 0;
+    const isExpired = lastActive > 0 && (Date.now() - lastActive >= INACTIVITY_LIMIT_MS);
+
+    // If browser was completely closed (sessionAlive missing) or session expired:
+    if (!sessionAlive || isExpired) {
       safeLocalStorage.removeItem('auth_session');
       safeLocalStorage.removeItem('user_role');
-    } catch (e) {
-      // ignore
-    }
-
-    const session = safeStorage.getItem('auth_session');
-    const role = safeStorage.getItem('user_role');
-    if (session) {
+      safeLocalStorage.removeItem('last_active_time');
+      safeSessionStorage.removeItem('auth_session');
+      safeSessionStorage.removeItem('user_role');
+      safeSessionStorage.removeItem('session_alive');
+      safeSessionStorage.removeItem('last_active_time');
+      setUser(null);
+      setIsAdmin(false);
+    } else if (sessionData) {
       try {
-        const u = JSON.parse(session) as AppUser;
+        const u = JSON.parse(sessionData) as AppUser;
         setUser(u);
         setIsAdmin(role === 'admin');
+        const now = String(Date.now());
+        safeLocalStorage.setItem('last_active_time', now);
+        safeSessionStorage.setItem('last_active_time', now);
+        safeSessionStorage.setItem('session_alive', 'true');
       } catch (err) {
-        safeStorage.removeItem('auth_session');
-        safeStorage.removeItem('user_role');
+        safeLocalStorage.removeItem('auth_session');
+        safeLocalStorage.removeItem('user_role');
+        safeLocalStorage.removeItem('last_active_time');
+        safeSessionStorage.removeItem('auth_session');
+        safeSessionStorage.removeItem('user_role');
+        safeSessionStorage.removeItem('session_alive');
       }
     }
     setLoading(false);
@@ -2895,33 +2930,54 @@ export default function App() {
     bootstrap();
   }, []);
 
-  // 90-Minute Inactivity Auto-Logout
+  // 90-Minute Inactivity Auto-Logout with robust activity listening & visibility checking
   useEffect(() => {
     if (!user) return;
 
-    let lastActivity = Date.now();
     const INACTIVITY_LIMIT_MS = 90 * 60 * 1000; // 90 minutes
+    let lastThrottle = 0;
 
     const updateActivity = () => {
-      lastActivity = Date.now();
+      const now = Date.now();
+      if (now - lastThrottle > 3000) {
+        lastThrottle = now;
+        const nowStr = String(now);
+        safeLocalStorage.setItem('last_active_time', nowStr);
+        safeSessionStorage.setItem('last_active_time', nowStr);
+      }
     };
 
-    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'pointerdown'];
+    const checkInactivity = () => {
+      const lastActiveStr = safeLocalStorage.getItem('last_active_time') || safeSessionStorage.getItem('last_active_time');
+      const lastActive = lastActiveStr ? parseInt(lastActiveStr, 10) : Date.now();
+      if (Date.now() - lastActive >= INACTIVITY_LIMIT_MS) {
+        logout(true);
+      }
+    };
+
+    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'keyup', 'scroll', 'touchstart', 'pointerdown', 'click', 'wheel', 'input'];
     activityEvents.forEach(evt => {
       window.addEventListener(evt, updateActivity, { passive: true });
     });
 
-    const checkInterval = setInterval(() => {
-      if (Date.now() - lastActivity >= INACTIVITY_LIMIT_MS) {
-        logout();
-        safeAlert('Sesi Anda telah berakhir karena tidak ada aktivitas selama 90 menit. Silakan login kembali.');
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        checkInactivity();
+        updateActivity();
       }
-    }, 10000); // Check every 10 seconds
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    const checkInterval = setInterval(checkInactivity, 15000); // Check every 15 seconds
 
     return () => {
       activityEvents.forEach(evt => {
         window.removeEventListener(evt, updateActivity);
       });
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
       clearInterval(checkInterval);
     };
   }, [user, logout]);
