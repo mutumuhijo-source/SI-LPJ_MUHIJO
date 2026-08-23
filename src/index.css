@@ -1,21 +1,87 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
+
+:root {
+  /* Default: Emerald Islamic / Keuangan Sekolah Hijau Modern */
+  --natural-bg: #f2f7f4;
+  --natural-primary: #064e3b;
+  --natural-secondary: #047857;
+  --natural-text: #0f291e;
+  --natural-border: #d1fae5;
+  --natural-input: #ffffff;
+}
+
+[data-theme="emerald"] {
+  --natural-bg: #f2f7f4;
+  --natural-primary: #064e3b;
+  --natural-secondary: #047857;
+  --natural-text: #0f291e;
+  --natural-border: #d1fae5;
+  --natural-input: #ffffff;
+}
+
+[data-theme="navy"] {
+  --natural-bg: #f0f4f8;
+  --natural-primary: #0f3a5f;
+  --natural-secondary: #334e68;
+  --natural-text: #102a43;
+  --natural-border: #d9e2ec;
+  --natural-input: #ffffff;
+}
+
+[data-theme="indigo"] {
+  --natural-bg: #f5f7fb;
+  --natural-primary: #1e1b4b;
+  --natural-secondary: #4338ca;
+  --natural-text: #0f172a;
+  --natural-border: #e0e7ff;
+  --natural-input: #ffffff;
+}
+
+[data-theme="teal"] {
+  --natural-bg: #f0fdfa;
+  --natural-primary: #115e59;
+  --natural-secondary: #0d9488;
+  --natural-text: #134e4a;
+  --natural-border: #ccfbf1;
+  --natural-input: #ffffff;
+}
+
+[data-theme="slate"] {
+  --natural-bg: #f8fafc;
+  --natural-primary: #0f172a;
+  --natural-secondary: #475569;
+  --natural-text: #020617;
+  --natural-border: #e2e8f0;
+  --natural-input: #ffffff;
+}
+
+[data-theme="maroon"] {
+  --natural-bg: #fdf2f4;
+  --natural-primary: #831843;
+  --natural-secondary: #be185d;
+  --natural-text: #500724;
+  --natural-border: #fce7f3;
+  --natural-input: #ffffff;
+}
 
 @theme {
   --font-serif: "Playfair Display", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
-  --color-natural-bg: #f0f4f8;
-  --color-natural-primary: #0f3a5f;
-  --color-natural-secondary: #486581;
-  --color-natural-text: #1e293b;
-  --color-natural-border: #d9e2ec;
-  --color-natural-input: #ffffff;
+  --color-natural-bg: var(--natural-bg);
+  --color-natural-primary: var(--natural-primary);
+  --color-natural-secondary: var(--natural-secondary);
+  --color-natural-text: var(--natural-text);
+  --color-natural-border: var(--natural-border);
+  --color-natural-input: var(--natural-input);
 }
 
 @layer base {
   body {
     @apply font-sans antialiased text-natural-text bg-natural-bg;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 }
+

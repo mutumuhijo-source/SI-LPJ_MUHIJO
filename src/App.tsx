@@ -29,7 +29,10 @@ import {
   Printer,
   Settings,
   RotateCw,
-  Folder
+  Folder,
+  Calendar,
+  Palette,
+  Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -78,6 +81,109 @@ const BOOTSTRAP_USERS: DBUser[] = [
   { username: 'hum', pass: 'hum123', role: 'user', displayName: 'Humas', unitName: 'Humas' },
   { username: 'sarp', pass: 'sarp123', role: 'user', displayName: 'Sarana Prasarana', unitName: 'Sarpras' },
 ];
+
+// --- Themes ---
+export interface ThemeOption {
+  id: string;
+  name: string;
+  desc: string;
+  primaryColor: string;
+  secondaryColor: string;
+  bgColor: string;
+}
+
+export const THEME_OPTIONS: ThemeOption[] = [
+  {
+    id: 'emerald',
+    name: 'Hijau Zamrud',
+    desc: 'Nuansa Islami & Keuangan Sekolah yang sejuk & resmi',
+    primaryColor: '#064e3b',
+    secondaryColor: '#047857',
+    bgColor: '#f2f7f4',
+  },
+  {
+    id: 'navy',
+    name: 'Biru Eksekutif',
+    desc: 'Klasik administrasi formal & profesional',
+    primaryColor: '#0f3a5f',
+    secondaryColor: '#334e68',
+    bgColor: '#f0f4f8',
+  },
+  {
+    id: 'indigo',
+    name: 'Royal Indigo',
+    desc: 'Modern berkelas, prestisius & elegan',
+    primaryColor: '#1e1b4b',
+    secondaryColor: '#4338ca',
+    bgColor: '#f5f7fb',
+  },
+  {
+    id: 'teal',
+    name: 'Toska Segar',
+    desc: 'Teal cerah, bersih & kontras tinggi',
+    primaryColor: '#115e59',
+    secondaryColor: '#0d9488',
+    bgColor: '#f0fdfa',
+  },
+  {
+    id: 'slate',
+    name: 'Slate Minimalis',
+    desc: 'Monokrom netral, bersih & modern',
+    primaryColor: '#0f172a',
+    secondaryColor: '#475569',
+    bgColor: '#f8fafc',
+  },
+  {
+    id: 'maroon',
+    name: 'Marun Prestisius',
+    desc: 'Anggun, hangat & berkarakter tegas',
+    primaryColor: '#831843',
+    secondaryColor: '#be185d',
+    bgColor: '#fdf2f4',
+  },
+];
+
+interface ThemeContextType {
+  theme: string;
+  setTheme: (t: string) => void;
+  themes: ThemeOption[];
+}
+
+const ThemeContext = createContext<ThemeContextType>({
+  theme: 'emerald',
+  setTheme: () => {},
+  themes: THEME_OPTIONS,
+});
+
+export const useTheme = () => useContext(ThemeContext);
+
+const ThemeProvider = ({ children }: { children: ReactNode }) => {
+  const [theme, setThemeState] = useState<string>(() => {
+    return safeLocalStorage.getItem('app_theme') || 'emerald';
+  });
+
+  const setTheme = useCallback((newTheme: string) => {
+    setThemeState(newTheme);
+    safeLocalStorage.setItem('app_theme', newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const value = useMemo(() => ({
+    theme,
+    setTheme,
+    themes: THEME_OPTIONS
+  }), [theme, setTheme]);
+
+  return (
+    <ThemeContext.Provider value={value}>
+      {children}
+    </ThemeContext.Provider>
+  );
+};
 
 // --- Context ---
 interface AuthContextType {
@@ -214,6 +320,90 @@ const LoadingScreen = () => (
   </div>
 );
 
+const ThemeSelector = ({ className = '', dropUp = false, lightMode = false }: { className?: string, dropUp?: boolean, lightMode?: boolean }) => {
+  const { theme, setTheme, themes } = useTheme();
+  const [isOpen, setIsOpen] = useState(false);
+  const currentTheme = themes.find(t => t.id === theme) || themes[0];
+
+  return (
+    <div className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all text-xs font-medium border shadow-xs ${
+          lightMode 
+            ? 'bg-white/80 hover:bg-white text-natural-text border-natural-border/80 hover:border-natural-primary/40 backdrop-blur-sm'
+            : 'bg-white/10 hover:bg-white/20 text-white border-white/20 hover:border-white/40 backdrop-blur-sm'
+        }`}
+        title="Ganti Tema Warna Aplikasi"
+      >
+        <span 
+          className="w-3.5 h-3.5 rounded-full border border-white/40 shadow-xs shrink-0" 
+          style={{ backgroundColor: currentTheme.primaryColor }}
+        />
+        <span className="hidden sm:inline font-sans text-xs font-medium">{currentTheme.name}</span>
+        <Palette className="w-3.5 h-3.5 opacity-80" />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: dropUp ? 10 : -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: dropUp ? 10 : -10 }}
+              className={`absolute right-0 ${dropUp ? 'bottom-full mb-2' : 'top-full mt-2'} w-64 bg-white text-slate-800 rounded-2xl shadow-2xl border border-natural-border p-3 z-50 overflow-hidden`}
+            >
+              <div className="flex items-center justify-between px-2 py-1.5 border-b border-natural-border/50 mb-2">
+                <span className="text-[11px] font-bold text-natural-text uppercase tracking-wider flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-natural-primary" /> Pilih Tema Warna
+                </span>
+              </div>
+              <div className="space-y-1 max-h-72 overflow-y-auto">
+                {themes.map(t => {
+                  const isActive = t.id === theme;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        setTheme(t.id);
+                        setIsOpen(false);
+                      }}
+                      className={`w-full text-left p-2 rounded-xl transition-all flex items-center justify-between group ${
+                        isActive ? 'bg-natural-bg font-semibold border border-natural-primary/20' : 'hover:bg-natural-bg/50 border border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex -space-x-1 shrink-0">
+                          <span 
+                            className="w-4 h-4 rounded-full border border-white shadow-xs" 
+                            style={{ backgroundColor: t.primaryColor }}
+                          />
+                          <span 
+                            className="w-4 h-4 rounded-full border border-white shadow-xs" 
+                            style={{ backgroundColor: t.secondaryColor }}
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs text-natural-text truncate leading-snug">{t.name}</p>
+                          <p className="text-[10px] text-natural-secondary/80 font-normal truncate leading-tight">{t.desc}</p>
+                        </div>
+                      </div>
+                      {isActive && <Check className="w-4 h-4 text-natural-primary shrink-0 ml-2" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 const Navbar = ({ onLogout }: { onLogout: () => void }) => {
   const { user, isAdmin } = useContext(AuthContext);
   return (
@@ -228,9 +418,11 @@ const Navbar = ({ onLogout }: { onLogout: () => void }) => {
         </div>
       </div>
       
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-4 sm:gap-6">
+        <ThemeSelector />
+
         {user && (
-          <div className="flex items-center gap-4 pr-6 border-r border-white/20">
+          <div className="flex items-center gap-4 pr-4 sm:pr-6 border-r border-white/20">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium leading-none">{user.displayName}</p>
               <p className="text-[10px] opacity-70 uppercase tracking-wider mt-1">{isAdmin ? 'Bendahara Utama' : user.unitName}</p>
@@ -302,11 +494,15 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-natural-bg p-6">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-natural-bg p-6 relative">
+      <div className="absolute top-6 right-6 z-10">
+        <ThemeSelector lightMode />
+      </div>
+
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full bg-white rounded-[40px] p-12 shadow-xl border border-natural-border"
+        className="max-w-md w-full bg-white rounded-[40px] p-12 shadow-xl border border-natural-border relative"
       >
         <div className="text-center mb-10">
           <div className="bg-natural-primary w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-natural-primary/10">
@@ -365,9 +561,11 @@ const LoginPage = () => {
           </button>
         </form>
         
-        <p className="mt-10 text-[10px] text-natural-secondary uppercase tracking-[0.2em] font-bold text-center">
-          Pusat Data Pertanggungjawaban
-        </p>
+        <div className="mt-8 pt-6 border-t border-natural-border/50 flex flex-col items-center gap-3">
+          <p className="text-[10px] text-natural-secondary uppercase tracking-[0.2em] font-bold text-center">
+            Pusat Data Pertanggungjawaban
+          </p>
+        </div>
       </motion.div>
     </div>
   );
@@ -941,18 +1139,68 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
   );
 };
 
-const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onPrintRAB, onDelete }: { reports: Report[], isAdmin: boolean, allowedStatuses: ReportStatus[], onSelect: (r: Report) => void, onPrint: (r: Report) => void, onPrintRAB?: (r: Report) => void, onDelete: (r: Report) => void }) => {
-  const filteredReports = reports.filter(r => {
-    if (!allowedStatuses.includes(r.status)) return false;
-    if (r.status === ReportStatus.REVISION) {
-      const hasRealization = r.details && r.details.length > 0;
-      const isBudgetView = allowedStatuses.includes(ReportStatus.BUDGET_PROPOSAL);
-      const isReportView = allowedStatuses.includes(ReportStatus.REPORTING);
-      if (isBudgetView && hasRealization) return false;
-      if (isReportView && !hasRealization) return false;
+const getReportDateTimestamp = (report: Report): number => {
+  // 1. Try submissionDate (e.g. '2026-08-22')
+  if (report.submissionDate) {
+    const t = new Date(report.submissionDate).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+  // 2. Try submittedAt (Firestore Timestamp or Date/string)
+  if (report.submittedAt) {
+    if (typeof report.submittedAt.toDate === 'function') {
+      return report.submittedAt.toDate().getTime();
     }
-    return true;
-  });
+    if (typeof report.submittedAt.seconds === 'number') {
+      return report.submittedAt.seconds * 1000;
+    }
+    const t = new Date(report.submittedAt).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+  // 3. Try updatedAt
+  if (report.updatedAt) {
+    if (typeof report.updatedAt.toDate === 'function') {
+      return report.updatedAt.toDate().getTime();
+    }
+    if (typeof report.updatedAt.seconds === 'number') {
+      return report.updatedAt.seconds * 1000;
+    }
+    const t = new Date(report.updatedAt).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+  // 4. Try latest date in details
+  if (report.details && report.details.length > 0) {
+    const detailDates = report.details
+      .map(d => d.date ? new Date(d.date).getTime() : 0)
+      .filter(t => !isNaN(t) && t > 0);
+    if (detailDates.length > 0) {
+      return Math.max(...detailDates);
+    }
+  }
+  return 0;
+};
+
+const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onPrintRAB, onDelete }: { reports: Report[], isAdmin: boolean, allowedStatuses: ReportStatus[], onSelect: (r: Report) => void, onPrint: (r: Report) => void, onPrintRAB?: (r: Report) => void, onDelete: (r: Report) => void }) => {
+  const filteredReports = useMemo(() => {
+    const filtered = reports.filter(r => {
+      if (!allowedStatuses.includes(r.status)) return false;
+      if (r.status === ReportStatus.REVISION) {
+        const hasRealization = r.details && r.details.length > 0;
+        const isBudgetView = allowedStatuses.includes(ReportStatus.BUDGET_PROPOSAL);
+        const isReportView = allowedStatuses.includes(ReportStatus.REPORTING);
+        if (isBudgetView && hasRealization) return false;
+        if (isReportView && !hasRealization) return false;
+      }
+      return true;
+    });
+
+    // Urutkan berdasarkan tanggal: yang terbaru di urutan paling atas
+    return filtered.sort((a, b) => {
+      const timeA = getReportDateTimestamp(a);
+      const timeB = getReportDateTimestamp(b);
+      return timeB - timeA;
+    });
+  }, [reports, allowedStatuses]);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
       {filteredReports.length === 0 ? (
@@ -969,9 +1217,17 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onP
             whileHover={{ y: -6, boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
             className="bg-white p-8 rounded-[32px] border border-natural-border shadow-sm transition-all cursor-pointer flex flex-col h-full group"
           >
-            <div className="flex justify-between items-start mb-6">
-              <StatusBadge status={report.status} />
-              <div className="flex gap-2">
+            <div className="flex justify-between items-start mb-6 gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge status={report.status} />
+                {(report.submissionDate || report.submittedAt) && (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-medium text-natural-secondary bg-natural-bg px-2.5 py-1 rounded-full border border-natural-border/60">
+                    <Calendar className="w-3 h-3 text-natural-secondary/70" />
+                    {formatDate(report.submissionDate || report.submittedAt, { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2 shrink-0">
                 {onPrintRAB && (report.status === ReportStatus.REPORTING || report.status === ReportStatus.INCOMPLETE || report.status === ReportStatus.COMPLETED || report.status === ReportStatus.ARCHIVED) && (
                   <button 
                     onClick={(e) => { e.stopPropagation(); onPrintRAB(report); }}
@@ -3008,13 +3264,15 @@ export default function App() {
   }
 
   return (
-    <HashRouter>
-      <AuthContext.Provider value={contextValue}>
-        <ErrorBoundary>
-          <AppContent />
-        </ErrorBoundary>
-      </AuthContext.Provider>
-    </HashRouter>
+    <ThemeProvider>
+      <HashRouter>
+        <AuthContext.Provider value={contextValue}>
+          <ErrorBoundary>
+            <AppContent />
+          </ErrorBoundary>
+        </AuthContext.Provider>
+      </HashRouter>
+    </ThemeProvider>
   );
 }
 
