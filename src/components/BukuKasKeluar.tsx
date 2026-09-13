@@ -400,12 +400,10 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
             });
           });
 
-          // Tanggal untuk sisa atau kekurangan
-          const detailDates = validDetails.map(d => d.date).filter(Boolean) as string[];
-          const latestDetailDate = detailDates.length > 0 ? [...detailDates].sort().reverse()[0] : appDate;
-          const closingDate = latestDetailDate >= appDate ? latestDetailDate : appDate;
+          // Tanggal untuk sisa atau kekurangan: gunakan tanggal disetujui laporan
+          const closingDate = appDate;
 
-          // Hanya masukkan sisa/kekurangan jika closingDate tidak sebelum tanggal Buku Kas
+          // Hanya masukkan sisa/kekurangan jika tanggal tidak sebelum tanggal Buku Kas
           if (!isDateBeforeBukuKasStart(closingDate)) {
             const budgetAmount = Number(r.amountReceived) || 0;
             const totalReportSpent = (r.details || []).reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
@@ -550,7 +548,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
     yearSet.add('2025');
 
     allJournalItems.forEach((item) => {
-      const dateStr = item.date || item.approvalDate;
+      const dateStr = item.approvalDate || item.date;
       if (dateStr && dateStr.length >= 4) {
         const y = dateStr.slice(0, 4);
         if (/^\d{4}$/.test(y)) {
@@ -589,6 +587,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
   }, [bkkSettings.initialBalanceDate]);
 
   // Apply Filter: Sisakan filter untuk bulan dan tahun saja (Buku kas tetap dari September)
+  // Urutkan pada buku kas berdasarkan disetujui saja, dengan rincian realisasi & sisa/kekurangan selalu berurutan di paling bawah
   const filteredJournalItems = useMemo(() => {
     // Rule: "jika ada yang filter sebelum september dikosongkan saja transaksinya"
     if (isFilterBeforeBukuKasStart) {
@@ -597,7 +596,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
 
     return allJournalItems
       .filter((item) => {
-        const effectiveDate = item.date || item.approvalDate;
+        const effectiveDate = item.approvalDate || item.date;
         if (!effectiveDate) {
           return selectedMonth === 'ALL' && selectedYear === 'ALL';
         }
@@ -621,21 +620,27 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
         return true;
       })
       .sort((a, b) => {
-        // Kelompokkan item dari laporan yang sama agar rincian dan sisa/kekurangan selalu berurutan
+        // 1. Jika berasal dari laporan kegiatan LPJ yang sama, WAJIB pertahankan rincian & sisa/kekurangan di urutan paling bawah
         if (a.reportId && b.reportId && a.reportId === b.reportId) {
           return a.detailOrder - b.detailOrder;
         }
 
-        // Kelompokkan per tanggal dasar kegiatan (approvalDate || date)
-        const baseDateA = a.reportId ? (a.approvalDate || a.date) : a.date;
-        const baseDateB = b.reportId ? (b.approvalDate || b.date) : b.date;
-        const cmpBaseDate = (baseDateA || '').localeCompare(baseDateB || '');
-        if (cmpBaseDate !== 0) return cmpBaseDate;
-
-        const dateA = a.date || a.approvalDate || '';
-        const dateB = b.date || b.approvalDate || '';
+        // 2. Urutkan pada buku kas berdasarkan tanggal disetujui (approvalDate)
+        const dateA = a.approvalDate || a.date || '';
+        const dateB = b.approvalDate || b.date || '';
         const cmpDate = dateA.localeCompare(dateB);
         if (cmpDate !== 0) return cmpDate;
+
+        // 3. Jika tanggal disetujui sama, kelompokkan per laporan kegiatan agar rincian tidak terpisah atau terselip
+        const groupA = a.reportId ? `report-${a.reportId}` : `single-${a.id}`;
+        const groupB = b.reportId ? `report-${b.reportId}` : `single-${b.id}`;
+        const cmpGroup = groupA.localeCompare(groupB);
+        if (cmpGroup !== 0) return cmpGroup;
+
+        // 4. Urutan di dalam kelompok kegiatan
+        if (a.detailOrder !== b.detailOrder) {
+          return a.detailOrder - b.detailOrder;
+        }
 
         return (a.noBukti || '').localeCompare(b.noBukti || '');
       });
@@ -656,14 +661,14 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
   // Kumulatif seluruh transaksi kas valid sejak dimulainya Buku Kas
   const realTotalInflow = useMemo(() => {
     const sum = allJournalItems
-      .filter((item) => !isDateBeforeBukuKasStart(item.date || item.approvalDate))
+      .filter((item) => !isDateBeforeBukuKasStart(item.approvalDate || item.date))
       .reduce((acc, item) => acc + item.inflowAmount, 0);
     return Math.round(sum * 10000) / 10000;
   }, [allJournalItems, bkkSettings.initialBalanceDate]);
 
   const realTotalOutflow = useMemo(() => {
     const sum = allJournalItems
-      .filter((item) => !isDateBeforeBukuKasStart(item.date || item.approvalDate))
+      .filter((item) => !isDateBeforeBukuKasStart(item.approvalDate || item.date))
       .reduce((acc, item) => acc + item.outflowAmount, 0);
     return Math.round(sum * 10000) / 10000;
   }, [allJournalItems, bkkSettings.initialBalanceDate]);
@@ -681,7 +686,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
       return bal;
     }
     allJournalItems.forEach((item) => {
-      const effectiveDate = item.date || item.approvalDate || '';
+      const effectiveDate = item.approvalDate || item.date || '';
       if (!effectiveDate || isDateBeforeBukuKasStart(effectiveDate)) return;
       const parsed = parseTransactionDate(effectiveDate);
       if (!parsed) return;
