@@ -42,6 +42,10 @@ export interface Report {
   status: ReportStatus;
   submittedAt: any;
   updatedAt?: any;
+  approvedAt?: any;
+  approvalDate?: string;
+  completedAt?: any;
+  completedDate?: string;
   submittedBy: string;
   treasurerNotes?: string;
   ketuaName?: string;
@@ -50,6 +54,42 @@ export interface Report {
   bendaharaJabatan?: string;
   submissionDate?: string;
   parentReportId?: string;
+}
+
+export interface CashInflow {
+  id?: string;
+  date: string;
+  noBukti: string;
+  sourceAccount: string;
+  category: string;
+  description: string;
+  amount: number;
+  receivedFrom?: string;
+  notes?: string;
+  createdAt?: any;
+  createdBy?: string;
+}
+
+export interface DirectCashOutflow {
+  id?: string;
+  date: string;
+  noBukti: string;
+  unitName: string;
+  category: string;
+  description: string;
+  amount: number;
+  employeeName?: string;
+  notes?: string;
+  createdAt?: any;
+  createdBy?: string;
+}
+
+export interface BkkSettings {
+  initialBalance: number;
+  initialBalanceDate: string;
+  notes?: string;
+  updatedAt?: any;
+  updatedBy?: string;
 }
 
 export interface Unit {
