@@ -2219,35 +2219,6 @@ const MainDashboard = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [navigate]);
 
-  // --- Auto Logout Logic (5 Minutes Inactivity) ---
-  useEffect(() => {
-    let timeoutId: any;
-
-    const resetTimer = () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        logout();
-      }, 5 * 60 * 1000); // 5 minutes
-    };
-
-    if (user) {
-      resetTimer();
-      const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-      
-      const handleActivity = () => resetTimer();
-      
-      activityEvents.forEach(event => {
-        window.addEventListener(event, handleActivity);
-      });
-
-      return () => {
-        if (timeoutId) clearTimeout(timeoutId);
-        activityEvents.forEach(event => {
-          window.removeEventListener(event, handleActivity);
-        });
-      };
-    }
-  }, [user, logout]);
 
   useEffect(() => {
     if (!user) return;
