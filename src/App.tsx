@@ -34,10 +34,16 @@ import {
   Palette,
   Check,
   BookOpen,
-  Undo2
+  Undo2,
+  MessageSquare,
+  Smartphone,
+  Send,
+  CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BukuKasKeluar } from './components/BukuKasKeluar';
+import { WhatsAppSettings } from './components/WhatsAppSettings';
+import { sendReportStatusNotification } from './services/whatsapp';
 import { formatCurrency, parseAmount, terbilang } from './lib/utils';
 
 // Safe alert and confirm helper functions for sandboxed/iframe compliance
@@ -580,7 +586,11 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
     ketuaJabatan: editReport?.ketuaJabatan || '',
     bendaharaName: editReport?.bendaharaName || '',
     bendaharaJabatan: editReport?.bendaharaJabatan || '',
-    submissionDate: editReport?.submissionDate || new Date().toISOString().split('T')[0]
+    submissionDate: editReport?.submissionDate || new Date().toISOString().split('T')[0],
+    whatsappNumber: editReport?.whatsappNumber || '',
+    includeWakaSignature: editReport?.includeWakaSignature !== undefined ? editReport.includeWakaSignature : false,
+    wakaName: editReport?.wakaName || '',
+    wakaJabatan: editReport?.wakaJabatan || 'Waka Urusan Terkait'
   });
 
   useEffect(() => {
@@ -620,6 +630,11 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.unitId || !formData.activityName) return;
+
+    if (!formData.whatsappNumber || !formData.whatsappNumber.trim()) {
+      safeAlert('Nomor WhatsApp Pengaju wajib diisi! Anggaran tidak dapat diajukan tanpa nomor WhatsApp untuk notifikasi status.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -680,13 +695,25 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
         ketuaJabatan: formData.ketuaJabatan,
         bendaharaName: formData.bendaharaName,
         bendaharaJabatan: formData.bendaharaJabatan,
-        submissionDate: formData.submissionDate
+        submissionDate: formData.submissionDate,
+        whatsappNumber: formData.whatsappNumber || '',
+        includeWakaSignature: Boolean(formData.includeWakaSignature),
+        wakaName: formData.wakaName || '',
+        wakaJabatan: formData.wakaJabatan || ''
       };
 
       if (editReport?.id) {
         await setDoc(doc(db, 'reports', editReport.id), payload as any, { merge: true });
+        // Jika ada perubahan status dan nomor WhatsApp terisi, kirim notifikasi
+        if (finalStatus !== editReport.status && formData.whatsappNumber) {
+          sendReportStatusNotification({ id: editReport.id, ...payload } as any, finalStatus, undefined, db).catch(console.error);
+        }
       } else {
-        await addDoc(collection(db, 'reports'), payload as any);
+        const newDocRef = await addDoc(collection(db, 'reports'), payload as any);
+        // Kirim notifikasi pengajuan baru via WhatsApp ke pengaju
+        if (formData.whatsappNumber) {
+          sendReportStatusNotification({ id: newDocRef.id, ...payload } as any, ReportStatus.BUDGET_PROPOSAL, undefined, db).catch(console.error);
+        }
       }
       onSuccess();
     } catch (err) {
@@ -787,6 +814,77 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                 onChange={(e) => setFormData({...formData, bendaharaJabatan: e.target.value})}
               />
             </div>
+          </div>
+
+          {/* Nomor WhatsApp Pengaju */}
+          <div className="p-6 bg-emerald-50/50 border border-emerald-200/80 rounded-3xl space-y-2 focus-within:border-emerald-500 transition-colors">
+            <div className="flex items-center justify-between">
+              <label className="text-xs uppercase tracking-wider font-bold text-emerald-950 flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-emerald-600" />
+                Nomor WhatsApp Pengaju <span className="text-red-500 font-bold">*</span>
+              </label>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-100/80 px-2 py-0.5 rounded-md border border-red-200">
+                Wajib Diisi
+              </span>
+            </div>
+            <input 
+              type="tel"
+              required
+              className="w-full p-4 bg-white rounded-2xl border border-emerald-200 text-sm font-mono font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-400 outline-none placeholder:text-natural-secondary/50"
+              placeholder="Contoh: 081234567890 (Menerima notifikasi status pengajuan & laporan)"
+              value={formData.whatsappNumber}
+              onChange={(e) => setFormData({...formData, whatsappNumber: e.target.value})}
+            />
+            <p className="text-xs text-natural-secondary italic font-medium">
+              *Nomor ini wajib diisi dan akan menerima notifikasi secara otomatis setiap ada perubahan status kegiatan.
+            </p>
+          </div>
+
+          {/* Opsi Tanda Tangan Mengetahui Waka */}
+          <div className="p-6 bg-natural-input/40 border border-natural-border rounded-3xl space-y-4">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <input 
+                type="checkbox"
+                checked={formData.includeWakaSignature}
+                onChange={(e) => setFormData({...formData, includeWakaSignature: e.target.checked})}
+                className="w-5 h-5 rounded-lg border-natural-border text-natural-primary focus:ring-natural-primary/20 accent-emerald-600 cursor-pointer"
+              />
+              <div>
+                <span className="text-sm font-bold text-natural-primary block">
+                  Cantumkan Tanda Tangan Mengetahui Waka
+                </span>
+                <span className="text-xs text-natural-secondary font-medium block">
+                  Jika dicentang, kolom tanda tangan "Mengetahui Waka" akan dimunculkan pada cetakan RAB dan Laporan.
+                </span>
+              </div>
+            </label>
+
+            {formData.includeWakaSignature && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="pt-4 border-t border-natural-border grid grid-cols-1 md:grid-cols-2 gap-4"
+              >
+                <div className="space-y-1.5 focus-within:text-natural-primary transition-colors">
+                  <label className="text-[10px] uppercase tracking-wider font-bold">Jabatan Waka</label>
+                  <input 
+                    className="w-full p-3.5 bg-white rounded-xl border border-natural-border text-sm font-medium focus:border-natural-primary outline-none"
+                    value={formData.wakaJabatan}
+                    placeholder="Contoh: Waka Urusan Kurikulum / Waka Urusan Kesiswaan / Waka Urusan Sarpras"
+                    onChange={(e) => setFormData({...formData, wakaJabatan: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-1.5 focus-within:text-natural-primary transition-colors">
+                  <label className="text-[10px] uppercase tracking-wider font-bold">Nama Waka (Opsional)</label>
+                  <input 
+                    className="w-full p-3.5 bg-white rounded-xl border border-natural-border text-sm font-medium focus:border-natural-primary outline-none"
+                    value={formData.wakaName}
+                    placeholder="Nama Lengkap Waka (kosongkan jika tanda tangan di atas garis titik-titik)"
+                    onChange={(e) => setFormData({...formData, wakaName: e.target.value})}
+                  />
+                </div>
+              </motion.div>
+            )}
           </div>
 
           <div className="space-y-1.5 focus-within:text-natural-primary transition-colors">
@@ -1358,6 +1456,26 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
   };
 
   const balance = report.amountReceived - report.totalSpent;
+  const [editingWa, setEditingWa] = useState(false);
+  const [waNumberInput, setWaNumberInput] = useState(report.whatsappNumber || '');
+  const [savingWa, setSavingWa] = useState(false);
+
+  const handleSaveWaNumber = async () => {
+    if (!report.id) return;
+    setSavingWa(true);
+    try {
+      await setDoc(doc(db, 'reports', report.id), {
+        whatsappNumber: waNumberInput.trim(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      report.whatsappNumber = waNumberInput.trim();
+      setEditingWa(false);
+    } catch (e) {
+      console.error('Failed to update WhatsApp number:', e);
+    } finally {
+      setSavingWa(false);
+    }
+  };
 
   return (
     <motion.div 
@@ -1391,6 +1509,77 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
              {report.status === ReportStatus.BUDGET_PROPOSAL || report.status === ReportStatus.BUDGET_APPROVED || report.status === ReportStatus.REJECTED ? 'Cetak RAB' : 'Cetak Laporan'}
            </button>
            <StatusBadge status={report.status} />
+        </div>
+      </div>
+
+      {/* WhatsApp Notification Card */}
+      <div className="bg-white p-6 rounded-[32px] border border-emerald-200/80 shadow-xs mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#25D366]/15 flex items-center justify-center text-[#128C7E] flex-shrink-0">
+            <Smartphone className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                Notifikasi WhatsApp Pengaju
+              </span>
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${report.whatsappNumber ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                {report.whatsappNumber ? 'Nomor Terdaftar' : 'Belum Ada Nomor'}
+              </span>
+            </div>
+            {editingWa ? (
+              <div className="flex items-center gap-2 mt-2">
+                <input 
+                  type="tel"
+                  className="p-2 px-3 border border-emerald-300 rounded-xl text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-emerald-400"
+                  placeholder="081234567890"
+                  value={waNumberInput}
+                  onChange={e => setWaNumberInput(e.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={savingWa}
+                  onClick={handleSaveWaNumber}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all"
+                >
+                  {savingWa ? '...' : 'Simpan'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingWa(false)}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                >
+                  Batal
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm font-mono font-bold text-natural-primary mt-0.5">
+                {report.whatsappNumber || <span className="text-natural-secondary/60 italic font-sans font-normal">Tidak ada nomor (klik edit untuk menambahkan)</span>}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end md:self-auto">
+          {!editingWa && (
+            <button
+              onClick={() => { setWaNumberInput(report.whatsappNumber || ''); setEditingWa(true); }}
+              className="text-[10px] uppercase font-bold text-natural-secondary hover:text-natural-primary px-3 py-1.5 rounded-full border border-natural-border bg-natural-input/50 transition-colors"
+            >
+              {report.whatsappNumber ? 'Ubah Nomor' : '+ Tambah Nomor'}
+            </button>
+          )}
+          {report.whatsappNumber && (
+            <a 
+              href={`https://wa.me/${report.whatsappNumber.replace(/\D/g, '').replace(/^0/, '62')}`} 
+              target="_blank" 
+              rel="noreferrer"
+              className="text-[10px] uppercase font-bold text-[#128C7E] hover:bg-[#25D366]/10 px-3 py-1.5 rounded-full border border-[#25D366]/30 transition-all flex items-center gap-1.5"
+            >
+              <Send className="w-3 h-3" />
+              Buka Chat WA
+            </a>
+          )}
         </div>
       </div>
 
@@ -1462,6 +1651,13 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
               <p className="text-sm text-natural-secondary italic">Mengetahui, {report.unitName}</p>
               <p className="text-xs text-natural-secondary uppercase tracking-widest mt-2">{report.submissionDate ? `Dibuat pada: ${formatDate(report.submissionDate)}` : ''}</p>
             </div>
+            {report.includeWakaSignature && (
+              <div className="col-span-2 text-center mt-4 pt-4 border-t border-natural-bg/70">
+                <p className="text-xs font-bold text-natural-secondary uppercase tracking-widest mb-1 italic">Mengetahui</p>
+                <p className="text-sm font-bold">{report.wakaJabatan || 'Waka Urusan Terkait'}</p>
+                <p className="text-sm font-bold border-b border-natural-bg inline-block px-4 mt-1">{report.wakaName || '........................................'}</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2384,12 +2580,15 @@ const MainDashboard = () => {
               <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.bendaharaName || ''}</p>
             </div>
           </div>
-          <div style="margin-top: 30px; display: flex; justify-content: center; font-size: 11pt; page-break-inside: avoid;">
-            <div style="text-align: center; width: 45%;">
-              <p style="margin: 0 0 60px 0; line-height: 1.4;">Mengetahui,<br/>Waka Ur........................</p>
-              <div style="border-bottom: 1px solid #000; width: 220px; margin: 0 auto;"></div>
+          ${report.includeWakaSignature ? `
+            <div style="margin-top: 30px; display: flex; justify-content: center; font-size: 11pt; page-break-inside: avoid;">
+              <div style="text-align: center; width: 45%;">
+                <p style="margin: 0 0 60px 0; line-height: 1.4;">Mengetahui,<br/>${report.wakaJabatan || 'Waka Ur........................'}</p>
+                <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.wakaName || ''}</p>
+                <div style="border-bottom: 1px solid #000; width: 220px; margin: 0 auto;"></div>
+              </div>
             </div>
-          </div>
+          ` : ''}
           <script>window.print(); setTimeout(() => window.close(), 1000);</script>
         </body>
       </html>
@@ -2531,12 +2730,15 @@ const MainDashboard = () => {
               <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.bendaharaName || ''}</p>
             </div>
           </div>
-          <div style="margin-top: 30px; display: flex; justify-content: center; font-size: 11pt; page-break-inside: avoid;">
-            <div style="text-align: center; width: 45%;">
-              <p style="margin: 0 0 60px 0; line-height: 1.4;">Mengetahui,<br/>Waka Ur........................</p>
-              <div style="border-bottom: 1px solid #000; width: 220px; margin: 0 auto;"></div>
+          ${report.includeWakaSignature ? `
+            <div style="margin-top: 30px; display: flex; justify-content: center; font-size: 11pt; page-break-inside: avoid;">
+              <div style="text-align: center; width: 45%;">
+                <p style="margin: 0 0 60px 0; line-height: 1.4;">Mengetahui,<br/>${report.wakaJabatan || 'Waka Ur........................'}</p>
+                <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.wakaName || ''}</p>
+                <div style="border-bottom: 1px solid #000; width: 220px; margin: 0 auto;"></div>
+              </div>
             </div>
-          </div>
+          ` : ''}
 
           <!-- PAGE 2: RINCIAN PENGGUNAAN ANGGARAN -->
           <div class="page-break"></div>
@@ -2675,12 +2877,15 @@ const MainDashboard = () => {
               <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.bendaharaName || ''}</p>
             </div>
           </div>
-          <div style="margin-top: 30px; display: flex; justify-content: center; font-size: 11pt; page-break-inside: avoid;">
-            <div style="text-align: center; width: 45%;">
-              <p style="margin: 0 0 60px 0; line-height: 1.4;">Mengetahui,<br/>Waka Ur........................</p>
-              <div style="border-bottom: 1px solid #000; width: 220px; margin: 0 auto;"></div>
+          ${report.includeWakaSignature ? `
+            <div style="margin-top: 30px; display: flex; justify-content: center; font-size: 11pt; page-break-inside: avoid;">
+              <div style="text-align: center; width: 45%;">
+                <p style="margin: 0 0 60px 0; line-height: 1.4;">Mengetahui,<br/>${report.wakaJabatan || 'Waka Ur........................'}</p>
+                <p style="margin: 0; font-weight: bold; text-decoration: underline;">${report.wakaName || ''}</p>
+                <div style="border-bottom: 1px solid #000; width: 220px; margin: 0 auto;"></div>
+              </div>
             </div>
-          </div>
+          ` : ''}
 
           <script>window.print(); setTimeout(() => window.close(), 1000);</script>
         </body>
@@ -2716,6 +2921,19 @@ const MainDashboard = () => {
       }
       await setDoc(doc(db, 'reports', id), updatePayload, { merge: true });
       await refreshReports();
+
+      // Kirim Notifikasi WhatsApp Otomatis ke Pengaju via Fonnte.com
+      const targetReport = reports.find(r => r.id === id);
+      if (targetReport) {
+        const mergedReport: Report = {
+          ...targetReport,
+          status: newStatus,
+          treasurerNotes: notes !== undefined ? notes : targetReport.treasurerNotes
+        };
+        sendReportStatusNotification(mergedReport, newStatus, notes, db).catch(err => {
+          console.warn('WhatsApp notification delivery error:', err);
+        });
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `reports/${id}`);
     }
@@ -2811,6 +3029,13 @@ const MainDashboard = () => {
                 >
                   <UserIcon className="w-4 h-4" />
                   Daftar Pegawai
+                </button>
+                <button 
+                  onClick={() => navigateTo('/settings/whatsapp')}
+                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/settings/whatsapp' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Notifikasi WA
                 </button>
               </>
             )}
@@ -3103,6 +3328,14 @@ const MainDashboard = () => {
                 isAdmin ? (
                   <motion.div key="employee_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                     <EmployeeSettings employees={employees} units={units} />
+                  </motion.div>
+                ) : <Navigate to="/" replace />
+              } />
+
+              <Route path="/settings/whatsapp" element={
+                isAdmin ? (
+                  <motion.div key="whatsapp_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <WhatsAppSettings db={db} userEmail={user?.username || 'admin'} />
                   </motion.div>
                 ) : <Navigate to="/" replace />
               } />

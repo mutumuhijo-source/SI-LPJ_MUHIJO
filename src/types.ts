@@ -54,6 +54,19 @@ export interface Report {
   bendaharaJabatan?: string;
   submissionDate?: string;
   parentReportId?: string;
+  whatsappNumber?: string;
+  includeWakaSignature?: boolean;
+  wakaName?: string;
+  wakaJabatan?: string;
+}
+
+export interface WhatsappSettings {
+  fonnteToken: string;
+  enabled: boolean;
+  senderName?: string;
+  schoolName?: string;
+  updatedAt?: any;
+  updatedBy?: string;
 }
 
 export interface CashInflow {
