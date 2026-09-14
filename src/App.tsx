@@ -38,12 +38,15 @@ import {
   MessageSquare,
   Smartphone,
   Send,
-  CheckCircle2
+  CheckCircle2,
+  ShieldCheck,
+  KeyRound,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BukuKasKeluar } from './components/BukuKasKeluar';
 import { WhatsAppSettings } from './components/WhatsAppSettings';
-import { sendReportStatusNotification } from './services/whatsapp';
+import { sendReportStatusNotification, sendWhatsappVerificationCode } from './services/whatsapp';
 import { formatCurrency, parseAmount, terbilang } from './lib/utils';
 
 // Safe alert and confirm helper functions for sandboxed/iframe compliance
@@ -575,6 +578,22 @@ const LoginPage = () => {
 const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes, employees, onPrintRAB }: { onCancel: () => void, onSuccess: () => void, user: AppUser, editReport?: Report, units: Unit[], expenseTypes: ExpenseType[], employees: Employee[], onPrintRAB?: (r: Report) => void }) => {
   const isAdmin = safeStorage.getItem('user_role') === 'admin';
   const [loading, setLoading] = useState(false);
+  const [isWaVerified, setIsWaVerified] = useState<boolean>(Boolean(editReport?.whatsappVerified && editReport?.whatsappNumber));
+  const [sendingOtp, setSendingOtp] = useState<boolean>(false);
+  const [otpSent, setOtpSent] = useState<boolean>(false);
+  const [generatedOtp, setGeneratedOtp] = useState<string>('');
+  const [inputOtp, setInputOtp] = useState<string>('');
+  const [otpError, setOtpError] = useState<string>('');
+  const [otpCountdown, setOtpCountdown] = useState<number>(0);
+
+  useEffect(() => {
+    let timer: any;
+    if (otpCountdown > 0) {
+      timer = setTimeout(() => setOtpCountdown(prev => prev - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [otpCountdown]);
+
   const [formData, setFormData] = useState({
     unitId: editReport?.unitId || '',
     unitName: editReport?.unitName || '',
@@ -613,6 +632,59 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
     }
   };
 
+  const handleSendWaVerification = async () => {
+    const rawNumber = formData.whatsappNumber.trim();
+    if (!rawNumber || rawNumber.length < 9) {
+      safeAlert('Masukkan nomor WhatsApp yang valid terlebih dahulu (minimal 9 digit, contoh: 081234567890).');
+      return;
+    }
+
+    setSendingOtp(true);
+    setOtpError('');
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedOtp(code);
+
+    try {
+      const selectedUnit = units.find(u => u.id === formData.unitId);
+      const res = await sendWhatsappVerificationCode({
+        phone: rawNumber,
+        code: code,
+        unitName: selectedUnit?.name || formData.unitName,
+        activityName: formData.activityName,
+        db
+      });
+
+      if (res.success) {
+        setOtpSent(true);
+        setOtpCountdown(60);
+        setInputOtp('');
+        safeAlert(`Kode verifikasi 6-digit berhasil dikirim ke nomor WhatsApp ${rawNumber}. Silakan periksa pesan WhatsApp Anda dan masukkan kodenya.`);
+      } else {
+        setOtpError(res.message);
+        safeAlert(`Gagal mengirim verifikasi: ${res.message}\nPastikan nomor terdaftar aktif di WhatsApp dan Token Fonnte telah aktif.`);
+      }
+    } catch (e: any) {
+      setOtpError(e.message || 'Terjadi kendala saat mengirim verifikasi.');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyWaCode = () => {
+    if (!inputOtp.trim()) {
+      setOtpError('Masukkan 6 digit kode verifikasi yang diterima di WhatsApp.');
+      return;
+    }
+    if (inputOtp.trim() === generatedOtp) {
+      setIsWaVerified(true);
+      setOtpSent(false);
+      setOtpError('');
+      safeAlert('Nomor WhatsApp BERHASIL TERVERIFIKASI AKTIF! Notifikasi status pengajuan hingga laporan selesai akan dikirim ke nomor ini.');
+    } else {
+      setOtpError('Kode verifikasi salah. Mohon periksa kembali pesan WhatsApp Anda.');
+    }
+  };
+
   const removeDetail = (index: number, isProposed: boolean) => {
     if (isProposed) {
       const newDetails = [...formData.proposedDetails];
@@ -633,6 +705,11 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
 
     if (!formData.whatsappNumber || !formData.whatsappNumber.trim()) {
       safeAlert('Nomor WhatsApp Pengaju wajib diisi! Anggaran tidak dapat diajukan tanpa nomor WhatsApp untuk notifikasi status.');
+      return;
+    }
+
+    if (!isWaVerified && !isAdmin) {
+      safeAlert('Nomor WhatsApp wajib diverifikasi aktif terlebih dahulu!\nSilakan klik tombol "Verifikasi Nomor WhatsApp" untuk memastikan nomor aktif menerima notifikasi.');
       return;
     }
 
@@ -697,6 +774,8 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
         bendaharaJabatan: formData.bendaharaJabatan,
         submissionDate: formData.submissionDate,
         whatsappNumber: formData.whatsappNumber || '',
+        whatsappVerified: isWaVerified || isAdmin,
+        whatsappVerifiedAt: isWaVerified ? new Date().toISOString() : undefined,
         includeWakaSignature: Boolean(formData.includeWakaSignature),
         wakaName: formData.wakaName || '',
         wakaJabatan: formData.wakaJabatan || ''
@@ -816,28 +895,112 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
             </div>
           </div>
 
-          {/* Nomor WhatsApp Pengaju */}
-          <div className="p-6 bg-emerald-50/50 border border-emerald-200/80 rounded-3xl space-y-2 focus-within:border-emerald-500 transition-colors">
-            <div className="flex items-center justify-between">
-              <label className="text-xs uppercase tracking-wider font-bold text-emerald-950 flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-emerald-600" />
-                Nomor WhatsApp Pengaju <span className="text-red-500 font-bold">*</span>
+          {/* Nomor WhatsApp Pengaju & Verifikasi Aktif */}
+          <div className={`p-6 border rounded-3xl space-y-4 transition-all ${isWaVerified ? 'bg-emerald-50/60 border-emerald-300' : 'bg-amber-50/50 border-amber-200'}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-xs uppercase tracking-wider font-bold text-natural-primary flex items-center gap-2">
+                <Smartphone className={`w-4 h-4 ${isWaVerified ? 'text-emerald-600' : 'text-amber-600'}`} />
+                Nomor WhatsApp Pengaju (Wajib Terverifikasi Aktif) <span className="text-red-500 font-bold">*</span>
               </label>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-100/80 px-2 py-0.5 rounded-md border border-red-200">
-                Wajib Diisi
-              </span>
+              {isWaVerified ? (
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300 flex items-center gap-1.5 shadow-2xs">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  Terverifikasi Aktif
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100 px-3 py-1 rounded-full border border-amber-300 flex items-center gap-1.5">
+                  <KeyRound className="w-3 h-3 text-amber-600" />
+                  Belum Terverifikasi
+                </span>
+              )}
             </div>
-            <input 
-              type="tel"
-              required
-              className="w-full p-4 bg-white rounded-2xl border border-emerald-200 text-sm font-mono font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-400 outline-none placeholder:text-natural-secondary/50"
-              placeholder="Contoh: 081234567890 (Menerima notifikasi status pengajuan & laporan)"
-              value={formData.whatsappNumber}
-              onChange={(e) => setFormData({...formData, whatsappNumber: e.target.value})}
-            />
-            <p className="text-xs text-natural-secondary italic font-medium">
-              *Nomor ini wajib diisi dan akan menerima notifikasi secara otomatis setiap ada perubahan status kegiatan.
-            </p>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <input 
+                type="tel"
+                required
+                className={`flex-1 p-4 bg-white rounded-2xl border text-sm font-mono font-bold focus:ring-2 outline-none placeholder:text-natural-secondary/50 transition-all ${isWaVerified ? 'border-emerald-300 text-emerald-950 focus:ring-emerald-400' : 'border-amber-300 text-natural-primary focus:ring-amber-400'}`}
+                placeholder="Contoh: 081234567890"
+                value={formData.whatsappNumber}
+                onChange={(e) => {
+                  setFormData({...formData, whatsappNumber: e.target.value});
+                  if (isWaVerified) {
+                    setIsWaVerified(false);
+                    setOtpSent(false);
+                  }
+                }}
+              />
+              {!isWaVerified && (
+                <button
+                  type="button"
+                  disabled={sendingOtp || otpCountdown > 0 || !formData.whatsappNumber.trim()}
+                  onClick={handleSendWaVerification}
+                  className="px-6 py-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-2xl font-bold uppercase text-xs tracking-wider transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                >
+                  {sendingOtp ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Mengirim...
+                    </>
+                  ) : otpCountdown > 0 ? (
+                    `Kirim Ulang (${otpCountdown}s)`
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Verifikasi Nomor
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Form Input Kode OTP Verifikasi jika sudah dikirim */}
+            {!isWaVerified && otpSent && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                className="p-4 bg-white rounded-2xl border border-amber-200 space-y-3 shadow-xs"
+              >
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+                  <KeyRound className="w-4 h-4 text-amber-600" />
+                  <span>Masukkan 6-Digit Kode Verifikasi yang Diterima di WhatsApp</span>
+                </div>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    className="flex-1 p-3 bg-amber-50/50 border border-amber-300 rounded-xl text-center font-mono font-bold text-lg tracking-[0.3em] outline-none focus:ring-2 focus:ring-amber-400"
+                    placeholder="------"
+                    value={inputOtp}
+                    onChange={(e) => setInputOtp(e.target.value.replace(/\D/g, ''))}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyWaCode}
+                    className="px-6 py-3 bg-natural-primary hover:bg-natural-primary/90 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+                  >
+                    Konfirmasi Kode
+                  </button>
+                </div>
+                {otpError && (
+                  <p className="text-xs text-red-600 font-bold">{otpError}</p>
+                )}
+                <p className="text-[11px] text-natural-secondary italic">
+                  *Pesan berisi kode verifikasi telah dikirim via WhatsApp ke <strong>{formData.whatsappNumber}</strong>.
+                </p>
+              </motion.div>
+            )}
+
+            {isWaVerified ? (
+              <p className="text-xs text-emerald-800 font-medium flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                Nomor WhatsApp terverifikasi aktif. Notifikasi penerimaan pengajuan, persetujuan anggaran, instruksi LPJ, revisi, hingga pengesahan laporan akan dikirim otomatis ke nomor ini.
+              </p>
+            ) : (
+              <p className="text-xs text-amber-800 font-medium italic">
+                *Nomor WhatsApp harus diverifikasi aktif sebelum anggaran diajukan. Klik "Verifikasi Nomor" untuk mengirim kode ke WhatsApp Anda.
+              </p>
+            )}
           </div>
 
           {/* Opsi Tanda Tangan Mengetahui Waka */}
@@ -1523,8 +1686,8 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
                 Notifikasi WhatsApp Pengaju
               </span>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${report.whatsappNumber ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                {report.whatsappNumber ? 'Nomor Terdaftar' : 'Belum Ada Nomor'}
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${report.whatsappVerified ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : report.whatsappNumber ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                {report.whatsappVerified ? '✅ Terverifikasi Aktif' : report.whatsappNumber ? 'Nomor Terdaftar' : 'Belum Ada Nomor'}
               </span>
             </div>
             {editingWa ? (

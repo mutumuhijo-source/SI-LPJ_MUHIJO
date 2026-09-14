@@ -55,6 +55,8 @@ export interface Report {
   submissionDate?: string;
   parentReportId?: string;
   whatsappNumber?: string;
+  whatsappVerified?: boolean;
+  whatsappVerifiedAt?: string;
   includeWakaSignature?: boolean;
   wakaName?: string;
   wakaJabatan?: string;

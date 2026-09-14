@@ -300,3 +300,60 @@ export async function sendReportStatusNotification(
     };
   }
 }
+
+/**
+ * Mengirim kode OTP verifikasi ke nomor WhatsApp pengaju untuk memastikan nomor aktif
+ */
+export async function sendWhatsappVerificationCode({
+  phone,
+  code,
+  unitName,
+  activityName,
+  db
+}: {
+  phone: string;
+  code: string;
+  unitName?: string;
+  activityName?: string;
+  db: Firestore;
+}): Promise<{ success: boolean; message: string }> {
+  try {
+    const settings = await getWhatsappSettings(db);
+    if (!settings.enabled) {
+      return { success: false, message: 'Fitur notifikasi WhatsApp dinonaktifkan di pengaturan sistem.' };
+    }
+    if (!settings.fonnteToken || !settings.fonnteToken.trim()) {
+      return { success: false, message: 'Token API WhatsApp belum dikonfigurasi oleh Bendahara.' };
+    }
+
+    const divider = '────────────────────────';
+    const message = 
+      `🔐 *VERIFIKASI NOMOR WHATSAPP AKTIF*\n` +
+      `*E-LAPOR BENDAHARA*\n` +
+      `${divider}\n` +
+      `Kode verifikasi nomor WhatsApp Anda untuk pengajuan anggaran:\n\n` +
+      `👉 *${code}*\n\n` +
+      (unitName ? `🏢 *Unit*: ${unitName}\n` : '') +
+      (activityName ? `📌 *Kegiatan*: ${activityName}\n` : '') +
+      `\nMasukkan kode 6 digit ini pada formulir pengajuan anggaran untuk memverifikasi bahwa nomor WhatsApp Anda aktif dan siap menerima notifikasi status pengajuan hingga laporan selesai.\n` +
+      `${divider}\n` +
+      `_Sistem Informasi Keuangan E-Lapor SMK Muhammadiyah 1 Ngadirejo_`;
+
+    const res = await sendFonnteMessage({
+      token: settings.fonnteToken,
+      target: phone,
+      message
+    });
+
+    return {
+      success: res.success,
+      message: res.message
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || 'Gagal mengirim kode verifikasi WhatsApp.'
+    };
+  }
+}
+
