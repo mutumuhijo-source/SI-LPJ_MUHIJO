@@ -44,6 +44,8 @@ export interface Report {
   updatedAt?: any;
   approvedAt?: any;
   approvalDate?: string;
+  reportingInstructedAt?: any;
+  reportingInstructedDate?: string;
   completedAt?: any;
   completedDate?: string;
   submittedBy: string;

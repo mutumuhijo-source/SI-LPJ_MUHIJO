@@ -60,6 +60,10 @@ export interface UnifiedJournalItem {
   unitName: string;
   date: string;
   approvalDate?: string;
+  instructionDate?: string;
+  groupDate?: string;
+  inputTimestamp?: number;
+  inputOrder?: number;
   noBukti: string;
   category: string;
   description: string;
@@ -215,23 +219,31 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
     return () => unsub();
   }, []);
 
-  // Helper to extract approval date
-  const getApprovalDate = (r: Report): string => {
+  // Helper to extract the date when budget was instructed to become a report (bukan tanggal disetujui awal anggaran)
+  const getReportingInstructionDate = (r: Report): string => {
+    // 1. Tanggal eksplisit saat anggaran diinstruksikan menjadi laporan / pengisian laporan
+    if (r.reportingInstructedDate) return r.reportingInstructedDate;
+    if (r.reportingInstructedAt && typeof r.reportingInstructedAt.toDate === 'function') {
+      return r.reportingInstructedAt.toDate().toISOString().split('T')[0];
+    }
+    // 2. Tanggal transaksi rincian realisasi pertama (jika ada input transaksi)
+    if (r.details && r.details.length > 0) {
+      const detailDates = r.details.map(d => d.date).filter(Boolean).sort();
+      if (detailDates.length > 0 && detailDates[0]) {
+        return detailDates[0];
+      }
+    }
+    // 3. Tanggal laporan disahkan / selesai
     if (r.completedDate) return r.completedDate;
     if (r.completedAt && typeof r.completedAt.toDate === 'function') {
       return r.completedAt.toDate().toISOString().split('T')[0];
     }
-    if (r.approvalDate) return r.approvalDate;
-    if (r.approvedAt && typeof r.approvedAt.toDate === 'function') {
-      return r.approvedAt.toDate().toISOString().split('T')[0];
-    }
+    // 4. Tanggal update status laporan
     if (r.updatedAt && typeof r.updatedAt.toDate === 'function') {
       return r.updatedAt.toDate().toISOString().split('T')[0];
     }
+    // 5. Fallback ke submissionDate atau tanggal saldo awal
     if (r.submissionDate) return r.submissionDate;
-    if (r.submittedAt && typeof r.submittedAt.toDate === 'function') {
-      return r.submittedAt.toDate().toISOString().split('T')[0];
-    }
     return bkkSettings.initialBalanceDate || '2026-09-01';
   };
 
@@ -302,6 +314,17 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
     return false;
   };
 
+  // Helper untuk mendapatkan nilai timestamp numerik untuk menjaga urutan input secara stabil
+  const getEntryTimestamp = (val: any): number => {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    if (typeof val.toMillis === 'function') return val.toMillis();
+    if (typeof val.toDate === 'function') return val.toDate().getTime();
+    if (val.seconds) return val.seconds * 1000 + (val.nanoseconds ? Math.floor(val.nanoseconds / 1000000) : 0);
+    const parsed = new Date(val).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   // Build the complete combined journal with Penerimaan, Pengeluaran, and Sisa Anggaran at bottom
   // Catatan: Buku Kas tetap dimulai per tanggal saldo awal yang dikonfigurasi (September)
   const allJournalItems = useMemo<UnifiedJournalItem[]>(() => {
@@ -312,6 +335,8 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
       const itemDate = inflow.date || bkkSettings.initialBalanceDate || '2026-09-01';
       if (isDateBeforeBukuKasStart(itemDate)) return; // Lewati transaksi sebelum Buku Kas
 
+      const ts = getEntryTimestamp(inflow.createdAt) || (parseTransactionDate(itemDate) ? new Date(parseTransactionDate(itemDate)!.iso).getTime() : 0);
+
       items.push({
         id: `inflow-${inflow.id || idx}`,
         itemType: 'inflow_pindah_buku',
@@ -320,6 +345,10 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
         unitName: 'Kas Utama Bendahara',
         date: itemDate,
         approvalDate: itemDate,
+        instructionDate: itemDate,
+        groupDate: itemDate,
+        inputTimestamp: ts,
+        inputOrder: idx,
         noBukti: inflow.noBukti?.trim() || `BKM/PB-${(idx + 1).toString().padStart(3, '0')}`,
         category: inflow.category || 'Pindah Buku Bank',
         description: inflow.description || 'Penerimaan dana kas sekolah',
@@ -338,7 +367,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
     // Rule 3: Jika bendahara/admin sudah menyetujui laporan (COMPLETED/ARCHIVED), baru rincian realisasi keluar beserta sisanya.
     // Rule 4: Jika realisasi lebih besar dari anggaran disetujui, munculkan kekurangan anggaran di bagian PENERIMAAN (Rp).
     // Rule 5: Seluruh transaksi sebelum tanggal saldo awal tidak boleh dimasukkan ke Buku Kas.
-    reports.forEach(r => {
+    reports.forEach((r, rIdx) => {
       // Cek apakah masih berada di menu usulan / persetujuan anggaran
       const isInBudgetMenu = 
         r.status === ReportStatus.BUDGET_PROPOSAL ||
@@ -351,7 +380,8 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
         return;
       }
 
-      const appDate = getApprovalDate(r);
+      const instructDate = getReportingInstructionDate(r);
+      const reportTs = getEntryTimestamp(r.reportingInstructedAt || r.submittedAt || r.approvedAt || r.updatedAt) || (parseTransactionDate(instructDate) ? new Date(parseTransactionDate(instructDate)!.iso).getTime() : 0);
 
       // Cek apakah laporan telah disetujui oleh bendahara / admin
       const isReportApproved = r.status === ReportStatus.COMPLETED || r.status === ReportStatus.ARCHIVED;
@@ -361,7 +391,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
 
         if (hasDetails) {
           // Filter rincian yang berada di dalam periode Buku Kas (>= 1 September)
-          const validDetails = (r.details || []).filter(d => !isDateBeforeBukuKasStart(d.date || appDate));
+          const validDetails = (r.details || []).filter(d => !isDateBeforeBukuKasStart(d.date || instructDate));
 
           // Jika SELURUH rincian transaksi laporan ini berada sebelum periode Buku Kas,
           // lewati laporan ini sepenuhnya agar riwayat lama tidak mengotori Buku Kas & saldo real!
@@ -370,9 +400,9 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
           }
 
           let sumSpent = 0;
-          // Rincian realisasi pengeluaran dalam periode
+          // Rincian realisasi pengeluaran: wajib pertahankan urutan input (0, 1, 2, ...)
           validDetails.forEach((d, idx) => {
-            const detailDate = d.date || appDate;
+            const detailDate = d.date || instructDate;
             const budgetItem = r.proposedDetails && d.proposedIndex !== undefined 
               ? r.proposedDetails[d.proposedIndex] 
               : null;
@@ -387,7 +417,11 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
               activityName: r.activityName || 'Kegiatan',
               unitName: r.unitName || 'Umum',
               date: detailDate,
-              approvalDate: appDate,
+              instructionDate: instructDate,
+              approvalDate: instructDate,
+              groupDate: instructDate,
+              inputTimestamp: reportTs,
+              inputOrder: rIdx,
               noBukti: d.noBukti?.trim() || `BKK/LPJ-${(idx + 1).toString().padStart(3, '0')}`,
               category: category,
               description: d.description || 'Realisasi anggaran belanja',
@@ -396,12 +430,15 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
               outflowAmount: amt,
               status: r.status,
               report: r,
-              detailOrder: 10 + idx, // Rincian realisasi di atas
+              detailOrder: 10 + idx, // Selalu berurutan sesuai input (detailOrder)
             });
           });
 
-          // Tanggal untuk sisa atau kekurangan: gunakan tanggal disetujui laporan
-          const closingDate = appDate;
+          // Tanggal untuk sisa atau kekurangan: gunakan tanggal selesai laporan atau rincian terakhir atau instructDate
+          const latestDetailDate = (validDetails.length > 0 && validDetails[validDetails.length - 1].date) 
+            ? validDetails[validDetails.length - 1].date 
+            : '';
+          const closingDate = r.completedDate || latestDetailDate || instructDate;
 
           // Hanya masukkan sisa/kekurangan jika tanggal tidak sebelum tanggal Buku Kas
           if (!isDateBeforeBukuKasStart(closingDate)) {
@@ -418,7 +455,11 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
                 activityName: r.activityName || 'Kegiatan',
                 unitName: r.unitName || 'Umum',
                 date: closingDate,
-                approvalDate: appDate,
+                instructionDate: instructDate,
+                approvalDate: instructDate,
+                groupDate: instructDate,
+                inputTimestamp: reportTs,
+                inputOrder: rIdx,
                 noBukti: `BKK/SA-${(r.id || '000').substring(0, 5).toUpperCase()}`,
                 category: 'Sisa Anggaran',
                 description: `Sisa Anggaran: ${r.activityName} (${r.unitName})`,
@@ -440,7 +481,11 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
                 activityName: r.activityName || 'Kegiatan',
                 unitName: r.unitName || 'Umum',
                 date: closingDate,
-                approvalDate: appDate,
+                instructionDate: instructDate,
+                approvalDate: instructDate,
+                groupDate: instructDate,
+                inputTimestamp: reportTs,
+                inputOrder: rIdx,
                 noBukti: `BKK/KUR-${(r.id || '000').substring(0, 5).toUpperCase()}`,
                 category: 'Kekurangan Anggaran',
                 description: `Kekurangan Anggaran: ${r.activityName} (${r.unitName})`,
@@ -456,7 +501,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
           }
         } else {
           // Laporan disetujui tanpa item rincian: masukkan total anggaran jika tanggal >= start
-          if (!isDateBeforeBukuKasStart(appDate)) {
+          if (!isDateBeforeBukuKasStart(instructDate)) {
             const amt = Number(r.amountReceived) || 0;
             if (amt > 0) {
               items.push({
@@ -465,8 +510,12 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
                 reportId: r.id,
                 activityName: r.activityName || 'Kegiatan',
                 unitName: r.unitName || 'Umum',
-                date: appDate,
-                approvalDate: appDate,
+                date: instructDate,
+                instructionDate: instructDate,
+                approvalDate: instructDate,
+                groupDate: instructDate,
+                inputTimestamp: reportTs,
+                inputOrder: rIdx,
                 noBukti: `BKK/ANG-${(r.id || '000').substring(0, 5).toUpperCase()}`,
                 category: 'Pencairan Anggaran LPJ',
                 description: `Anggaran Disetujui: ${r.activityName} (${r.unitName})`,
@@ -484,7 +533,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
       } else {
         // Status sudah diinstruksikan untuk pengisian / pindah ke menu laporan (REPORTING, INCOMPLETE, REVISION dg rincian)
         // Belum disetujui admin/bendahara: tampilkan total anggarannya di Buku Kas jika tanggal >= start
-        if (!isDateBeforeBukuKasStart(appDate)) {
+        if (!isDateBeforeBukuKasStart(instructDate)) {
           const amt = Number(r.amountReceived) || 0;
           if (amt > 0) {
             items.push({
@@ -493,11 +542,15 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
               reportId: r.id,
               activityName: r.activityName || 'Kegiatan',
               unitName: r.unitName || 'Umum',
-              date: appDate,
-              approvalDate: appDate,
+              date: instructDate,
+              instructionDate: instructDate,
+              approvalDate: instructDate,
+              groupDate: instructDate,
+              inputTimestamp: reportTs,
+              inputOrder: rIdx,
               noBukti: `BKK/ANG-${(r.id || '000').substring(0, 5).toUpperCase()}`,
               category: 'Pencairan Anggaran LPJ',
-              description: `Alokasi Anggaran: ${r.activityName} (${r.unitName}) - Proses Pelaporan`,
+              description: `Alokasi Anggaran: ${r.activityName} (${r.unitName}) - Diinstruksikan Pengisian Laporan`,
               partyName: `Unit ${r.unitName}`,
               inflowAmount: 0,
               outflowAmount: amt,
@@ -516,6 +569,8 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
       const itemDate = item.date || bkkSettings.initialBalanceDate || '2026-09-01';
       if (isDateBeforeBukuKasStart(itemDate)) return; // Lewati transaksi sebelum Buku Kas
 
+      const ts = getEntryTimestamp(item.createdAt) || (parseTransactionDate(itemDate) ? new Date(parseTransactionDate(itemDate)!.iso).getTime() : 0);
+
       items.push({
         id: `direct-${item.id || idx}`,
         itemType: 'direct_outflow',
@@ -524,6 +579,10 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
         unitName: item.unitName || 'Umum / Bendahara',
         date: itemDate,
         approvalDate: itemDate,
+        instructionDate: itemDate,
+        groupDate: itemDate,
+        inputTimestamp: ts,
+        inputOrder: idx,
         noBukti: item.noBukti?.trim() || `BKK/DIR-${(idx + 1).toString().padStart(3, '0')}`,
         category: item.category || 'Operasional Kas Sekolah',
         description: item.description,
@@ -548,7 +607,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
     yearSet.add('2025');
 
     allJournalItems.forEach((item) => {
-      const dateStr = item.approvalDate || item.date;
+      const dateStr = item.date;
       if (dateStr && dateStr.length >= 4) {
         const y = dateStr.slice(0, 4);
         if (/^\d{4}$/.test(y)) {
@@ -587,7 +646,8 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
   }, [bkkSettings.initialBalanceDate]);
 
   // Apply Filter: Sisakan filter untuk bulan dan tahun saja (Buku kas tetap dari September)
-  // Urutkan pada buku kas berdasarkan disetujui saja, dengan rincian realisasi & sisa/kekurangan selalu berurutan di paling bawah
+  // Urutkan pada buku kas berdasarkan tanggal transaksi input atau saat anggaran diinstruksikan menjadi laporan
+  // Serta pertahankan urutan input (input order) secara konsisten
   const filteredJournalItems = useMemo(() => {
     // Rule: "jika ada yang filter sebelum september dikosongkan saja transaksinya"
     if (isFilterBeforeBukuKasStart) {
@@ -596,7 +656,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
 
     return allJournalItems
       .filter((item) => {
-        const effectiveDate = item.approvalDate || item.date;
+        const effectiveDate = item.groupDate || (item.reportId ? (item.instructionDate || item.date) : item.date);
         if (!effectiveDate) {
           return selectedMonth === 'ALL' && selectedYear === 'ALL';
         }
@@ -620,29 +680,35 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
         return true;
       })
       .sort((a, b) => {
-        // 1. Jika berasal dari laporan kegiatan LPJ yang sama, WAJIB pertahankan rincian & sisa/kekurangan di urutan paling bawah
+        // 1. Jika berasal dari laporan kegiatan LPJ yang sama, WAJIB pertahankan urutan input rincian & sisa/kekurangan di urutan paling bawah
         if (a.reportId && b.reportId && a.reportId === b.reportId) {
           return a.detailOrder - b.detailOrder;
         }
 
-        // 2. Urutkan pada buku kas berdasarkan tanggal disetujui (approvalDate)
-        const dateA = a.approvalDate || a.date || '';
-        const dateB = b.approvalDate || b.date || '';
-        const cmpDate = dateA.localeCompare(dateB);
+        // 2. Tanggal pengurutan utama transaksi:
+        // Berdasarkan tanggal transaksi input (date) atau saat anggaran diinstruksikan menjadi laporan (instructionDate)
+        const primaryDateA = a.groupDate || (a.reportId ? (a.instructionDate || a.date) : a.date) || '';
+        const primaryDateB = b.groupDate || (b.reportId ? (b.instructionDate || b.date) : b.date) || '';
+        const cmpDate = primaryDateA.localeCompare(primaryDateB);
         if (cmpDate !== 0) return cmpDate;
 
-        // 3. Jika tanggal disetujui sama, kelompokkan per laporan kegiatan agar rincian tidak terpisah atau terselip
+        // 3. Jika tanggal sama dan berbeda laporan / transaksi:
+        // Kelompokkan per laporan kegiatan agar rincian kegiatan tetap utuh berurutan
         const groupA = a.reportId ? `report-${a.reportId}` : `single-${a.id}`;
         const groupB = b.reportId ? `report-${b.reportId}` : `single-${b.id}`;
-        const cmpGroup = groupA.localeCompare(groupB);
-        if (cmpGroup !== 0) return cmpGroup;
-
-        // 4. Urutan di dalam kelompok kegiatan
-        if (a.detailOrder !== b.detailOrder) {
-          return a.detailOrder - b.detailOrder;
+        if (groupA !== groupB) {
+          // Tetap diurutkan berdasarkan urutan input (inputTimestamp / inputOrder)
+          if (a.inputTimestamp && b.inputTimestamp && a.inputTimestamp !== b.inputTimestamp) {
+            return a.inputTimestamp - b.inputTimestamp;
+          }
+          if (a.inputOrder !== undefined && b.inputOrder !== undefined && a.inputOrder !== b.inputOrder) {
+            return a.inputOrder - b.inputOrder;
+          }
+          return groupA.localeCompare(groupB);
         }
 
-        return (a.noBukti || '').localeCompare(b.noBukti || '');
+        // 4. Urutan di dalam kelompok kegiatan: wajib berdasarkan urutan input
+        return a.detailOrder - b.detailOrder;
       });
   }, [allJournalItems, selectedMonth, selectedYear, isFilterBeforeBukuKasStart, bkkSettings.initialBalanceDate]);
 
@@ -661,14 +727,14 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
   // Kumulatif seluruh transaksi kas valid sejak dimulainya Buku Kas
   const realTotalInflow = useMemo(() => {
     const sum = allJournalItems
-      .filter((item) => !isDateBeforeBukuKasStart(item.approvalDate || item.date))
+      .filter((item) => !isDateBeforeBukuKasStart(item.groupDate || item.date))
       .reduce((acc, item) => acc + item.inflowAmount, 0);
     return Math.round(sum * 10000) / 10000;
   }, [allJournalItems, bkkSettings.initialBalanceDate]);
 
   const realTotalOutflow = useMemo(() => {
     const sum = allJournalItems
-      .filter((item) => !isDateBeforeBukuKasStart(item.approvalDate || item.date))
+      .filter((item) => !isDateBeforeBukuKasStart(item.groupDate || item.date))
       .reduce((acc, item) => acc + item.outflowAmount, 0);
     return Math.round(sum * 10000) / 10000;
   }, [allJournalItems, bkkSettings.initialBalanceDate]);
@@ -686,7 +752,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
       return bal;
     }
     allJournalItems.forEach((item) => {
-      const effectiveDate = item.approvalDate || item.date || '';
+      const effectiveDate = item.groupDate || (item.reportId ? (item.instructionDate || item.date) : item.date) || '';
       if (!effectiveDate || isDateBeforeBukuKasStart(effectiveDate)) return;
       const parsed = parseTransactionDate(effectiveDate);
       if (!parsed) return;
@@ -1144,7 +1210,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
               <tr>
                 <th style="width: 3%;">No</th>
                 <th style="width: 8%;">Tgl Transaksi</th>
-                <th style="width: 8%;">Tgl Setuju</th>
+                <th style="width: 8%;">Tgl Instruksi</th>
                 <th style="width: 10%;">No. Bukti</th>
                 <th style="width: 14%;">Unit &amp; Kegiatan / Sumber</th>
                 <th style="width: 12%;">Pos Transaksi</th>
@@ -1177,7 +1243,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
                 }>
                   <td class="text-center">${idx + 1}</td>
                   <td class="text-center font-mono">${formatDate(item.date, { dateStyle: 'short' })}</td>
-                  <td class="text-center font-mono" style="color: #444;">${formatDate(item.approvalDate, { dateStyle: 'short' })}</td>
+                  <td class="text-center font-mono" style="color: #444;">${item.instructionDate ? formatDate(item.instructionDate, { dateStyle: 'short' }) : '-'}</td>
                   <td class="font-mono" style="font-weight: 600;">${item.noBukti}</td>
                   <td>
                     <strong>${item.unitName}</strong><br/>
@@ -1667,7 +1733,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
                 <tr className="border-b border-natural-border bg-natural-bg/50 text-[10px] uppercase tracking-wider text-natural-secondary font-bold">
                   <th className="py-4 px-3 text-center w-12">No</th>
                   <th className="py-4 px-3 w-24">Tgl Transaksi</th>
-                  <th className="py-4 px-3 w-24">Tgl Setuju</th>
+                  <th className="py-4 px-3 w-24">Tgl Instruksi</th>
                   <th className="py-4 px-3 w-32">No. Bukti</th>
                   <th className="py-4 px-4 w-40">Unit &amp; Kegiatan / Sumber</th>
                   <th className="py-4 px-4 w-36">Pos Transaksi</th>
@@ -1749,7 +1815,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
                         {formatDate(item.date, { dateStyle: 'short' })}
                       </td>
                       <td className="py-3 px-3 font-mono text-[11px] text-natural-secondary whitespace-nowrap">
-                        {formatDate(item.approvalDate, { dateStyle: 'short' })}
+                        {item.instructionDate ? formatDate(item.instructionDate, { dateStyle: 'short' }) : '-'}
                       </td>
                       <td className="py-3 px-3">
                         <span className={`font-mono text-[11px] font-semibold px-2 py-0.5 rounded border whitespace-nowrap ${

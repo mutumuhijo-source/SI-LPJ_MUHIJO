@@ -1601,15 +1601,41 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onP
   );
 };
 
-const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, onUpdateStatus }: { report: Report, onBack: () => void, isAdmin: boolean, onEdit: () => void, onPrint: () => void, onPrintRAB?: (r: Report) => void, onUpdateStatus: (id: string, s: ReportStatus, n?: string) => Promise<void> }) => {
+const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, onUpdateStatus }: { report: Report, onBack: () => void, isAdmin: boolean, onEdit: () => void, onPrint: () => void, onPrintRAB?: (r: Report) => void, onUpdateStatus: (id: string, s: ReportStatus, n?: string, d?: string) => Promise<void> }) => {
   const [notes, setNotes] = useState(report.treasurerNotes || '');
   const [updating, setUpdating] = useState(false);
 
-  const handleUpdateStatusAction = async (status: ReportStatus) => {
+  const [showInstructModal, setShowInstructModal] = useState(false);
+  const [instructDateInput, setInstructDateInput] = useState(() => {
+    if (report.reportingInstructedDate) return report.reportingInstructedDate;
+    return new Date().toISOString().split('T')[0];
+  });
+  const [editingInstructDate, setEditingInstructDate] = useState(false);
+  const [customInstructDate, setCustomInstructDate] = useState(report.reportingInstructedDate || new Date().toISOString().split('T')[0]);
+  const [savingInstructDate, setSavingInstructDate] = useState(false);
+
+  const handleSaveInstructDate = async () => {
+    if (!report.id || !customInstructDate) return;
+    setSavingInstructDate(true);
+    try {
+      await setDoc(doc(db, 'reports', report.id), {
+        reportingInstructedDate: customInstructDate,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      report.reportingInstructedDate = customInstructDate;
+      setEditingInstructDate(false);
+    } catch (e) {
+      console.error('Failed to update instruction date:', e);
+    } finally {
+      setSavingInstructDate(false);
+    }
+  };
+
+  const handleUpdateStatusAction = async (status: ReportStatus, customDate?: string) => {
     if (!report.id) return;
     setUpdating(true);
     try {
-      await onUpdateStatus(report.id, status, notes);
+      await onUpdateStatus(report.id, status, notes, customDate);
       onBack();
     } catch (err) {
       console.error(err);
@@ -1746,6 +1772,79 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
         </div>
       </div>
 
+      {/* Date & Buku Kas Timeline Card */}
+      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-xs mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-700 flex-shrink-0">
+            <Calendar className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-natural-secondary">
+                Tanggal Instruksi Laporan (Pencatatan Buku Kas)
+              </span>
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                report.reportingInstructedDate 
+                  ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                  : 'bg-zinc-100 text-zinc-600'
+              }`}>
+                {report.reportingInstructedDate ? 'Tercatat di Buku Kas' : 'Belum Diinstruksikan'}
+              </span>
+            </div>
+            {editingInstructDate ? (
+              <div className="flex items-center gap-2 mt-2">
+                <input 
+                  type="date"
+                  className="p-2 px-3 border border-amber-300 rounded-xl text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-amber-400"
+                  value={customInstructDate}
+                  onChange={e => setCustomInstructDate(e.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={savingInstructDate}
+                  onClick={handleSaveInstructDate}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all"
+                >
+                  {savingInstructDate ? '...' : 'Simpan'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingInstructDate(false)}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                >
+                  Batal
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm font-mono font-bold text-natural-primary mt-0.5">
+                {report.reportingInstructedDate ? formatDate(report.reportingInstructedDate, { dateStyle: 'medium' }) : (
+                  <span className="text-natural-secondary/60 italic font-sans font-normal text-xs">
+                    Mengikuti tanggal saat anggaran diinstruksikan menjadi laporan
+                  </span>
+                )}
+              </p>
+            )}
+            <p className="text-[10px] text-natural-secondary mt-1">
+              *Di Buku Kas, tanggal urutan transaksi dicatat saat anggaran diinstruksikan menjadi laporan (bukan tertanggal disetujui awal pagu).
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end md:self-auto">
+          {isAdmin && !editingInstructDate && (
+            <button
+              onClick={() => {
+                setCustomInstructDate(report.reportingInstructedDate || new Date().toISOString().split('T')[0]);
+                setEditingInstructDate(true);
+              }}
+              className="text-[10px] uppercase font-bold text-natural-secondary hover:text-natural-primary px-3 py-1.5 rounded-full border border-natural-border bg-natural-input/50 transition-colors"
+            >
+              {report.reportingInstructedDate ? 'Ubah Tgl Instruksi' : '+ Atur Tgl Instruksi'}
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
         <div className="bg-white p-8 rounded-[32px] border border-natural-border shadow-sm">
           <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest mb-2 italic">Dana Dari Bendahara</p>
@@ -1862,9 +1961,10 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
               {/* Admin: Start reporting */}
               {isAdmin && report.status === ReportStatus.BUDGET_APPROVED && (
                 <button 
-                  onClick={() => handleUpdateStatusAction(ReportStatus.REPORTING)}
+                  onClick={() => setShowInstructModal(true)}
                   className="bg-natural-secondary text-white px-5 py-2.5 rounded-full font-serif italic text-xs hover:bg-natural-secondary/90 transition-all shadow-md flex items-center gap-1.5"
                 >
+                  <FileText className="w-3.5 h-3.5" />
                   Instruksikan Pengisian Laporan (Pindah ke Menu Laporan)
                 </button>
               )}
@@ -2076,6 +2176,86 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
             <h4 className="font-bold text-natural-primary uppercase tracking-widest text-xs">Ulasan Bendahara</h4>
           </div>
           <p className="text-natural-text italic font-medium leading-relaxed">"{report.treasurerNotes}"</p>
+        </div>
+      )}
+
+      {/* Modal Dialog Instruksikan Pengisian Laporan */}
+      {showInstructModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-[32px] p-6 max-w-md w-full border border-natural-border shadow-2xl space-y-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-serif italic font-bold text-lg text-natural-primary">
+                  Instruksikan Pengisian Laporan
+                </h3>
+                <p className="text-[11px] text-natural-secondary">
+                  Pencatatan Alokasi Dana ke Buku Kas
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-natural-secondary leading-relaxed">
+              Anggaran kegiatan <strong>{report.activityName}</strong> akan dipindahkan ke menu <strong>Laporan</strong> dan dicatatkan ke dalam <strong>Buku Kas</strong> pada tanggal instruksi/pencairan di bawah ini.
+            </p>
+
+            <div className="space-y-1.5 pt-2">
+              <label className="text-[10px] uppercase tracking-wider font-bold text-natural-primary block">
+                Tanggal Instruksi Laporan / Pencairan Dana ke Unit (Buku Kas)
+              </label>
+              <input 
+                type="date"
+                required
+                className="w-full p-3 bg-natural-input border border-natural-border rounded-xl text-sm font-bold font-mono focus:bg-white focus:border-natural-primary outline-none"
+                value={instructDateInput}
+                onChange={(e) => setInstructDateInput(e.target.value)}
+              />
+              <p className="text-[10px] text-amber-800 italic">
+                *Sesuai ketentuan, tanggal urutan transaksi di Buku Kas dicatat berdasarkan tanggal instruksi ini (bukan tertanggal disetujui awal anggaran).
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase tracking-wider font-bold text-natural-primary block">
+                Catatan Bendahara untuk Unit (Opsional)
+              </label>
+              <textarea 
+                className="w-full p-3 bg-natural-input border border-natural-border rounded-xl text-xs font-medium focus:bg-white focus:border-natural-primary outline-none resize-none"
+                rows={2}
+                placeholder="Pesan tambahan untuk unit pengaju..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-natural-border">
+              <button
+                type="button"
+                onClick={() => setShowInstructModal(false)}
+                disabled={updating}
+                className="px-4 py-2 rounded-full border border-natural-border text-natural-secondary text-xs font-bold hover:bg-natural-bg"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowInstructModal(false);
+                  handleUpdateStatusAction(ReportStatus.REPORTING, instructDateInput);
+                }}
+                disabled={updating || !instructDateInput}
+                className="px-5 py-2 rounded-full bg-natural-secondary hover:bg-natural-secondary/90 text-white text-xs font-bold font-serif italic shadow-md disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {updating ? 'Memproses...' : 'Konfirmasi Instruksikan'}
+              </button>
+            </div>
+          </motion.div>
         </div>
       )}
     </motion.div>
@@ -3063,7 +3243,7 @@ const MainDashboard = () => {
     }
   };
 
-  const handleStatusUpdate = async (id: string, newStatus: ReportStatus, notes?: string) => {
+  const handleStatusUpdate = async (id: string, newStatus: ReportStatus, notes?: string, customDate?: string) => {
     try {
       const updatePayload: any = { 
         status: newStatus, 
@@ -3072,15 +3252,17 @@ const MainDashboard = () => {
       };
       if (newStatus === ReportStatus.BUDGET_APPROVED) {
         updatePayload.approvedAt = serverTimestamp();
-        updatePayload.approvalDate = new Date().toISOString().split('T')[0];
+        updatePayload.approvalDate = customDate || new Date().toISOString().split('T')[0];
         updatePayload.completedAt = null;
         updatePayload.completedDate = null;
       } else if (newStatus === ReportStatus.REPORTING) {
+        updatePayload.reportingInstructedAt = serverTimestamp();
+        updatePayload.reportingInstructedDate = customDate || new Date().toISOString().split('T')[0];
         updatePayload.completedAt = null;
         updatePayload.completedDate = null;
       } else if (newStatus === ReportStatus.COMPLETED || newStatus === ReportStatus.ARCHIVED) {
         updatePayload.completedAt = serverTimestamp();
-        updatePayload.completedDate = new Date().toISOString().split('T')[0];
+        updatePayload.completedDate = customDate || new Date().toISOString().split('T')[0];
       }
       await setDoc(doc(db, 'reports', id), updatePayload, { merge: true });
       await refreshReports();
@@ -3091,7 +3273,10 @@ const MainDashboard = () => {
         const mergedReport: Report = {
           ...targetReport,
           status: newStatus,
-          treasurerNotes: notes !== undefined ? notes : targetReport.treasurerNotes
+          treasurerNotes: notes !== undefined ? notes : targetReport.treasurerNotes,
+          reportingInstructedDate: newStatus === ReportStatus.REPORTING 
+            ? (customDate || new Date().toISOString().split('T')[0]) 
+            : targetReport.reportingInstructedDate
         };
         sendReportStatusNotification(mergedReport, newStatus, notes, db).catch(err => {
           console.warn('WhatsApp notification delivery error:', err);
