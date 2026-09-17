@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, createContext, useContext, useMemo, useCallback, Component, ReactNode } from 'react';
+import { useState, useEffect, createContext, useContext, useMemo, useCallback, Component, ReactNode, useRef } from 'react';
 import { HashRouter, Routes, Route, useNavigate, Navigate, useLocation, useParams } from 'react-router-dom';
 import { db } from './firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, setDoc, serverTimestamp, addDoc, getDocs, deleteDoc, limit, orderBy } from 'firebase/firestore';
@@ -41,7 +41,11 @@ import {
   CheckCircle2,
   ShieldCheck,
   KeyRound,
-  Loader2
+  Loader2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Menu,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BukuKasKeluar } from './components/BukuKasKeluar';
@@ -2740,6 +2744,7 @@ const MainDashboard = () => {
   const { user, isAdmin, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
+  const mainContentRef = useRef<HTMLDivElement>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
@@ -2750,11 +2755,31 @@ const MainDashboard = () => {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [initialUnitNameForAccount, setInitialUnitNameForAccount] = useState('');
 
+  // Sidebar hidden state: persisted across sessions
+  const [isSidebarHidden, setIsSidebarHidden] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('elapor_sidebar_hidden') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarHidden(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('elapor_sidebar_hidden', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
   const navigateTo = useCallback((path: string, options?: { state?: any }) => {
     if (path === '/') {
       setSelectedReport(null);
     }
     navigate(path);
+    mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [navigate]);
 
@@ -3299,118 +3324,201 @@ const MainDashboard = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-natural-bg font-sans selection:bg-natural-primary/10">
-      <div className="flex flex-1">
-        {/* Sidebar */}
-        <div className="w-80 bg-natural-bg border-r border-natural-border px-8 py-12 flex flex-col gap-10">
-          <div className="space-y-1 px-4">
+    <div className="flex h-screen w-screen overflow-hidden bg-natural-bg font-sans selection:bg-natural-primary/10">
+      {/* Mobile backdrop overlay when sidebar is open on small screens */}
+      {!isSidebarHidden && (
+        <div 
+          onClick={toggleSidebar}
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-30 lg:hidden transition-opacity"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar: Fixed, Non-scrolling with the main page; User & Logout pinned at bottom-left */}
+      <aside 
+        className={`h-screen bg-natural-bg border-r border-natural-border flex flex-col flex-shrink-0 z-40 lg:z-30 transition-all duration-300 ease-in-out select-none ${
+          isSidebarHidden 
+            ? 'w-0 -translate-x-full border-r-0 opacity-0 pointer-events-none p-0 overflow-hidden' 
+            : 'w-72 lg:w-80 translate-x-0 opacity-100 fixed lg:static inset-y-0 left-0 shadow-2xl lg:shadow-none'
+        }`}
+      >
+        {/* Sidebar Header with Brand and Sembunyikan/Hide Button */}
+        <div className="p-6 pb-4 border-b border-natural-border/60 flex items-center justify-between flex-shrink-0">
+          <div className="space-y-0.5">
             <h1 className="text-2xl font-serif italic text-natural-primary tracking-tighter">E-Lapor.</h1>
             <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-[0.1em]">SMK MUH 1 NGADIREJO</p>
           </div>
-          
-          <div className="flex flex-col gap-2">
-            <button 
-              onClick={() => { navigateTo('/'); setSelectedReport(null); }}
-              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              Dashboard
-            </button>
-            <button 
-              onClick={() => { navigateTo('/anggaran'); setSelectedUnitFolder(null); setSelectedReport(null); }}
-              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/anggaran' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-            >
-              <FileText className="w-4 h-4" />
-              Anggaran
-            </button>
-            <button 
-              onClick={() => { navigateTo('/laporan'); setSelectedUnitFolder(null); setSelectedReport(null); }}
-              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/laporan' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-            >
-              <FileText className="w-4 h-4" />
-              Laporan
-            </button>
-            <button 
-              onClick={() => { navigateTo('/arsip'); setSelectedUnitFolder(null); setSelectedReport(null); }}
-              className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/arsip' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-            >
-              <Lock className="w-4 h-4" />
-              Arsip Laporan
-            </button>
-            {isAdmin && (
-              <>
-                <button 
-                  onClick={() => { navigateTo('/buku-kas-keluar'); setSelectedUnitFolder(null); setSelectedReport(null); }}
-                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/buku-kas-keluar' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-                >
-                  <BookOpen className="w-4 h-4" />
-                  Buku Kas (BKK)
-                </button>
-
-                <div className="h-px bg-natural-border/50 my-4 mx-4" />
-                <button 
-                  onClick={() => navigateTo('/users')}
-                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/users' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-                >
-                  <Users className="w-4 h-4" />
-                  Daftar Akun
-                </button>
-
-                <button 
-                  onClick={() => navigateTo('/units')}
-                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/units' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-                >
-                  <LayoutDashboard className="w-4 h-4" />
-                  Daftar Unit
-                </button>
-
-                <button 
-                  onClick={() => navigateTo('/settings/expenses')}
-                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/settings/expenses' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-                >
-                  <Settings className="w-4 h-4" />
-                  Jenis Pengeluaran
-                </button>
-                <button 
-                  onClick={() => navigateTo('/settings/employees')}
-                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/settings/employees' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-                >
-                  <UserIcon className="w-4 h-4" />
-                  Daftar Pegawai
-                </button>
-                <button 
-                  onClick={() => navigateTo('/settings/whatsapp')}
-                  className={`w-full text-left px-6 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/settings/whatsapp' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Notifikasi WA
-                </button>
-              </>
-            )}
-          </div>
-
-          <div className="mt-auto pt-10 border-t border-natural-border px-4">
-             <div className="flex items-center gap-4 group">
-                <div className="w-10 h-10 rounded-full bg-natural-primary/10 flex items-center justify-center text-natural-primary font-serif italic text-xl border border-natural-primary/20">
-                  {user?.displayName?.[0] || 'U'}
-                </div>
-                <div className="flex-1">
-                  <p className="text-[10px] font-bold text-natural-primary uppercase tracking-widest leading-none mb-1">{user?.displayName}</p>
-                  <button onClick={logout} className="text-[9px] font-bold text-natural-secondary uppercase tracking-[0.2em] hover:text-red-500 transition-colors flex items-center gap-1">
-                    Keluar Sistem <LogOut className="w-2 h-2" />
-                  </button>
-                </div>
-             </div>
-          </div>
+          <button
+            onClick={toggleSidebar}
+            title="Sembunyikan Navigasi"
+            className="p-2 rounded-xl text-natural-secondary hover:text-natural-primary hover:bg-natural-primary/5 transition-colors border border-transparent hover:border-natural-border cursor-pointer"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
         </div>
 
-        <main className="flex-1 px-8 py-12">
+        {/* Scrollable Navigation Menu (scrolls independently if needed) */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1.5 custom-scrollbar min-h-0">
+          <button 
+            onClick={() => { navigateTo('/'); setSelectedReport(null); }}
+            className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            Dashboard
+          </button>
+          <button 
+            onClick={() => { navigateTo('/anggaran'); setSelectedUnitFolder(null); setSelectedReport(null); }}
+            className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/anggaran' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+          >
+            <FileText className="w-4 h-4" />
+            Anggaran
+          </button>
+          <button 
+            onClick={() => { navigateTo('/laporan'); setSelectedUnitFolder(null); setSelectedReport(null); }}
+            className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/laporan' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+          >
+            <FileText className="w-4 h-4" />
+            Laporan
+          </button>
+          <button 
+            onClick={() => { navigateTo('/arsip'); setSelectedUnitFolder(null); setSelectedReport(null); }}
+            className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/arsip' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+          >
+            <Lock className="w-4 h-4" />
+            Arsip Laporan
+          </button>
+          {isAdmin && (
+            <>
+              <button 
+                onClick={() => { navigateTo('/buku-kas-keluar'); setSelectedUnitFolder(null); setSelectedReport(null); }}
+                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/buku-kas-keluar' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              >
+                <BookOpen className="w-4 h-4" />
+                Buku Kas (BKK)
+              </button>
+
+              <div className="h-px bg-natural-border/50 my-3 mx-4" />
+              <button 
+                onClick={() => navigateTo('/users')}
+                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/users' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              >
+                <Users className="w-4 h-4" />
+                Daftar Akun
+              </button>
+
+              <button 
+                onClick={() => navigateTo('/units')}
+                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/units' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                Daftar Unit
+              </button>
+
+              <button 
+                onClick={() => navigateTo('/settings/expenses')}
+                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/settings/expenses' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              >
+                <Settings className="w-4 h-4" />
+                Jenis Pengeluaran
+              </button>
+              <button 
+                onClick={() => navigateTo('/settings/employees')}
+                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/settings/employees' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              >
+                <UserIcon className="w-4 h-4" />
+                Daftar Pegawai
+              </button>
+              <button 
+                onClick={() => navigateTo('/settings/whatsapp')}
+                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/settings/whatsapp' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                Notifikasi WA
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* User Info & Logout: Pinned at bottom left */}
+        <div className="flex-shrink-0 border-t border-natural-border px-6 py-4 bg-natural-bg mt-auto">
+          <div className="flex items-center gap-3.5 group">
+            <div className="w-10 h-10 rounded-full bg-natural-primary/10 flex items-center justify-center text-natural-primary font-serif italic text-xl border border-natural-primary/20 flex-shrink-0">
+              {user?.displayName?.[0] || 'U'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold text-natural-primary uppercase tracking-wider truncate mb-1" title={user?.displayName}>
+                {user?.displayName}
+              </p>
+              <button 
+                onClick={logout} 
+                className="text-[9px] font-bold text-natural-secondary uppercase tracking-[0.2em] hover:text-red-500 transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                Keluar Sistem <LogOut className="w-2.5 h-2.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Area: Independent Column with Top Header and Scrollable Body */}
+      <div className="flex-1 h-screen flex flex-col min-w-0 overflow-hidden">
+        {/* Navigation Top Header Bar */}
+        <header className="flex-shrink-0 bg-natural-bg/95 backdrop-blur-xs border-b border-natural-border/60 px-6 py-3.5 flex items-center justify-between z-20">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleSidebar}
+              title={isSidebarHidden ? "Tampilkan Navigasi" : "Sembunyikan Navigasi"}
+              className="p-2 rounded-xl bg-white border border-natural-border text-natural-primary hover:bg-natural-primary hover:text-white shadow-xs transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-wider cursor-pointer active:scale-95"
+            >
+              {isSidebarHidden ? (
+                <>
+                  <PanelLeftOpen className="w-4 h-4" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest">Buka Navigasi</span>
+                </>
+              ) : (
+                <>
+                  <PanelLeftClose className="w-4 h-4" />
+                  <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-widest">Sembunyikan</span>
+                </>
+              )}
+            </button>
+            <div className="h-4 w-px bg-natural-border/60 mx-1 hidden sm:block" />
+            <span className="text-xs font-serif italic text-natural-secondary font-medium hidden md:inline truncate">
+              Sistem Pertanggungjawaban Keuangan SMK MUH 1 NGADIREJO
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden sm:block">
+              <span className="text-[10px] font-bold text-natural-primary uppercase tracking-widest block leading-tight">
+                {user?.unitName || user?.displayName}
+              </span>
+              <span className="text-[9px] text-natural-secondary font-mono">
+                {isAdmin ? 'Administrator' : 'Unit Kerja'}
+              </span>
+            </div>
+            {isSidebarHidden && (
+              <button
+                onClick={logout}
+                title="Keluar Sistem"
+                className="p-2 rounded-xl bg-white border border-natural-border text-natural-secondary hover:text-red-600 hover:border-red-200 transition-colors flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Keluar</span>
+              </button>
+            )}
+          </div>
+        </header>
+
+        {/* Scrollable Main Viewport */}
+        <main ref={mainContentRef} className="flex-1 overflow-y-auto px-6 lg:px-10 py-8 flex flex-col custom-scrollbar">
           {errorInfo && (
-            <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 text-sm">
+            <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 text-sm flex-shrink-0">
               <AlertCircle className="w-5 h-5 flex-shrink-0" />
               <p className="font-medium">{errorInfo}</p>
             </div>
           )}
+          <div className="flex-1">
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               <Route path="/" element={
@@ -3704,13 +3812,15 @@ const MainDashboard = () => {
               } />
             </Routes>
           </AnimatePresence>
+          </div>
+
+          {/* Integrated Footer inside the main scrollable view */}
+          <footer className="mt-12 pt-6 pb-4 text-[10px] text-natural-secondary/70 flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-natural-border/60 italic flex-shrink-0">
+            <span>SISTEM INFORMASI KEUANGAN MUHIJO • VER 2.0</span>
+            <span>{formatDate(new Date(), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          </footer>
         </main>
       </div>
-
-      <footer className="h-10 bg-[#f0eee4] px-8 flex items-center justify-between text-[10px] text-[#a5a58d] font-bold border-t border-natural-border italic">
-        <span>SISTEM INFORMASI KEUANGAN MUHIJO • VER 2.0</span>
-        <span>{formatDate(new Date(), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-      </footer>
     </div>
   );
 };
