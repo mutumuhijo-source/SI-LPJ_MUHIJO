@@ -47,13 +47,15 @@ import {
   Menu,
   X,
   Building2,
-  FileCheck2
+  FileCheck2,
+  FileSpreadsheet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BukuKasKeluar } from './components/BukuKasKeluar';
 import { WhatsAppSettings } from './components/WhatsAppSettings';
 import { SettingsPage } from './components/SettingsPage';
 import { MemoBudgetPage } from './components/MemoBudgetPage';
+import { MemorialKasTunaiPage } from './components/MemorialKasTunaiPage';
 import { sendReportStatusNotification, sendWhatsappVerificationCode } from './services/whatsapp';
 import { formatCurrency, parseAmount, terbilang } from './lib/utils';
 
@@ -3459,6 +3461,14 @@ const MainDashboard = () => {
                 Memo Budget Mingguan
               </button>
 
+              <button 
+                onClick={() => { navigateTo('/memorial-kas-tunai'); setSelectedUnitFolder(null); setSelectedReport(null); }}
+                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/memorial-kas-tunai' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Memorial Kas Tunai
+              </button>
+
               <div className="h-px bg-natural-border/50 my-3 mx-4" />
               <button 
                 onClick={() => navigateTo('/settings')}
@@ -3951,6 +3961,19 @@ const MainDashboard = () => {
                 isAdmin ? (
                   <motion.div key="memo_budget_page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                     <MemoBudgetPage
+                      db={db}
+                      schoolSettings={schoolSettings}
+                      reports={reports}
+                      userEmail={user?.username || 'admin'}
+                    />
+                  </motion.div>
+                ) : <Navigate to="/" replace />
+              } />
+
+              <Route path="/memorial-kas-tunai" element={
+                isAdmin ? (
+                  <motion.div key="memorial_kas_tunai_page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <MemorialKasTunaiPage
                       db={db}
                       schoolSettings={schoolSettings}
                       reports={reports}

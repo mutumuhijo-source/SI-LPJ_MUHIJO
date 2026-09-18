@@ -128,7 +128,8 @@
   }
 
   /* Container wrapper during print */
-  .memo-print-wrapper {
+  .memo-print-wrapper,
+  .memorial-print-wrapper {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
@@ -140,7 +141,9 @@
     overflow: visible !important;
   }
 
-  #memo-budget-print-area {
+  #memo-budget-print-area,
+  #memorial-kas-print-area,
+  .printable-a4-page {
     position: relative !important;
     left: 0 !important;
     top: 0 !important;
@@ -155,13 +158,26 @@
     font-size: 11pt !important;
   }
 
+  .print-page-break {
+    page-break-before: always !important;
+    break-before: page !important;
+    margin-top: 20mm !important;
+    padding-top: 10mm !important;
+  }
+
   /* Ensure text and tables stay black and high contrast for printing */
-  #memo-budget-print-area table {
+  #memo-budget-print-area table,
+  #memorial-kas-print-area table,
+  .printable-a4-page table {
     border-color: #000000 !important;
   }
 
   #memo-budget-print-area td,
-  #memo-budget-print-area th {
+  #memo-budget-print-area th,
+  #memorial-kas-print-area td,
+  #memorial-kas-print-area th,
+  .printable-a4-page td,
+  .printable-a4-page th {
     border-color: #000000 !important;
   }
 }

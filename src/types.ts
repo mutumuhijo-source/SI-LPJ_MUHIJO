@@ -192,6 +192,57 @@ export interface BudgetMemo {
   updatedAt?: any;
 }
 
+export interface CashDenomination {
+  nominal: number;
+  type: 'kertas' | 'logam';
+  quantity: number;
+  subtotal: number;
+}
+
+export interface CashMemorial {
+  id?: string;
+  month: string; // e.g. "APRIL"
+  year: string; // e.g. "2026"
+  date: string; // e.g. "17 April 2026"
+  city: string; // e.g. "Ngadirejo"
+  
+  // Persetujuan Pengisian Kembali Kas Tunai
+  initialBalance: number; // Saldo Awal (Plafon Kas)
+  totalExpense: number; // Total Pengeluaran Kas Tunai
+  remainingBalance: number; // Sisa Saldo Kas Tunai
+  replenishmentAmount: number; // Jumlah Pengisian Kembali
+  
+  // Berita Acara Perhitungan Uang Kas (Kas Opname)
+  countDate?: string; // Tanggal Fisik Kas Dihitung
+  paperNotes: CashDenomination[]; // Rincian Uang Kertas
+  coins: CashDenomination[]; // Rincian Uang Logam
+  totalPaperAmount: number;
+  totalCoinAmount: number;
+  totalPhysicalCash: number;
+  differenceNote?: string;
+
+  // Pejabat Penandatangan
+  approverDate?: string; // Disetujui Tanggal
+  approverName: string; // Kepala Sekolah
+  approverNbm: string;
+  
+  checkerName: string; // Diperiksa Oleh
+  checkerNbm: string;
+  
+  makerName: string; // Dibuat Oleh / Bendahara kas tunai
+  makerNbm: string;
+
+  // Posting to Buku Kas (Pengeluaran Kas Tunai / Pengisian Kembali)
+  isPosted?: boolean;
+  postedAt?: any;
+  postedBy?: string;
+  cashOutflowId?: string;
+  
+  createdAt?: any;
+  createdBy?: string;
+  updatedAt?: any;
+}
+
 export interface Unit {
   id: string;
   name: string;

@@ -87,6 +87,22 @@
         "required": ["name"]
       },
       "description": "List of employees for reporting"
+    },
+    "cash_memorials": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "month": { "type": "string" },
+          "year": { "type": "string" },
+          "date": { "type": "string" },
+          "city": { "type": "string" },
+          "initialBalance": { "type": "number" },
+          "totalExpense": { "type": "number" },
+          "remainingBalance": { "type": "number" },
+          "replenishmentAmount": { "type": "number" }
+        }
+      },
+      "description": "Petty cash replenishment records and cash opname calculations"
     }
   }
 }
