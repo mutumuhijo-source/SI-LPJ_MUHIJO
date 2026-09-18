@@ -182,6 +182,11 @@ export interface BudgetMemo {
   makerName: string;
   makerNbm: string;
 
+  isPosted?: boolean;
+  postedAt?: any;
+  postedBy?: string;
+  cashInflowId?: string;
+
   createdAt?: any;
   createdBy?: string;
   updatedAt?: any;

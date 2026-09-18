@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   FileCheck2, 
   Plus, 
@@ -15,7 +15,9 @@ import {
   UserCheck, 
   FileText,
   DollarSign,
-  Wallet
+  Wallet,
+  Send,
+  RotateCw
 } from 'lucide-react';
 import { SchoolSettings, Report, BudgetMemo, BudgetMemoItem, OperationType } from '../types';
 import { Firestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -41,6 +43,18 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
   const [mode, setMode] = useState<'list' | 'create' | 'edit' | 'print'>('list');
   const [activeMemo, setActiveMemo] = useState<BudgetMemo | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Default month and year filter set to current month & year
+  const currentNow = new Date();
+  const indonesianMonthNames = [
+    'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI',
+    'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'
+  ];
+  const defaultCurrentMonth = indonesianMonthNames[currentNow.getMonth()];
+  const defaultCurrentYear = String(currentNow.getFullYear());
+
+  const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>(defaultCurrentMonth);
+  const [selectedYearFilter, setSelectedYearFilter] = useState<string>(defaultCurrentYear);
 
   // States for calculating current Buku Kas ending balance
   const [bkkSettings, setBkkSettings] = useState<{ initialBalance: number; initialBalanceDate?: string }>(() => getBkkSettingsFromCache());
@@ -346,17 +360,194 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
     }
   };
 
+  // Helper to convert memo date string to ISO YYYY-MM-DD
+  const convertMemoDateToIso = (memoDateStr?: string, yearStr?: string, monthStr?: string): string => {
+    if (!memoDateStr) return new Date().toISOString().split('T')[0];
+
+    const monthMap: Record<string, string> = {
+      januari: '01', februari: '02', maret: '03', april: '04', mei: '05', juni: '06',
+      juli: '07', agustus: '08', september: '09', oktober: '10', november: '11', desember: '12'
+    };
+
+    const cleanStr = memoDateStr.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) {
+      return cleanStr;
+    }
+
+    const parts = cleanStr.split(/\s+/);
+    if (parts.length === 3) {
+      const day = parts[0].padStart(2, '0');
+      const monthName = parts[1].toLowerCase();
+      const year = parts[2];
+      if (monthMap[monthName] && /^\d{4}$/.test(year) && /^\d{1,2}$/.test(day)) {
+        return `${year}-${monthMap[monthName]}-${day}`;
+      }
+    }
+
+    if (monthStr && yearStr) {
+      const monthLower = monthStr.toLowerCase();
+      const monthNum = monthMap[monthLower] || '09';
+      const yearNum = /^\d{4}$/.test(yearStr) ? yearStr : '2026';
+      return `${yearNum}-${monthNum}-01`;
+    }
+
+    return new Date().toISOString().split('T')[0];
+  };
+
+  // Posting Memo Budget ke Buku Kas sebagai Penerimaan Pindah Buku
+  const handlePostToBukuKas = async (memo: BudgetMemo) => {
+    if (!memo.id) return;
+    if (memo.isPosted) {
+      safeAlert('Memo Budget Mingguan ini sudah diposting ke Buku Kas.');
+      return;
+    }
+
+    const confirmMsg = `Posting Memo Budget Mingguan (${memo.week} BULAN ${memo.month} ${memo.year}) sebesar Rp ${formatRupiah(memo.transferAmount)} ke Buku Kas sebagai Penerimaan Pindah Buku?`;
+    if (!safeConfirm(confirmMsg)) return;
+
+    const formattedDate = convertMemoDateToIso(memo.memoDate, memo.year, memo.month);
+    const generatedNoBukti = `BKM/MB-${memo.week.replace(/\s+/g, '')}-${memo.month.slice(0, 3).toUpperCase()}`;
+
+    const inflowPayload = {
+      date: formattedDate,
+      noBukti: generatedNoBukti,
+      sourceAccount: memo.transferAccountName || 'Rekening Operasional Bank Jateng',
+      category: 'Pindah Buku Rekening Bank',
+      description: `Pindah buku - ${memo.week} BULAN ${memo.month} ${memo.year}`,
+      amount: memo.transferAmount || 0,
+      receivedFrom: memo.schoolName || schoolSettings.schoolName || 'Bendahara Sekolah',
+      notes: `Otomatis diposting dari Memo Budget Mingguan (${memo.week} BULAN ${memo.month} ${memo.year})`,
+      createdAt: serverTimestamp(),
+      createdBy: userEmail
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, 'cash_inflows'), inflowPayload);
+
+      await updateDoc(doc(db, 'budget_memos', memo.id), {
+        isPosted: true,
+        postedAt: serverTimestamp(),
+        postedBy: userEmail,
+        cashInflowId: docRef.id,
+        updatedAt: serverTimestamp()
+      });
+
+      if (activeMemo && activeMemo.id === memo.id) {
+        setActiveMemo({
+          ...activeMemo,
+          isPosted: true,
+          cashInflowId: docRef.id
+        });
+      }
+
+      safeAlert(`Berhasil memposting Memo Budget ke Buku Kas!\nPenerimaan Pindah Buku sebesar Rp ${formatRupiah(memo.transferAmount)} telah dicatat.`);
+    } catch (err) {
+      console.error('Error posting memo to Buku Kas:', err);
+      handleFirestoreError(err, OperationType.CREATE, 'cash_inflows');
+    }
+  };
+
+  // Batalkan Posting Memo Budget dari Buku Kas
+  const handleUnpostFromBukuKas = async (memo: BudgetMemo) => {
+    if (!memo.id) return;
+    if (!memo.isPosted) return;
+
+    if (!safeConfirm(`Batalkan posting Memo Budget (${memo.week} ${memo.month})? Catatan Penerimaan Pindah Buku di Buku Kas akan dihapus.`)) return;
+
+    try {
+      if (memo.cashInflowId) {
+        try {
+          await deleteDoc(doc(db, 'cash_inflows', memo.cashInflowId));
+        } catch (delErr) {
+          console.warn('Cash inflow document already removed:', delErr);
+        }
+      }
+
+      await updateDoc(doc(db, 'budget_memos', memo.id), {
+        isPosted: false,
+        postedAt: null,
+        postedBy: null,
+        cashInflowId: null,
+        updatedAt: serverTimestamp()
+      });
+
+      if (activeMemo && activeMemo.id === memo.id) {
+        setActiveMemo({
+          ...activeMemo,
+          isPosted: false,
+          cashInflowId: undefined
+        });
+      }
+
+      safeAlert('Posting Memo Budget berhasil dibatalkan dan dihapus dari Buku Kas.');
+    } catch (err) {
+      console.error('Error unposting memo:', err);
+      handleFirestoreError(err, OperationType.DELETE, `cash_inflows/${memo.cashInflowId}`);
+    }
+  };
+
   // Direct print function
   const handlePrintDocument = () => {
     window.print();
   };
 
-  const filteredMemos = memos.filter(m => 
-    m.week.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.year.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (m.items || []).some(i => i.activityName.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Helper normalize month name
+  const normalizeMonthName = (mStr?: string): string => {
+    if (!mStr) return '';
+    const clean = mStr.trim().toUpperCase();
+    const monthMap: Record<string, string> = {
+      '1': 'JANUARI', '01': 'JANUARI', 'JANUARI': 'JANUARI', 'JAN': 'JANUARI',
+      '2': 'FEBRUARI', '02': 'FEBRUARI', 'FEBRUARI': 'FEBRUARI', 'FEB': 'FEBRUARI',
+      '3': 'MARET', '03': 'MARET', 'MARET': 'MARET', 'MAR': 'MARET',
+      '4': 'APRIL', '04': 'APRIL', 'APRIL': 'APRIL', 'APR': 'APRIL',
+      '5': 'MEI', '05': 'MEI', 'MEI': 'MEI',
+      '6': 'JUNI', '06': 'JUNI', 'JUNI': 'JUNI', 'JUN': 'JUNI',
+      '7': 'JULI', '07': 'JULI', 'JULI': 'JULI', 'JUL': 'JULI',
+      '8': 'AGUSTUS', '08': 'AGUSTUS', 'AGUSTUS': 'AGUSTUS', 'AGU': 'AGUSTUS', 'AGT': 'AGUSTUS',
+      '9': 'SEPTEMBER', '09': 'SEPTEMBER', 'SEPTEMBER': 'SEPTEMBER', 'SEP': 'SEPTEMBER',
+      '10': 'OKTOBER', 'OKTOBER': 'OKTOBER', 'OKT': 'OKTOBER',
+      '11': 'NOVEMBER', 'NOVEMBER': 'NOVEMBER', 'NOV': 'NOVEMBER',
+      '12': 'DESEMBER', 'DESEMBER': 'DESEMBER', 'DES': 'DESEMBER'
+    };
+    return monthMap[clean] || clean;
+  };
+
+  // Dynamically collect available years from memos + current year
+  const availableYearOptions = useMemo(() => {
+    const yearsSet = new Set<string>();
+    const currentY = String(new Date().getFullYear());
+    yearsSet.add(currentY);
+    yearsSet.add('2026');
+    yearsSet.add('2025');
+
+    memos.forEach(m => {
+      if (m.year && /^\d{4}$/.test(m.year.trim())) {
+        yearsSet.add(m.year.trim());
+      }
+    });
+
+    return Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
+  }, [memos]);
+
+  // Filter memos by search term, selected month, and selected year
+  const filteredMemos = useMemo(() => {
+    return memos.filter(m => {
+      const matchesSearch = !searchTerm || (
+        m.week.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.year.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (m.items || []).some(i => i.activityName.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+
+      const normMonth = normalizeMonthName(m.month);
+      const matchesMonth = selectedMonthFilter === 'ALL' || normMonth === selectedMonthFilter;
+
+      const memoYearStr = (m.year || '').trim();
+      const matchesYear = selectedYearFilter === 'ALL' || memoYearStr === selectedYearFilter;
+
+      return matchesSearch && matchesMonth && matchesYear;
+    });
+  }, [memos, searchTerm, selectedMonthFilter, selectedYearFilter]);
 
   return (
     <div className="space-y-8">
@@ -374,6 +565,26 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
             </button>
 
             <div className="flex items-center gap-2">
+              {activeMemo.isPosted ? (
+                <button
+                  onClick={() => handleUnpostFromBukuKas(activeMemo)}
+                  className="px-4 py-2.5 bg-emerald-50 text-emerald-900 border border-emerald-300 rounded-full text-xs font-bold flex items-center gap-2 hover:bg-red-50 hover:text-red-700 hover:border-red-300 transition-all cursor-pointer"
+                  title="Sudah diposting ke Buku Kas. Klik untuk membatalkan posting."
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  Diposting ke Kas
+                </button>
+              ) : (
+                <button
+                  onClick={() => handlePostToBukuKas(activeMemo)}
+                  className="px-5 py-2.5 bg-blue-700 text-white rounded-full text-xs font-bold flex items-center gap-2 hover:bg-blue-800 transition-all shadow-md cursor-pointer"
+                  title="Posting ke Buku Kas sebagai Penerimaan Pindah Buku"
+                >
+                  <Send className="w-4 h-4" />
+                  Posting ke Buku Kas
+                </button>
+              )}
+
               <button
                 onClick={() => handleOpenEdit(activeMemo)}
                 className="px-4 py-2.5 bg-amber-600 text-white rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-amber-700 transition-all shadow-md cursor-pointer"
@@ -562,21 +773,62 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1 md:w-64">
-                <Search className="w-4 h-4 text-natural-secondary absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Filter Bulan */}
+              <div className="flex items-center gap-1.5 bg-natural-bg/80 border border-natural-border px-3 py-2 rounded-full shadow-2xs">
+                <Calendar className="w-3.5 h-3.5 text-natural-secondary" />
+                <span className="text-[10px] uppercase font-bold text-natural-secondary">Bulan:</span>
+                <select
+                  value={selectedMonthFilter}
+                  onChange={e => setSelectedMonthFilter(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-natural-primary focus:outline-hidden cursor-pointer"
+                >
+                  <option value="ALL">Semua Bulan</option>
+                  <option value="JANUARI">Januari</option>
+                  <option value="FEBRUARI">Februari</option>
+                  <option value="MARET">Maret</option>
+                  <option value="APRIL">April</option>
+                  <option value="MEI">Mei</option>
+                  <option value="JUNI">Juni</option>
+                  <option value="JULI">Juli</option>
+                  <option value="AGUSTUS">Agustus</option>
+                  <option value="SEPTEMBER">September</option>
+                  <option value="OKTOBER">Oktober</option>
+                  <option value="NOVEMBER">November</option>
+                  <option value="DESEMBER">Desember</option>
+                </select>
+              </div>
+
+              {/* Filter Tahun */}
+              <div className="flex items-center gap-1.5 bg-natural-bg/80 border border-natural-border px-3 py-2 rounded-full shadow-2xs">
+                <span className="text-[10px] uppercase font-bold text-natural-secondary">Tahun:</span>
+                <select
+                  value={selectedYearFilter}
+                  onChange={e => setSelectedYearFilter(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-natural-primary focus:outline-hidden cursor-pointer"
+                >
+                  <option value="ALL">Semua Tahun</option>
+                  {availableYearOptions.map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Input Pencarian */}
+              <div className="relative flex-1 md:w-44">
+                <Search className="w-3.5 h-3.5 text-natural-secondary absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Cari memo budget..."
+                  placeholder="Cari memo..."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-natural-bg/50 border border-natural-border rounded-full text-xs font-medium focus:bg-white focus:outline-hidden focus:border-natural-primary"
+                  className="w-full pl-9 pr-3 py-2 bg-natural-bg/50 border border-natural-border rounded-full text-xs font-medium focus:bg-white focus:outline-hidden focus:border-natural-primary"
                 />
               </div>
 
               <button
                 onClick={handleOpenCreate}
-                className="bg-natural-primary text-white px-6 py-3 rounded-full font-serif italic text-xs font-bold hover:bg-natural-primary/90 transition-all shadow-md flex items-center gap-2 cursor-pointer whitespace-nowrap"
+                className="bg-natural-primary text-white px-5 py-2.5 rounded-full font-serif italic text-xs font-bold hover:bg-natural-primary/90 transition-all shadow-md flex items-center gap-2 cursor-pointer whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
                 Buat Memo Baru
@@ -596,13 +848,31 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
               <div className="p-16 text-center text-natural-secondary italic text-xs">Memuat data memo budget...</div>
             ) : filteredMemos.length === 0 ? (
               <div className="p-16 text-center text-natural-secondary italic text-xs space-y-3">
-                <p>Belum ada riwayat Memo Budget Mingguan yang dibuat.</p>
-                <button
-                  onClick={handleOpenCreate}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-natural-primary/10 text-natural-primary rounded-full font-serif italic text-xs font-bold hover:bg-natural-primary hover:text-white transition-all cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" /> Buat Memo Pertama
-                </button>
+                <p>
+                  {selectedMonthFilter !== 'ALL' || selectedYearFilter !== 'ALL' || searchTerm
+                    ? 'Tidak ada Memo Budget Mingguan untuk filter yang dipilih.'
+                    : 'Belum ada riwayat Memo Budget Mingguan yang dibuat.'}
+                </p>
+                <div className="flex items-center justify-center gap-3">
+                  {(selectedMonthFilter !== 'ALL' || selectedYearFilter !== 'ALL' || searchTerm) && (
+                    <button
+                      onClick={() => {
+                        setSelectedMonthFilter('ALL');
+                        setSelectedYearFilter('ALL');
+                        setSearchTerm('');
+                      }}
+                      className="inline-flex items-center gap-2 px-5 py-2 bg-natural-bg border border-natural-border text-natural-primary rounded-full text-xs font-bold hover:bg-natural-border/50 transition-all cursor-pointer"
+                    >
+                      Tampilkan Semua Periode
+                    </button>
+                  )}
+                  <button
+                    onClick={handleOpenCreate}
+                    className="inline-flex items-center gap-2 px-5 py-2 bg-natural-primary/10 text-natural-primary rounded-full font-serif italic text-xs font-bold hover:bg-natural-primary hover:text-white transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" /> Buat Memo Baru
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="divide-y divide-natural-border/40">
@@ -613,6 +883,11 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
                         <span className="px-3 py-1 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full text-[10px] font-bold uppercase tracking-wider">
                           {memo.week} BULAN {memo.month} {memo.year}
                         </span>
+                        {memo.isPosted && (
+                          <span className="px-2.5 py-0.5 bg-blue-50 text-blue-800 border border-blue-200 rounded-full text-[10px] font-bold flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-blue-600" /> Terposting
+                          </span>
+                        )}
                         <span className="text-xs text-natural-secondary font-medium">
                           {memo.memoCity}, {memo.memoDate}
                         </span>
@@ -630,6 +905,34 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      {memo.isPosted ? (
+                        <div className="flex items-center gap-1">
+                          <span 
+                            className="px-3.5 py-2 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-2xl text-xs font-bold flex items-center gap-1.5"
+                            title="Sudah diposting ke Buku Kas"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            Diposting
+                          </span>
+                          <button
+                            onClick={() => handleUnpostFromBukuKas(memo)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
+                            title="Batalkan Posting dari Buku Kas"
+                          >
+                            <RotateCw className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handlePostToBukuKas(memo)}
+                          className="px-4 py-2.5 bg-blue-700 text-white rounded-2xl text-xs font-bold hover:bg-blue-800 transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                          title="Posting ke Buku Kas sebagai Penerimaan Pindah Buku"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          Posting
+                        </button>
+                      )}
+
                       <button
                         onClick={() => handleOpenPrint(memo)}
                         className="px-4 py-2.5 bg-emerald-800 text-white rounded-2xl text-xs font-bold hover:bg-emerald-900 transition-all shadow-xs flex items-center gap-2 cursor-pointer"
