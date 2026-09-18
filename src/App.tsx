@@ -46,12 +46,14 @@ import {
   PanelLeftOpen,
   Menu,
   X,
-  Building2
+  Building2,
+  FileCheck2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BukuKasKeluar } from './components/BukuKasKeluar';
 import { WhatsAppSettings } from './components/WhatsAppSettings';
 import { SettingsPage } from './components/SettingsPage';
+import { MemoBudgetPage } from './components/MemoBudgetPage';
 import { sendReportStatusNotification, sendWhatsappVerificationCode } from './services/whatsapp';
 import { formatCurrency, parseAmount, terbilang } from './lib/utils';
 
@@ -3440,6 +3442,14 @@ const MainDashboard = () => {
                 Buku Kas (BKK)
               </button>
 
+              <button 
+                onClick={() => { navigateTo('/memo-budget'); setSelectedUnitFolder(null); setSelectedReport(null); }}
+                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/memo-budget' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+              >
+                <FileCheck2 className="w-4 h-4" />
+                Memo Budget Mingguan
+              </button>
+
               <div className="h-px bg-natural-border/50 my-3 mx-4" />
               <button 
                 onClick={() => navigateTo('/settings')}
@@ -3923,6 +3933,19 @@ const MainDashboard = () => {
                       onRefresh={refreshReports}
                       onSelectReport={(r) => { setSelectedReport(r); navigateTo('/detail'); }}
                       schoolSettings={schoolSettings}
+                    />
+                  </motion.div>
+                ) : <Navigate to="/" replace />
+              } />
+
+              <Route path="/memo-budget" element={
+                isAdmin ? (
+                  <motion.div key="memo_budget_page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <MemoBudgetPage
+                      db={db}
+                      schoolSettings={schoolSettings}
+                      reports={reports}
+                      userEmail={user?.username || 'admin'}
                     />
                   </motion.div>
                 ) : <Navigate to="/" replace />

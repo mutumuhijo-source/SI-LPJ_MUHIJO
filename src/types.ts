@@ -121,13 +121,70 @@ export interface BkkSettings {
 export interface SchoolSettings {
   schoolName: string;
   schoolLogo?: string;
+  memoHeaderUrl?: string;
+  kopHeaderUrl?: string;
   principalName: string;
   principalNbm: string;
   treasurerName: string;
   treasurerNbm?: string;
   schoolAddress?: string;
+  
+  // Signatories for Weekly Budget Memos
+  memoCity?: string;
+  memoApproverName?: string;
+  memoApproverNbm?: string;
+  memoCheckerName?: string;
+  memoCheckerNbm?: string;
+  memoMakerName?: string;
+  memoMakerNbm?: string;
+
   updatedAt?: any;
   updatedBy?: string;
+}
+
+export interface BudgetMemoItem {
+  id?: string;
+  reportId?: string;
+  activityName: string;
+  amount: number;
+  isCustom?: boolean;
+}
+
+export interface BudgetMemo {
+  id?: string;
+  week: string; // e.g. "MINGGU 2"
+  month: string; // e.g. "SEPTEMBER"
+  year: string; // e.g. "2026"
+  schoolName: string;
+  
+  operationalAccountName: string; // e.g. "BANK BTM KOMITE (5.02.00097)"
+  operationalBalance: number; // e.g. 7269094
+  
+  transferAccountName: string; // e.g. "PEMASUKAN (5.02.00716)"
+  transferAmount: number; // calculated sum of items
+  
+  totalBalanceAfter: number; // operationalBalance + transferAmount
+  
+  items: BudgetMemoItem[];
+
+  memoDate: string; // e.g. "14 September 2026"
+  memoCity: string; // e.g. "Ngadirejo"
+  
+  approverTitle?: string; // "Disetujui Oleh,"
+  approverName: string;
+  approverNbm: string;
+  
+  checkerTitle?: string; // "Diperiksa Oleh,"
+  checkerName: string;
+  checkerNbm: string;
+  
+  makerTitle?: string; // "Dibuat Oleh,"
+  makerName: string;
+  makerNbm: string;
+
+  createdAt?: any;
+  createdBy?: string;
+  updatedAt?: any;
 }
 
 export interface Unit {

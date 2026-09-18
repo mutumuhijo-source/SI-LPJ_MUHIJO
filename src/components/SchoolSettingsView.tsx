@@ -29,11 +29,19 @@ export const SchoolSettingsView: React.FC<SchoolSettingsViewProps> = ({
       setFormData({
         schoolName: schoolSettings.schoolName || 'SMK MUHAMMADIYAH 1 NGADIREJO',
         schoolLogo: schoolSettings.schoolLogo || '',
+        memoHeaderUrl: schoolSettings.memoHeaderUrl || schoolSettings.kopHeaderUrl || '',
         principalName: schoolSettings.principalName || '',
         principalNbm: schoolSettings.principalNbm || '',
         treasurerName: schoolSettings.treasurerName || '',
         treasurerNbm: schoolSettings.treasurerNbm || '',
         schoolAddress: schoolSettings.schoolAddress || 'Jl. Raya Candiroto, Ngaren, Ngadirejo, Temanggung, Jawa Tengah',
+        memoCity: schoolSettings.memoCity || 'Ngadirejo',
+        memoApproverName: schoolSettings.memoApproverName || schoolSettings.principalName || '',
+        memoApproverNbm: schoolSettings.memoApproverNbm || schoolSettings.principalNbm || '',
+        memoCheckerName: schoolSettings.memoCheckerName || '',
+        memoCheckerNbm: schoolSettings.memoCheckerNbm || '',
+        memoMakerName: schoolSettings.memoMakerName || schoolSettings.treasurerName || '',
+        memoMakerNbm: schoolSettings.memoMakerNbm || schoolSettings.treasurerNbm || '',
       });
     }
   }, [schoolSettings]);
@@ -84,6 +92,47 @@ export const SchoolSettingsView: React.FC<SchoolSettingsViewProps> = ({
 
   const handleRemoveLogo = () => {
     setFormData(prev => ({ ...prev, schoolLogo: '' }));
+  };
+
+  const handleMemoHeaderUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 8 * 1024 * 1024) {
+      alert('Ukuran gambar maksimal 8 MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const resizedDataUrl = canvas.toDataURL('image/png', 0.9);
+          setFormData(prev => ({ ...prev, memoHeaderUrl: resizedDataUrl, kopHeaderUrl: resizedDataUrl }));
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveMemoHeader = () => {
+    setFormData(prev => ({ ...prev, memoHeaderUrl: '', kopHeaderUrl: '' }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -287,6 +336,209 @@ export const SchoolSettingsView: React.FC<SchoolSettingsViewProps> = ({
                     onChange={e => setFormData({ ...formData, treasurerNbm: e.target.value })}
                     placeholder="Contoh: 987 654 321"
                     className="w-full px-4 py-2.5 bg-white border border-natural-border rounded-2xl text-xs font-mono font-bold text-natural-primary focus:outline-hidden focus:border-natural-primary"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="h-px bg-natural-border/60 my-6" />
+
+          {/* Section: Upload Kop Surat Khusus Memo Budget */}
+          <div className="space-y-4 p-6 bg-emerald-50/40 border border-emerald-200/80 rounded-3xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-emerald-200/60">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-emerald-700" />
+                Upload Kop Surat (Khusus Memo Budget Mingguan)
+              </h4>
+              <span className="text-[10px] font-bold px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full w-fit">
+                Hanya Berlaku Untuk Memo Budget
+              </span>
+            </div>
+
+            <p className="text-xs text-natural-secondary">
+              Unggah gambar Kop Surat resmi sekolah yang akan tampil di bagian paling atas dokumen **Memo Budget Mingguan**. Dokumen dan laporan lain tetap menggunakan format kop bawaan.
+            </p>
+
+            <div className="flex flex-col md:flex-row items-center gap-6 pt-2">
+              <div className="w-full md:w-2/3 bg-white p-4 border border-emerald-200 rounded-2xl flex flex-col items-center justify-center min-h-[120px]">
+                {formData.memoHeaderUrl || formData.kopHeaderUrl ? (
+                  <div className="relative w-full text-center group">
+                    <img
+                      src={formData.memoHeaderUrl || formData.kopHeaderUrl}
+                      alt="Kop Surat Memo Budget"
+                      className="max-h-28 mx-auto object-contain rounded-lg border border-gray-200 p-1 bg-white shadow-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveMemoHeader}
+                      title="Hapus Kop Surat Memo"
+                      className="absolute -top-2 -right-2 p-1.5 bg-red-500 text-white rounded-full shadow-md hover:bg-red-600 transition-all cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center p-4 text-natural-secondary">
+                    <ImageIcon className="w-8 h-8 mx-auto mb-1 opacity-40 text-emerald-800" />
+                    <span className="text-xs font-medium block">Belum ada Kop Surat khusus Memo Budget</span>
+                    <span className="text-[10px] text-gray-400">Header memo akan menggunakan judul teks standar</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2 w-full md:w-1/3">
+                <label className="cursor-pointer inline-flex items-center justify-center gap-2 px-5 py-3 bg-emerald-700 text-white hover:bg-emerald-800 rounded-2xl text-xs font-bold transition-all shadow-sm">
+                  <Upload className="w-4 h-4" />
+                  {formData.memoHeaderUrl ? 'Ganti Kop Surat Memo' : 'Unggah Kop Surat Memo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleMemoHeaderUpload}
+                    className="hidden"
+                  />
+                </label>
+
+                {formData.memoHeaderUrl && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveMemoHeader}
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-2xl text-xs font-bold transition-all cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Hapus Kop Memo
+                  </button>
+                )}
+
+                <p className="text-[10px] text-natural-secondary text-center">
+                  Rekomendasi rasio horizontal (Maks 8 MB, PNG/JPG)
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="h-px bg-natural-border/60 my-6" />
+
+          {/* Section 3: Pejabat Penandatangan Memo Budget Mingguan */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-natural-primary flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-emerald-600" />
+                Penandatangan Memo Budget Mingguan
+              </h4>
+              <span className="text-[10px] font-bold px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full">
+                Khusus Memo Budget (3 Kolom Tanda Tangan)
+              </span>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-[11px] font-bold text-natural-secondary mb-1">
+                Kota Pembuatan Memo:
+              </label>
+              <input
+                type="text"
+                value={formData.memoCity || 'Ngadirejo'}
+                onChange={e => setFormData({ ...formData, memoCity: e.target.value })}
+                placeholder="Contoh: Ngadirejo"
+                className="w-full md:w-1/2 px-4 py-2.5 bg-natural-bg/40 border border-natural-border rounded-2xl text-xs font-bold text-natural-primary focus:outline-hidden focus:border-natural-primary"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Kolom 1: Disetujui Oleh */}
+              <div className="p-5 bg-natural-bg/30 border border-natural-border rounded-3xl space-y-3">
+                <div className="text-emerald-800 font-bold text-xs uppercase tracking-wider pb-2 border-b border-natural-border/50">
+                  Kolom 1: Disetujui Oleh
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-natural-secondary mb-1">
+                    Nama Penandatangan:
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.memoApproverName || ''}
+                    onChange={e => setFormData({ ...formData, memoApproverName: e.target.value })}
+                    placeholder="e.g. Ikhsan Nuriyanto, S.Pd."
+                    className="w-full px-3.5 py-2 bg-white border border-natural-border rounded-xl text-xs font-bold text-natural-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-natural-secondary mb-1">
+                    Nomor NBM:
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.memoApproverNbm || ''}
+                    onChange={e => setFormData({ ...formData, memoApproverNbm: e.target.value })}
+                    placeholder="e.g. 853 837"
+                    className="w-full px-3.5 py-2 bg-white border border-natural-border rounded-xl text-xs font-mono font-bold text-natural-primary"
+                  />
+                </div>
+              </div>
+
+              {/* Kolom 2: Diperiksa Oleh */}
+              <div className="p-5 bg-natural-bg/30 border border-natural-border rounded-3xl space-y-3">
+                <div className="text-emerald-800 font-bold text-xs uppercase tracking-wider pb-2 border-b border-natural-border/50">
+                  Kolom 2: Diperiksa Oleh
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-natural-secondary mb-1">
+                    Nama Penandatangan:
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.memoCheckerName || ''}
+                    onChange={e => setFormData({ ...formData, memoCheckerName: e.target.value })}
+                    placeholder="e.g. Istikomah, S.Pd."
+                    className="w-full px-3.5 py-2 bg-white border border-natural-border rounded-xl text-xs font-bold text-natural-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-natural-secondary mb-1">
+                    Nomor NBM:
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.memoCheckerNbm || ''}
+                    onChange={e => setFormData({ ...formData, memoCheckerNbm: e.target.value })}
+                    placeholder="e.g. NBM (opsional)"
+                    className="w-full px-3.5 py-2 bg-white border border-natural-border rounded-xl text-xs font-mono font-bold text-natural-primary"
+                  />
+                </div>
+              </div>
+
+              {/* Kolom 3: Dibuat Oleh */}
+              <div className="p-5 bg-natural-bg/30 border border-natural-border rounded-3xl space-y-3">
+                <div className="text-emerald-800 font-bold text-xs uppercase tracking-wider pb-2 border-b border-natural-border/50">
+                  Kolom 3: Dibuat Oleh
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-natural-secondary mb-1">
+                    Nama Penandatangan:
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.memoMakerName || ''}
+                    onChange={e => setFormData({ ...formData, memoMakerName: e.target.value })}
+                    placeholder="e.g. Desfiana Giant Pratiwi, S.AP."
+                    className="w-full px-3.5 py-2 bg-white border border-natural-border rounded-xl text-xs font-bold text-natural-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-natural-secondary mb-1">
+                    Nomor NBM:
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.memoMakerNbm || ''}
+                    onChange={e => setFormData({ ...formData, memoMakerNbm: e.target.value })}
+                    placeholder="e.g. 1382 596"
+                    className="w-full px-3.5 py-2 bg-white border border-natural-border rounded-xl text-xs font-mono font-bold text-natural-primary"
                   />
                 </div>
               </div>
