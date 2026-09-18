@@ -362,9 +362,9 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
     <div className="space-y-8">
       {/* Printable Area Specific for Printing */}
       {mode === 'print' && activeMemo && (
-        <div className="fixed inset-0 bg-white z-50 overflow-y-auto p-4 sm:p-10 print:p-0 print:static print:bg-transparent">
+        <div className="memo-print-wrapper fixed inset-0 bg-white z-50 overflow-y-auto p-4 sm:p-10 print:p-0 print:static print:bg-transparent">
           {/* Top Bar for Action in Preview Mode */}
-          <div className="max-w-[210mm] mx-auto mb-6 flex flex-wrap items-center justify-between gap-3 border-b pb-4 print:hidden">
+          <div className="max-w-[210mm] mx-auto mb-6 flex flex-wrap items-center justify-between gap-3 border-b pb-4 print:hidden" data-print-hide="true">
             <button
               onClick={() => setMode('list')}
               className="px-5 py-2.5 bg-natural-bg border border-natural-border text-natural-primary rounded-full text-xs font-bold flex items-center gap-2 hover:bg-natural-border/50 transition-all cursor-pointer"
@@ -407,6 +407,7 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
 
           {/* A4 Document Container */}
           <div 
+            id="memo-budget-print-area"
             ref={printContainerRef}
             className="max-w-[210mm] mx-auto bg-white p-[15mm] border border-gray-300 shadow-xl print:shadow-none print:border-none print:p-0 font-serif text-black leading-normal select-text"
             style={{ minHeight: '297mm' }}

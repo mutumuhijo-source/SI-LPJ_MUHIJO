@@ -101,3 +101,68 @@
   background: rgba(0, 0, 0, 0.25);
 }
 
+/* Print Styles for A4 Memo Budget Document */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide app navigation, headers, sidebars, buttons, and top bars */
+  header,
+  aside,
+  nav,
+  button,
+  .print\:hidden,
+  [data-print-hide="true"] {
+    display: none !important;
+  }
+
+  /* Container wrapper during print */
+  .memo-print-wrapper {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  #memo-budget-print-area {
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    min-height: auto !important;
+    font-size: 11pt !important;
+  }
+
+  /* Ensure text and tables stay black and high contrast for printing */
+  #memo-budget-print-area table {
+    border-color: #000000 !important;
+  }
+
+  #memo-budget-print-area td,
+  #memo-budget-print-area th {
+    border-color: #000000 !important;
+  }
+}
+

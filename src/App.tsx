@@ -2837,11 +2837,20 @@ const MainDashboard = () => {
         setSchoolSettings({
           schoolName: data.schoolName || 'SMK MUHAMMADIYAH 1 NGADIREJO',
           schoolLogo: data.schoolLogo || '',
+          memoHeaderUrl: data.memoHeaderUrl || data.kopHeaderUrl || '',
+          kopHeaderUrl: data.kopHeaderUrl || data.memoHeaderUrl || '',
           principalName: data.principalName || '',
           principalNbm: data.principalNbm || '',
           treasurerName: data.treasurerName || '',
           treasurerNbm: data.treasurerNbm || '',
           schoolAddress: data.schoolAddress || 'Jl. Raya Candiroto, Ngaren, Ngadirejo, Temanggung, Jawa Tengah',
+          memoCity: data.memoCity || 'Ngadirejo',
+          memoApproverName: data.memoApproverName || '',
+          memoApproverNbm: data.memoApproverNbm || '',
+          memoCheckerName: data.memoCheckerName || '',
+          memoCheckerNbm: data.memoCheckerNbm || '',
+          memoMakerName: data.memoMakerName || '',
+          memoMakerNbm: data.memoMakerNbm || '',
         });
       }
     }, (err: any) => {
