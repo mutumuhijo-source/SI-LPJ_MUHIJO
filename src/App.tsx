@@ -7,7 +7,7 @@ import { useState, useEffect, createContext, useContext, useMemo, useCallback, C
 import { HashRouter, Routes, Route, useNavigate, Navigate, useLocation, useParams } from 'react-router-dom';
 import { db } from './firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, setDoc, serverTimestamp, addDoc, getDocs, deleteDoc, limit, orderBy } from 'firebase/firestore';
-import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail, Employee } from './types';
+import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail, Employee, SchoolSettings } from './types';
 import { handleFirestoreError } from './lib/error-handler';
 import { 
   LayoutDashboard, 
@@ -45,11 +45,13 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Menu,
-  X
+  X,
+  Building2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BukuKasKeluar } from './components/BukuKasKeluar';
 import { WhatsAppSettings } from './components/WhatsAppSettings';
+import { SettingsPage } from './components/SettingsPage';
 import { sendReportStatusNotification, sendWhatsappVerificationCode } from './services/whatsapp';
 import { formatCurrency, parseAmount, terbilang } from './lib/utils';
 
@@ -2749,6 +2751,15 @@ const MainDashboard = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [schoolSettings, setSchoolSettings] = useState<SchoolSettings>({
+    schoolName: 'SMK MUHAMMADIYAH 1 NGADIREJO',
+    schoolLogo: '',
+    principalName: '',
+    principalNbm: '',
+    treasurerName: '',
+    treasurerNbm: '',
+    schoolAddress: 'Jl. Raya Candiroto, Ngaren, Ngadirejo, Temanggung, Jawa Tengah',
+  });
   const [loading, setLoading] = useState(true);
   const [errorInfo, setErrorInfo] = useState<string | null>(null);
   const [selectedUnitFolder, setSelectedUnitFolder] = useState<string | null>(null);
@@ -2817,6 +2828,24 @@ const MainDashboard = () => {
       else console.error("Employees listener failed", err);
     });
 
+    // Listen to school settings
+    const unsubSchool = onSnapshot(doc(db, 'school_settings', 'general'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as SchoolSettings;
+        setSchoolSettings({
+          schoolName: data.schoolName || 'SMK MUHAMMADIYAH 1 NGADIREJO',
+          schoolLogo: data.schoolLogo || '',
+          principalName: data.principalName || '',
+          principalNbm: data.principalNbm || '',
+          treasurerName: data.treasurerName || '',
+          treasurerNbm: data.treasurerNbm || '',
+          schoolAddress: data.schoolAddress || 'Jl. Raya Candiroto, Ngaren, Ngadirejo, Temanggung, Jawa Tengah',
+        });
+      }
+    }, (err: any) => {
+      console.warn("School settings listener error", err);
+    });
+
     // Listen to reports
     const q = isAdmin
       ? query(collection(db, 'reports'), orderBy('submittedAt', 'desc'), limit(100))
@@ -2840,9 +2869,23 @@ const MainDashboard = () => {
       unsubUnits();
       unsubExp();
       unsubEmp();
+      unsubSchool();
       unsubReports();
     };
   }, [user, isAdmin]);
+
+  const handleSaveSchoolSettings = async (data: SchoolSettings) => {
+    try {
+      await setDoc(doc(db, 'school_settings', 'general'), {
+        ...data,
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.username || 'admin',
+      }, { merge: true });
+      safeAlert('Pengaturan Sekolah berhasil disimpan!');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'school_settings/general');
+    }
+  };
 
   const refreshReports = async () => {
     if (!user) return;
@@ -3399,41 +3442,11 @@ const MainDashboard = () => {
 
               <div className="h-px bg-natural-border/50 my-3 mx-4" />
               <button 
-                onClick={() => navigateTo('/users')}
-                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/users' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-              >
-                <Users className="w-4 h-4" />
-                Daftar Akun
-              </button>
-
-              <button 
-                onClick={() => navigateTo('/units')}
-                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/units' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                Daftar Unit
-              </button>
-
-              <button 
-                onClick={() => navigateTo('/settings/expenses')}
-                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/settings/expenses' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
+                onClick={() => navigateTo('/settings')}
+                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname.startsWith('/settings') || location.pathname === '/users' || location.pathname === '/units' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
               >
                 <Settings className="w-4 h-4" />
-                Jenis Pengeluaran
-              </button>
-              <button 
-                onClick={() => navigateTo('/settings/employees')}
-                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/settings/employees' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-              >
-                <UserIcon className="w-4 h-4" />
-                Daftar Pegawai
-              </button>
-              <button 
-                onClick={() => navigateTo('/settings/whatsapp')}
-                className={`w-full text-left px-5 py-3 rounded-2xl font-bold uppercase text-[10px] tracking-[0.2em] transition-all flex items-center gap-3 ${location.pathname === '/settings/whatsapp' ? 'bg-natural-primary text-white shadow-lg' : 'hover:bg-white text-natural-secondary'}`}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Notifikasi WA
+                Pengaturan
               </button>
             </>
           )}
@@ -3748,50 +3761,153 @@ const MainDashboard = () => {
 
               <Route path="/users" element={
                 isAdmin ? (
-                  <motion.div key="users" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <UserList onAdd={() => navigateTo('/users/add')} onViewUnits={() => navigateTo('/units')} />
+                  <motion.div key="users_settings_tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <SettingsPage
+                      activeSubTab="users"
+                      schoolSettings={schoolSettings}
+                      onSaveSchoolSettings={handleSaveSchoolSettings}
+                      expenseTypes={expenseTypes}
+                      employees={employees}
+                      units={units}
+                      db={db}
+                      userEmail={user?.username || 'admin'}
+                    />
                   </motion.div>
-                ) : <Navigate to="/" replace />
-              } />
-
-              <Route path="/users/add" element={
-                isAdmin ? (
-                  <UserForm 
-                    onCancel={() => { navigate('/users'); setInitialUnitNameForAccount(''); }} 
-                    units={units}
-                    initialUnitName={initialUnitNameForAccount}
-                  />
                 ) : <Navigate to="/" replace />
               } />
 
               <Route path="/units" element={
                 isAdmin ? (
-                  <motion.div key="units" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <UnitList units={units} />
+                  <motion.div key="units_settings_tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <SettingsPage
+                      activeSubTab="units"
+                      schoolSettings={schoolSettings}
+                      onSaveSchoolSettings={handleSaveSchoolSettings}
+                      expenseTypes={expenseTypes}
+                      employees={employees}
+                      units={units}
+                      db={db}
+                      userEmail={user?.username || 'admin'}
+                    />
+                  </motion.div>
+                ) : <Navigate to="/" replace />
+              } />
+
+              <Route path="/settings" element={
+                isAdmin ? (
+                  <motion.div key="settings_school" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <SettingsPage
+                      activeSubTab="school"
+                      schoolSettings={schoolSettings}
+                      onSaveSchoolSettings={handleSaveSchoolSettings}
+                      expenseTypes={expenseTypes}
+                      employees={employees}
+                      units={units}
+                      db={db}
+                      userEmail={user?.username || 'admin'}
+                    />
+                  </motion.div>
+                ) : <Navigate to="/" replace />
+              } />
+
+              <Route path="/settings/school" element={
+                isAdmin ? (
+                  <motion.div key="settings_school_tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <SettingsPage
+                      activeSubTab="school"
+                      schoolSettings={schoolSettings}
+                      onSaveSchoolSettings={handleSaveSchoolSettings}
+                      expenseTypes={expenseTypes}
+                      employees={employees}
+                      units={units}
+                      db={db}
+                      userEmail={user?.username || 'admin'}
+                    />
+                  </motion.div>
+                ) : <Navigate to="/" replace />
+              } />
+
+              <Route path="/settings/users" element={
+                isAdmin ? (
+                  <motion.div key="settings_users_tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <SettingsPage
+                      activeSubTab="users"
+                      schoolSettings={schoolSettings}
+                      onSaveSchoolSettings={handleSaveSchoolSettings}
+                      expenseTypes={expenseTypes}
+                      employees={employees}
+                      units={units}
+                      db={db}
+                      userEmail={user?.username || 'admin'}
+                    />
+                  </motion.div>
+                ) : <Navigate to="/" replace />
+              } />
+
+              <Route path="/settings/units" element={
+                isAdmin ? (
+                  <motion.div key="settings_units_tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <SettingsPage
+                      activeSubTab="units"
+                      schoolSettings={schoolSettings}
+                      onSaveSchoolSettings={handleSaveSchoolSettings}
+                      expenseTypes={expenseTypes}
+                      employees={employees}
+                      units={units}
+                      db={db}
+                      userEmail={user?.username || 'admin'}
+                    />
                   </motion.div>
                 ) : <Navigate to="/" replace />
               } />
 
               <Route path="/settings/expenses" element={
                 isAdmin ? (
-                  <motion.div key="expense_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <ExpenseSettings types={expenseTypes} />
+                  <motion.div key="settings_expenses_tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <SettingsPage
+                      activeSubTab="expenses"
+                      schoolSettings={schoolSettings}
+                      onSaveSchoolSettings={handleSaveSchoolSettings}
+                      expenseTypes={expenseTypes}
+                      employees={employees}
+                      units={units}
+                      db={db}
+                      userEmail={user?.username || 'admin'}
+                    />
                   </motion.div>
                 ) : <Navigate to="/" replace />
               } />
 
               <Route path="/settings/employees" element={
                 isAdmin ? (
-                  <motion.div key="employee_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <EmployeeSettings employees={employees} units={units} />
+                  <motion.div key="settings_employees_tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <SettingsPage
+                      activeSubTab="employees"
+                      schoolSettings={schoolSettings}
+                      onSaveSchoolSettings={handleSaveSchoolSettings}
+                      expenseTypes={expenseTypes}
+                      employees={employees}
+                      units={units}
+                      db={db}
+                      userEmail={user?.username || 'admin'}
+                    />
                   </motion.div>
                 ) : <Navigate to="/" replace />
               } />
 
               <Route path="/settings/whatsapp" element={
                 isAdmin ? (
-                  <motion.div key="whatsapp_settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <WhatsAppSettings db={db} userEmail={user?.username || 'admin'} />
+                  <motion.div key="settings_whatsapp_tab" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <SettingsPage
+                      activeSubTab="whatsapp"
+                      schoolSettings={schoolSettings}
+                      onSaveSchoolSettings={handleSaveSchoolSettings}
+                      expenseTypes={expenseTypes}
+                      employees={employees}
+                      units={units}
+                      db={db}
+                      userEmail={user?.username || 'admin'}
+                    />
                   </motion.div>
                 ) : <Navigate to="/" replace />
               } />
@@ -3806,6 +3922,7 @@ const MainDashboard = () => {
                       loading={loading}
                       onRefresh={refreshReports}
                       onSelectReport={(r) => { setSelectedReport(r); navigateTo('/detail'); }}
+                      schoolSettings={schoolSettings}
                     />
                   </motion.div>
                 ) : <Navigate to="/" replace />

@@ -30,7 +30,7 @@ import {
   orderBy 
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Report, Unit, ExpenseType, ReportStatus, DirectCashOutflow, CashInflow, BkkSettings } from '../types';
+import { Report, Unit, ExpenseType, ReportStatus, DirectCashOutflow, CashInflow, BkkSettings, SchoolSettings } from '../types';
 import { formatCurrency, formatDate, terbilang, safeAlert, safeConfirm, parseAmount } from '../lib/utils';
 
 interface BukuKasKeluarProps {
@@ -40,6 +40,7 @@ interface BukuKasKeluarProps {
   onSelectReport?: (report: Report) => void;
   onRefresh?: () => void;
   loading?: boolean;
+  schoolSettings?: SchoolSettings;
 }
 
 export type JournalItemType = 
@@ -101,6 +102,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
   onSelectReport,
   onRefresh,
   loading = false,
+  schoolSettings,
 }) => {
   // --- BKK Settings (Saldo Awal) State ---
   const [bkkSettings, setBkkSettings] = useState<BkkSettings>(() => {
@@ -779,6 +781,73 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
     return Math.round(bal * 10000) / 10000;
   }, [allJournalItems, bkkSettings.initialBalance, selectedMonth, selectedYear, bkkSettings.initialBalanceDate]);
 
+  // Informasi Baris Saldo Awal / Pindahan untuk Periode yang Sedang Dipilih (Buku Kas Selalu Nyambung)
+  const headerRowInfo = useMemo(() => {
+    const initialDateStr = bkkSettings.initialBalanceDate || '2026-09-01';
+    const parsedInit = parseTransactionDate(initialDateStr);
+
+    if (selectedMonth === 'ALL' && selectedYear === 'ALL') {
+      return {
+        title: 'SALDO AWAL KAS SEKOLAH',
+        subtitle: bkkSettings.notes || 'Saldo Awal Pembukuan Master',
+        date: initialDateStr,
+        amount: bkkSettings.initialBalance || 0,
+        isInitialMaster: true,
+      };
+    }
+
+    let monthLabel = '';
+    let prevMonthLabel = '';
+    if (selectedMonth !== 'ALL') {
+      const mIdx = parseInt(selectedMonth, 10) - 1;
+      monthLabel = MONTH_OPTIONS[mIdx]?.label || '';
+      const prevMIdx = mIdx === 0 ? 11 : mIdx - 1;
+      prevMonthLabel = MONTH_OPTIONS[prevMIdx]?.label || '';
+    }
+
+    let isInitialMonth = false;
+    if (parsedInit) {
+      if (selectedYear !== 'ALL' && parseInt(selectedYear, 10) === parsedInit.year) {
+        if (selectedMonth === 'ALL' || parseInt(selectedMonth, 10) === parsedInit.month) {
+          isInitialMonth = true;
+        }
+      } else if (selectedYear === 'ALL' && selectedMonth !== 'ALL' && parseInt(selectedMonth, 10) === parsedInit.month) {
+        isInitialMonth = true;
+      }
+    }
+
+    if (isInitialMonth) {
+      return {
+        title: 'SALDO AWAL KAS SEKOLAH',
+        subtitle: bkkSettings.notes || `Saldo Awal Pembukuan (${monthLabel || 'Awal Periode'})`,
+        date: initialDateStr,
+        amount: bkkSettings.initialBalance || 0,
+        isInitialMaster: true,
+      };
+    }
+
+    const yearText = selectedYear !== 'ALL' ? selectedYear : '';
+    const dateStr = (selectedYear !== 'ALL' && selectedMonth !== 'ALL')
+      ? `${selectedYear}-${selectedMonth.padStart(2, '0')}-01`
+      : initialDateStr;
+
+    let subtitleText = '';
+    if (selectedMonth !== 'ALL') {
+      const prevYear = selectedMonth === '1' && selectedYear !== 'ALL' ? (parseInt(selectedYear, 10) - 1).toString() : yearText;
+      subtitleText = `Pindahan Saldo Akhir Bulan ${prevMonthLabel} ${prevYear}`.trim();
+    } else {
+      subtitleText = `Pindahan Saldo Akhir Periode Sebelumnya`;
+    }
+
+    return {
+      title: `SALDO AWAL BULAN ${monthLabel.toUpperCase()} ${yearText}`.trim(),
+      subtitle: subtitleText,
+      date: dateStr,
+      amount: priorBalance,
+      isInitialMaster: false,
+    };
+  }, [selectedMonth, selectedYear, bkkSettings, priorBalance]);
+
   // Running Balance (Saldo Berjalan)
   const itemsWithRunningBalance = useMemo(() => {
     let currentBalance = priorBalance;
@@ -1132,6 +1201,19 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
               font-size: 8.5pt;
             }
 
+            table.bkk-table thead {
+              display: table-header-group;
+            }
+
+            table.bkk-table tfoot {
+              display: table-footer-group;
+            }
+
+            table.bkk-table tr {
+              page-break-inside: avoid;
+              break-inside: avoid;
+            }
+
             table.bkk-table th {
               background-color: #eaeaea;
               border: 1px solid #000;
@@ -1183,9 +1265,12 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
           </style>
         </head>
         <body>
-          <div class="kop">
-            <h1>SMK MUHAMMADIYAH 1 NGADIREJO</h1>
-            <p>Alamat: Jl. Raya Candiroto, Ngaren, Ngadirejo, Temanggung, Jawa Tengah</p>
+          <div class="kop" style="display: flex; items-center; justify-content: center; gap: 15px;">
+            ${schoolSettings?.schoolLogo ? `<img src="${schoolSettings.schoolLogo}" style="height: 65px; width: auto; object-fit: contain; margin-right: 12px;" />` : ''}
+            <div>
+              <h1 style="margin: 0;">${schoolSettings?.schoolName || 'SMK MUHAMMADIYAH 1 NGADIREJO'}</h1>
+              <p style="margin: 2px 0 0 0;">${schoolSettings?.schoolAddress || 'Alamat: Jl. Raya Candiroto, Ngaren, Ngadirejo, Temanggung, Jawa Tengah'}</p>
+            </div>
           </div>
 
           <div class="doc-title">
@@ -1222,16 +1307,16 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
               </tr>
             </thead>
             <tbody>
-              <!-- Saldo Awal Row -->
+              <!-- Saldo Awal / Pindahan Row -->
               <tr style="background-color: #fcfcfc; font-weight: bold;">
                 <td class="text-center">-</td>
-                <td class="text-center font-mono">${formatDate(bkkSettings.initialBalanceDate, { dateStyle: 'short' })}</td>
+                <td class="text-center font-mono">${formatDate(headerRowInfo.date, { dateStyle: 'short' })}</td>
                 <td class="text-center">-</td>
-                <td class="font-mono">SALDO-AWAL</td>
-                <td colspan="4">SALDO AWAL KAS SEKOLAH (${bkkSettings.notes || 'Awal Periode'})</td>
+                <td class="font-mono">${headerRowInfo.isInitialMaster ? 'SALDO-AWAL' : 'SALDO-PINDAHAN'}</td>
+                <td colspan="4">${headerRowInfo.title} (${headerRowInfo.subtitle})</td>
                 <td class="text-right font-mono">-</td>
                 <td class="text-right font-mono">-</td>
-                <td class="text-right font-mono" style="background-color: #f0fdf4;">${formatCurrency(bkkSettings.initialBalance || 0)}</td>
+                <td class="text-right font-mono" style="background-color: #f0fdf4;">${formatCurrency(headerRowInfo.amount)}</td>
               </tr>
 
               ${itemsWithRunningBalance.length > 0 ? itemsWithRunningBalance.map((item, idx) => `
@@ -1295,18 +1380,18 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
           <div class="signature-wrapper">
             <div class="sign-box">
               <p style="margin: 0 0 4px 0;">Mengetahui,</p>
-              <p style="margin: 0;">Kepala SMK Muhammadiyah 1 Ngadirejo</p>
+              <p style="margin: 0; font-weight: bold;">Kepala Sekolah</p>
               <div class="space"></div>
-              <p class="sign-name">H. Supriyadi, S.Pd., M.Si.</p>
-              <p style="margin: 2px 0 0 0; font-size: 8pt;">NBM. .................................</p>
+              <p class="sign-name">${schoolSettings?.principalName || '........................'}</p>
+              <p style="margin: 2px 0 0 0; font-size: 8.5pt;">NBM. ${schoolSettings?.principalNbm || '........................'}</p>
             </div>
 
             <div class="sign-box">
               <p style="margin: 0 0 4px 0;">Ngadirejo, ${formatDate(new Date(), { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-              <p style="margin: 0;">Bendahara Sekolah,</p>
+              <p style="margin: 0; font-weight: bold;">Bendahara Sekolah</p>
               <div class="space"></div>
-              <p class="sign-name">Bendahara Utama</p>
-              <p style="margin: 2px 0 0 0; font-size: 8pt;">NBM. .................................</p>
+              <p class="sign-name">${schoolSettings?.treasurerName || '........................'}</p>
+              <p style="margin: 2px 0 0 0; font-size: 8.5pt;">${schoolSettings?.treasurerNbm ? `NBM/NIP. ${schoolSettings.treasurerNbm}` : 'NBM. ........................'}</p>
             </div>
           </div>
 
@@ -1556,32 +1641,32 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
             </p>
           </div>
 
-          {/* Simple Formula Breakdown (Kumulatif Riil) */}
+          {/* Simple Formula Breakdown */}
           <div className="bg-white/80 backdrop-blur-xs p-5 rounded-2xl border border-natural-border/70 flex flex-wrap items-center gap-6 text-xs">
             <div>
               <span className="text-[10px] font-bold text-natural-secondary uppercase tracking-wider block">
-                Saldo Awal ({initialDateDisplay})
+                {headerRowInfo.isInitialMaster ? `Saldo Awal Kas (${initialDateDisplay})` : `Saldo Awal Bulan Ini`}
               </span>
               <span className="font-mono font-bold text-natural-primary text-sm">
-                Rp {formatCurrency(bkkSettings.initialBalance || 0)}
+                Rp {formatCurrency(headerRowInfo.amount)}
               </span>
             </div>
             <span className="text-natural-secondary/60 text-base font-bold">+</span>
             <div>
               <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
-                Total Penerimaan (Riil)
+                {headerRowInfo.isInitialMaster ? `Total Penerimaan (Riil)` : `Penerimaan Periode`}
               </span>
               <span className="font-mono font-bold text-emerald-700 text-sm">
-                Rp {formatCurrency(realTotalInflow)}
+                Rp {formatCurrency(headerRowInfo.isInitialMaster ? realTotalInflow : totalInflow)}
               </span>
             </div>
             <span className="text-natural-secondary/60 text-base font-bold">-</span>
             <div>
               <span className="text-[10px] font-bold text-red-700 uppercase tracking-wider block">
-                Total Pengeluaran (Riil)
+                {headerRowInfo.isInitialMaster ? `Total Pengeluaran (Riil)` : `Pengeluaran Periode`}
               </span>
               <span className="font-mono font-bold text-red-700 text-sm">
-                Rp {formatCurrency(realTotalOutflow)}
+                Rp {formatCurrency(headerRowInfo.isInitialMaster ? realTotalOutflow : totalOutflow)}
               </span>
             </div>
           </div>
@@ -1746,37 +1831,39 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-natural-border/50 text-xs">
-                {/* Saldo Awal Header Row */}
+                {/* Saldo Awal / Pindahan Header Row */}
                 <tr className="bg-emerald-50/40 font-bold border-b border-emerald-100">
                   <td className="py-3 px-3 text-center font-mono text-[11px] text-emerald-800">-</td>
                   <td className="py-3 px-3 font-mono text-[11px] text-emerald-900">
-                    {formatDate(bkkSettings.initialBalanceDate, { dateStyle: 'short' })}
+                    {formatDate(headerRowInfo.date, { dateStyle: 'short' })}
                   </td>
                   <td className="py-3 px-3 text-center text-emerald-700">-</td>
                   <td className="py-3 px-3">
-                    <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      SALDO-AWAL
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase">
+                      {headerRowInfo.isInitialMaster ? 'SALDO-AWAL' : 'SALDO-PINDAHAN'}
                     </span>
                   </td>
                   <td colSpan={4} className="py-3 px-4 text-emerald-900">
-                    <span className="font-serif italic font-bold">SALDO AWAL KAS SEKOLAH</span>
+                    <span className="font-serif italic font-bold">{headerRowInfo.title}</span>
                     <span className="text-[11px] font-sans font-normal text-emerald-700 ml-2">
-                      ({bkkSettings.notes || 'Saldo Awal Pembukuan'})
+                      ({headerRowInfo.subtitle})
                     </span>
                   </td>
                   <td className="py-3 px-4 text-right font-mono text-emerald-700">-</td>
                   <td className="py-3 px-4 text-right font-mono text-red-700">-</td>
                   <td className="py-3 px-4 text-right font-mono text-sm font-bold text-emerald-800">
-                    Rp {formatCurrency(bkkSettings.initialBalance || 0)}
+                    Rp {formatCurrency(headerRowInfo.amount)}
                   </td>
                   <td className="py-3 px-3 text-center">
-                    <button
-                      onClick={handleOpenSaldoModal}
-                      title="Atur Saldo Awal"
-                      className="p-1 rounded bg-white text-emerald-700 border border-emerald-300 text-[10px] hover:bg-emerald-100 transition-all font-bold px-2"
-                    >
-                      Ubah
-                    </button>
+                    {headerRowInfo.isInitialMaster && (
+                      <button
+                        onClick={handleOpenSaldoModal}
+                        title="Atur Saldo Awal Master"
+                        className="p-1 rounded bg-white text-emerald-700 border border-emerald-300 text-[10px] hover:bg-emerald-100 transition-all font-bold px-2"
+                      >
+                        Ubah
+                      </button>
+                    )}
                   </td>
                 </tr>
 
@@ -2273,8 +2360,14 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
                   </div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-natural-bg border border-natural-border text-xs text-natural-secondary leading-relaxed">
-                  <strong>Catatan Saldo Akhir:</strong> Saldo akhir kas dihitung otomatis: <em>Saldo Awal + Penerimaan - Pengeluaran</em>.
+                <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 text-xs text-emerald-900 leading-relaxed space-y-1">
+                  <p className="font-bold text-emerald-900">Ketentuan Saldo Awal Kas:</p>
+                  <p>
+                    • Saldo awal diatur <strong>1x saja</strong> untuk modal awal periode pertama (contoh: per 1 September).
+                  </p>
+                  <p>
+                    • Saldo awal bulan-bulan berikutnya (Oktober, November, dst.) akan <strong>otomatis mengambil Saldo Akhir bulan sebelumnya</strong> secara berkesinambungan (buku kas selalu nyambung).
+                  </p>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-natural-border/60">

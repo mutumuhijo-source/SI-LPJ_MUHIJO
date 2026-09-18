@@ -20,6 +20,15 @@ export interface ExpenseDetail {
   employeeName?: string;
 }
 
+export interface DBUser {
+  id?: string;
+  username: string;
+  pass: string;
+  role: 'admin' | 'user';
+  displayName: string;
+  unitName: string;
+}
+
 export interface Employee {
   id?: string;
   name: string;
@@ -105,6 +114,18 @@ export interface BkkSettings {
   initialBalance: number;
   initialBalanceDate: string;
   notes?: string;
+  updatedAt?: any;
+  updatedBy?: string;
+}
+
+export interface SchoolSettings {
+  schoolName: string;
+  schoolLogo?: string;
+  principalName: string;
+  principalNbm: string;
+  treasurerName: string;
+  treasurerNbm?: string;
+  schoolAddress?: string;
   updatedAt?: any;
   updatedBy?: string;
 }
