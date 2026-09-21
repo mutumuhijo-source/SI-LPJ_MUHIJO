@@ -780,7 +780,7 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
             {/* ========================================================= */}
             {(printDocType === 'all' || printDocType === 'persetujuan') && (
               <div 
-                className="printable-a4-page bg-white p-[15mm] border border-gray-300 shadow-xl print:shadow-none print:border-none print:p-0 font-sans text-black leading-normal select-text"
+                className="printable-a4-page bg-white p-[15mm] print:p-0 print:m-0 border border-gray-300 shadow-xl print:shadow-none print:border-none font-sans text-black leading-normal select-text"
                 style={{ minHeight: '297mm' }}
               >
                 {/* Kop Surat Header from School Settings */}
@@ -925,7 +925,7 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
             {/* ========================================================= */}
             {(printDocType === 'all' || printDocType === 'berita_acara') && (
               <div 
-                className={`printable-a4-page bg-white p-[15mm] border border-gray-300 shadow-xl print:shadow-none print:border-none print:p-0 font-sans text-black leading-normal select-text ${printDocType === 'all' ? 'print-page-break mt-12' : ''}`}
+                className={`printable-a4-page bg-white p-[15mm] print:p-0 print:m-0 border border-gray-300 shadow-xl print:shadow-none print:border-none font-sans text-black leading-normal select-text ${printDocType === 'all' ? 'print-page-break mt-12 print:mt-0' : ''}`}
                 style={{ minHeight: '297mm' }}
               >
                 {/* Header Judul Berita Acara */}

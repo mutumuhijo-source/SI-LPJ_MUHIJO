@@ -194,13 +194,13 @@ export function buildStatusNotificationMessage(
         `👉 *Langkah Selanjutnya*: Silakan laksanakan kegiatan sesuai RAB. Setelah kegiatan selesai, segera input rincian Laporan Pertanggungjawaban (LPJ) beserta nomor bukti transaksi di sistem E-Lapor.${footer}`;
 
     case ReportStatus.REPORTING:
-      return `📋 *INSTRUKSI PENGISIAN LPJ (REALISASI)*\n*E-LAPOR BENDAHARA*\n${divider}\n` +
-        `Status kegiatan Anda saat ini telah dibuka untuk *PENGISIAN REALISASI PENGELUARAN (LPJ)*.\n\n` +
+      return `💸 *PEMBERITAHUAN: ANGGARAN SUDAH DICAIRKAN*\n*E-LAPOR BENDAHARA*\n${divider}\n` +
+        `Anggaran sudah dicairkan, silakan untuk melengkapi laporan realisasi anggaran.\n\n` +
         `🏢 *Unit Kerja*: ${unit}\n` +
         `📌 *Kegiatan*: ${activity}\n` +
         `💰 *Pagu Anggaran*: ${amountStr}\n` +
         (notes ? `📝 *Catatan Bendahara*: _"${notes}"_\n\n` : '\n') +
-        `👉 Silakan login ke sistem E-Lapor untuk menginput rincian bukti transaksi riil kegiatan Anda.${footer}`;
+        `👉 Silakan login ke sistem E-Lapor untuk melengkapi rincian bukti transaksi realisasi anggaran kegiatan Anda.${footer}`;
 
     case ReportStatus.REVISION:
       return `⚠️ *PERINGATAN: PERMINTAAN REVISI LAPORAN*\n*E-LAPOR BENDAHARA*\n${divider}\n` +
