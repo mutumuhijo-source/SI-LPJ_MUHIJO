@@ -108,44 +108,28 @@
     margin: 10mm;
   }
 
-  /* 1. Force PURE WHITE background and deep black text on ALL elements */
+  /* 1. Reset root containers to white background */
   html,
   body,
   #root,
-  main,
-  *,
-  *::before,
-  *::after {
+  main {
     background: #ffffff !important;
     background-color: #ffffff !important;
     color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    position: static !important;
     box-shadow: none !important;
-    text-shadow: none !important;
-    filter: none !important;
+    border: none !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* 2. Keep borders crisp and black */
-  table,
-  tr,
-  td,
-  th,
-  div,
-  p,
-  span,
-  section {
-    border-color: #000000 !important;
-  }
-
-  /* 3. Logos / Kop Surat Images */
-  img {
-    background: transparent !important;
-    background-color: transparent !important;
-    filter: none !important;
-  }
-
-  /* 4. Hide non-printable app UI elements */
+  /* 2. Hide non-printable app UI elements */
   header,
   aside,
   nav,
@@ -156,7 +140,7 @@
     display: none !important;
   }
 
-  /* 5. Ensure print wrapper uses static normal flow so page breaks and height flow naturally */
+  /* 3. Print Wrappers and Cards */
   .memo-print-wrapper,
   .memorial-print-wrapper,
   #memo-budget-print-area,
@@ -171,19 +155,17 @@
     margin: 0 !important;
     background: #ffffff !important;
     background-color: #ffffff !important;
+    color: #000000 !important;
     overflow: visible !important;
     inset: auto !important;
     z-index: auto !important;
     border: none !important;
     box-shadow: none !important;
-    color: #000000 !important;
     min-height: auto !important;
     font-size: 10.5pt !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
   }
 
-  /* 6. Page Break Rule */
+  /* 4. Page Break Rule for multi-page documents */
   .page-break-always,
   .print-page-break {
     page-break-before: always !important;
@@ -192,24 +174,32 @@
     padding-top: 0 !important;
   }
 
-  /* 7. Table formatting for high contrast clean print */
-  #memo-budget-print-area table,
-  #memorial-kas-print-area table,
+  /* 5. Table formatting for high contrast clean print */
   .printable-a4-page table {
     border-collapse: collapse !important;
     width: 100% !important;
-    background: #ffffff !important;
     background-color: #ffffff !important;
     border-color: #000000 !important;
   }
 
-  .printable-a4-page tr,
-  .printable-a4-page td,
-  .printable-a4-page th {
-    background: #ffffff !important;
-    background-color: #ffffff !important;
+  .printable-a4-page th,
+  .printable-a4-page td {
     border-color: #000000 !important;
     color: #000000 !important;
+  }
+
+  /* 6. Typography & Images */
+  .printable-a4-page p,
+  .printable-a4-page div,
+  .printable-a4-page span {
+    color: #000000 !important;
+  }
+
+  .printable-a4-page img {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    background-color: transparent !important;
   }
 }
 
