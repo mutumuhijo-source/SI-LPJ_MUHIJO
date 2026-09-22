@@ -3380,19 +3380,19 @@ const MainDashboard = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-natural-bg font-sans selection:bg-natural-primary/10">
+    <div className="flex h-screen w-screen overflow-hidden bg-natural-bg font-sans selection:bg-natural-primary/10 print:h-auto print:w-auto print:overflow-visible print:bg-white print:block">
       {/* Mobile backdrop overlay when sidebar is open on small screens */}
       {!isSidebarHidden && (
         <div 
           onClick={toggleSidebar}
-          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-30 lg:hidden transition-opacity"
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-30 lg:hidden transition-opacity print:hidden"
           aria-hidden="true"
         />
       )}
 
       {/* Sidebar: Fixed, Non-scrolling with the main page; User & Logout pinned at bottom-left */}
       <aside 
-        className={`h-screen bg-natural-bg border-r border-natural-border flex flex-col flex-shrink-0 z-40 lg:z-30 transition-all duration-300 ease-in-out select-none ${
+        className={`h-screen bg-natural-bg border-r border-natural-border flex flex-col flex-shrink-0 z-40 lg:z-30 transition-all duration-300 ease-in-out select-none print:hidden ${
           isSidebarHidden 
             ? 'w-0 -translate-x-full border-r-0 opacity-0 pointer-events-none p-0 overflow-hidden' 
             : 'w-72 lg:w-80 translate-x-0 opacity-100 fixed lg:static inset-y-0 left-0 shadow-2xl lg:shadow-none'
@@ -3503,9 +3503,9 @@ const MainDashboard = () => {
       </aside>
 
       {/* Main Area: Independent Column with Top Header and Scrollable Body */}
-      <div className="flex-1 h-screen flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 h-screen flex flex-col min-w-0 overflow-hidden print:h-auto print:w-auto print:overflow-visible print:block">
         {/* Navigation Top Header Bar */}
-        <header className="flex-shrink-0 bg-natural-bg/95 backdrop-blur-xs border-b border-natural-border/60 px-6 py-3.5 flex items-center justify-between z-20">
+        <header className="flex-shrink-0 bg-natural-bg/95 backdrop-blur-xs border-b border-natural-border/60 px-6 py-3.5 flex items-center justify-between z-20 print:hidden">
           <div className="flex items-center gap-3">
             <button
               onClick={toggleSidebar}
@@ -3553,7 +3553,7 @@ const MainDashboard = () => {
         </header>
 
         {/* Scrollable Main Viewport */}
-        <main ref={mainContentRef} className="flex-1 overflow-y-auto px-6 lg:px-10 py-8 flex flex-col custom-scrollbar">
+        <main ref={mainContentRef} className="flex-1 overflow-y-auto px-6 lg:px-10 py-8 flex flex-col custom-scrollbar print:p-0 print:m-0 print:overflow-visible print:block">
           {errorInfo && (
             <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700 text-sm flex-shrink-0">
               <AlertCircle className="w-5 h-5 flex-shrink-0" />

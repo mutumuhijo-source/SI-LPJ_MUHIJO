@@ -108,11 +108,14 @@
     margin: 10mm;
   }
 
-  /* 1. Reset root containers to white background */
+  /* 1. Reset root containers and layouts to pure white background */
   html,
   body,
   #root,
-  main {
+  #root > div,
+  main,
+  .space-y-8,
+  [class*="bg-natural"] {
     background: #ffffff !important;
     background-color: #ffffff !important;
     color: #000000 !important;
@@ -129,15 +132,21 @@
     print-color-adjust: exact !important;
   }
 
-  /* 2. Hide non-printable app UI elements */
+  /* 2. Hide all non-printable app UI elements, backdrops, and overlays */
   header,
   aside,
   nav,
   footer,
   button,
   .print\:hidden,
-  [data-print-hide="true"] {
+  [data-print-hide="true"],
+  [class*="backdrop"],
+  [class*="bg-black/"],
+  [class*="bg-black"],
+  .fixed.inset-0:not(.memo-print-wrapper):not(.memorial-print-wrapper) {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
   }
 
   /* 3. Print Wrappers and Cards */
@@ -174,7 +183,20 @@
     padding-top: 0 !important;
   }
 
-  /* 5. Table formatting for high contrast clean print */
+  /* 5. Inner elements use transparent background so text NEVER gets covered or disappears */
+  .printable-a4-page p,
+  .printable-a4-page div,
+  .printable-a4-page span,
+  .printable-a4-page td,
+  .printable-a4-page th,
+  .printable-a4-page tr,
+  .printable-a4-page tbody,
+  .printable-a4-page thead {
+    background-color: transparent !important;
+    color: #000000 !important;
+  }
+
+  /* 6. Table formatting for high contrast clean print */
   .printable-a4-page table {
     border-collapse: collapse !important;
     width: 100% !important;
@@ -188,13 +210,7 @@
     color: #000000 !important;
   }
 
-  /* 6. Typography & Images */
-  .printable-a4-page p,
-  .printable-a4-page div,
-  .printable-a4-page span {
-    color: #000000 !important;
-  }
-
+  /* 7. Typography & Images */
   .printable-a4-page img {
     max-width: 100% !important;
     height: auto !important;
