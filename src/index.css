@@ -111,6 +111,7 @@
   html,
   body {
     background: #ffffff !important;
+    background-color: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -122,6 +123,20 @@
     print-color-adjust: exact !important;
   }
 
+  /* Force pure white background on ALL container elements during print */
+  #root,
+  #root > *,
+  main,
+  div,
+  section,
+  article,
+  [class*="bg-natural"],
+  .min-h-screen {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+  }
+
   /* Hide app navigation, headers, sidebars, buttons, and top bars */
   header,
   aside,
@@ -130,21 +145,6 @@
   .print\:hidden,
   [data-print-hide="true"] {
     display: none !important;
-  }
-
-  /* Strip padding, margins, borders, backgrounds from main app container elements */
-  main,
-  #root,
-  .min-h-screen,
-  [class*="bg-natural"] {
-    background: transparent !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-    min-height: auto !important;
-    max-width: 100% !important;
-    width: 100% !important;
   }
 
   /* Container wrapper during print */
@@ -159,6 +159,7 @@
     padding: 0 !important;
     margin: 0 !important;
     background: #ffffff !important;
+    background-color: #ffffff !important;
     overflow: visible !important;
     inset: auto !important;
     z-index: auto !important;
@@ -176,6 +177,7 @@
     border: none !important;
     box-shadow: none !important;
     background: #ffffff !important;
+    background-color: #ffffff !important;
     overflow: visible !important;
   }
 
@@ -190,6 +192,7 @@
     border: none !important;
     box-shadow: none !important;
     background: #ffffff !important;
+    background-color: #ffffff !important;
     min-height: auto !important;
     height: auto !important;
     font-size: 11pt !important;
@@ -205,20 +208,17 @@
     padding-top: 0 !important;
   }
 
-  /* Ensure text and tables stay black and high contrast for printing */
+  /* Ensure text and tables stay black and pure white background */
   #memo-budget-print-area table,
   #memorial-kas-print-area table,
-  .printable-a4-page table {
-    border-color: #000000 !important;
-  }
-
-  #memo-budget-print-area td,
-  #memo-budget-print-area th,
-  #memorial-kas-print-area td,
-  #memorial-kas-print-area th,
+  .printable-a4-page table,
+  .printable-a4-page tr,
   .printable-a4-page td,
   .printable-a4-page th {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
     border-color: #000000 !important;
+    color: #000000 !important;
   }
 }
 

@@ -691,7 +691,7 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
       {/* MODE 1: PRINT / PDF PREVIEW VIEW                              */}
       {/* ------------------------------------------------------------- */}
       {mode === 'print' && activeMemorial && (
-        <div className="memorial-print-wrapper fixed inset-0 bg-white z-50 overflow-y-auto p-4 sm:p-10 print:p-0 print:static print:bg-transparent">
+        <div className="memorial-print-wrapper fixed inset-0 bg-white z-50 overflow-y-auto p-4 sm:p-10 print:p-0 print:static print:bg-white">
           {/* Top Bar for Actions in Preview Mode */}
           <div className="max-w-[210mm] mx-auto mb-6 flex flex-wrap items-center justify-between gap-3 border-b pb-4 print:hidden" data-print-hide="true">
             <button

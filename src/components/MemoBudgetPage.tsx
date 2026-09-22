@@ -553,7 +553,7 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
     <div className="space-y-8">
       {/* Printable Area Specific for Printing */}
       {mode === 'print' && activeMemo && (
-        <div className="memo-print-wrapper fixed inset-0 bg-white z-50 overflow-y-auto p-4 sm:p-10 print:p-0 print:static print:bg-transparent">
+        <div className="memo-print-wrapper fixed inset-0 bg-white z-50 overflow-y-auto p-4 sm:p-10 print:p-0 print:static print:bg-white">
           {/* Top Bar for Action in Preview Mode */}
           <div className="max-w-[210mm] mx-auto mb-6 flex flex-wrap items-center justify-between gap-3 border-b pb-4 print:hidden" data-print-hide="true">
             <button
