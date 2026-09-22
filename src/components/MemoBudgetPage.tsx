@@ -620,33 +620,33 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
           <div 
             id="memo-budget-print-area"
             ref={printContainerRef}
-            className="max-w-[210mm] mx-auto bg-white p-[15mm] border border-gray-300 shadow-xl print:shadow-none print:border-none print:p-0 font-serif text-black leading-normal select-text"
+            className="printable-a4-page max-w-[210mm] mx-auto bg-white p-[15mm] border border-gray-300 shadow-xl print:shadow-none print:border-none print:p-0 font-serif text-black leading-normal select-text print:min-h-0"
             style={{ minHeight: '297mm' }}
           >
             {/* Kop Surat Header Image (Only for Memo Budget if uploaded) */}
             {(schoolSettings.memoHeaderUrl || schoolSettings.kopHeaderUrl) && (
-              <div className="mb-6 pb-2 border-b-2 border-black text-center">
+              <div className="mb-6 print:mb-4 pb-2 border-b-2 border-black text-center">
                 <img 
                   src={schoolSettings.memoHeaderUrl || schoolSettings.kopHeaderUrl} 
                   alt="Kop Surat Memo Budget" 
-                  className="w-full max-h-36 object-contain mx-auto"
+                  className="w-full max-h-36 print:max-h-28 object-contain mx-auto"
                 />
               </div>
             )}
 
             {/* Document Title Header */}
-            <div className="text-center font-bold text-base mb-6 tracking-wide uppercase">
+            <div className="text-center font-bold text-base mb-6 print:mb-4 tracking-wide uppercase">
               <div>PERSETUJUAN PENCAIRAN DANA</div>
               <div>{activeMemo.week} BULAN {activeMemo.month} {activeMemo.year}</div>
             </div>
 
             {/* Opening Paragraph */}
-            <p className="text-xs text-justify mb-5 leading-relaxed font-normal">
+            <p className="text-xs text-justify mb-5 print:mb-3 leading-relaxed font-normal">
               Berdasarkan pengajuan Rencana Anggaran Belanja dari unit kerja {activeMemo.schoolName || schoolSettings.schoolName || 'SMK Muhammadiyah 1 Ngadirejo'}, mohon untuk dilakukan pengeluaran dari Rekening Operasional dengan rincian sebagai berikut:
             </p>
 
             {/* Balances Summary Section */}
-            <div className="text-xs mb-6 space-y-1 font-bold pl-2">
+            <div className="text-xs mb-6 print:mb-4 space-y-1 font-bold pl-2">
               <div className="flex justify-between items-center max-w-xl">
                 <span>Saldo Operasional Rekening {activeMemo.operationalAccountName}</span>
                 <span className="font-mono">Rp. {formatRupiah(activeMemo.operationalBalance)},-</span>
@@ -667,7 +667,7 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
             </div>
 
             {/* Expenditure Table */}
-            <table className="w-full text-xs border-2 border-black border-collapse mb-6">
+            <table className="w-full text-xs border-2 border-black border-collapse mb-6 print:mb-4">
               <tbody>
                 {(activeMemo.items || []).map((item, index) => (
                   <tr key={index} className="border-b border-black">
@@ -698,14 +698,14 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
             </table>
 
             {/* Closing Paragraph */}
-            <p className="text-xs mb-10 leading-relaxed font-normal">
+            <p className="text-xs mb-10 print:mb-4 leading-relaxed font-normal">
               Demikian persetujuan ini kami buat, atas perhatiannya diucapkan terima kasih.
             </p>
 
             {/* Signatures Block (3 Columns) */}
-            <div className="grid grid-cols-3 gap-4 text-xs text-center font-normal mt-12">
+            <div className="grid grid-cols-3 gap-4 text-xs text-center font-normal mt-12 print:mt-6">
               {/* Column 1: Disetujui Oleh */}
-              <div className="flex flex-col items-center justify-between h-40">
+              <div className="flex flex-col items-center justify-between h-40 print:h-28">
                 <div className="space-y-1">
                   <div>Tanggal:.............</div>
                   <div>Disetujui Oleh,</div>
@@ -721,7 +721,7 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
               </div>
 
               {/* Column 2: Diperiksa Oleh */}
-              <div className="flex flex-col items-center justify-between h-40">
+              <div className="flex flex-col items-center justify-between h-40 print:h-28">
                 <div className="space-y-1">
                   <div>Tanggal:.............</div>
                   <div>Diperiksa Oleh,</div>
@@ -737,7 +737,7 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
               </div>
 
               {/* Column 3: Dibuat Oleh */}
-              <div className="flex flex-col items-center justify-between h-40">
+              <div className="flex flex-col items-center justify-between h-40 print:h-28">
                 <div className="space-y-1">
                   <div>{activeMemo.memoCity || 'Ngadirejo'}, {activeMemo.memoDate || '...................'}</div>
                   <div>Dibuat Oleh,</div>

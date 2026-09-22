@@ -780,20 +780,20 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
             {/* ========================================================= */}
             {(printDocType === 'all' || printDocType === 'persetujuan') && (
               <div 
-                className="printable-a4-page bg-white p-[15mm] print:p-0 print:m-0 border border-gray-300 shadow-xl print:shadow-none print:border-none font-sans text-black leading-normal select-text"
+                className="printable-a4-page bg-white p-[15mm] print:p-0 print:m-0 border border-gray-300 shadow-xl print:shadow-none print:border-none font-sans text-black leading-normal select-text print:min-h-0"
                 style={{ minHeight: '297mm' }}
               >
                 {/* Kop Surat Header from School Settings */}
                 {(schoolSettings.kopHeaderUrl || schoolSettings.memoHeaderUrl) ? (
-                  <div className="mb-6 pb-2 border-b-2 border-black text-center">
+                  <div className="mb-6 print:mb-4 pb-2 border-b-2 border-black text-center">
                     <img 
                       src={schoolSettings.kopHeaderUrl || schoolSettings.memoHeaderUrl} 
                       alt="Kop Surat Sekolah" 
-                      className="w-full max-h-36 object-contain mx-auto"
+                      className="w-full max-h-36 print:max-h-28 object-contain mx-auto"
                     />
                   </div>
                 ) : (
-                  <div className="mb-6 pb-3 border-b-2 border-black text-center">
+                  <div className="mb-6 print:mb-4 pb-3 border-b-2 border-black text-center">
                     <div className="font-bold text-xs uppercase tracking-wide">MAJELIS PENDIDIKAN DASAR DAN MENENGAH</div>
                     <div className="font-bold text-xs uppercase tracking-wide">PIMPINAN DAERAH MUHAMMADIYAH KABUPATEN TEMANGGUNG</div>
                     <div className="font-bold text-xl uppercase tracking-wider my-0.5">SMK MUHAMMADIYAH 1 NGADIREJO</div>
@@ -804,18 +804,18 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
                 )}
 
                 {/* Judul Dokumen */}
-                <div className="text-center font-bold text-base mb-6 tracking-wide uppercase mt-4">
+                <div className="text-center font-bold text-base mb-6 print:mb-4 tracking-wide uppercase mt-4 print:mt-2">
                   <div className="underline">PERSETUJUAN PENGISIAN KEMBALI KAS TUNAI</div>
                   <div>BULAN {activeMemorial.month} {activeMemorial.year}</div>
                 </div>
 
                 {/* Paragraf Pembuka */}
-                <p className="text-xs text-justify mb-6 leading-relaxed font-normal">
+                <p className="text-xs text-justify mb-6 print:mb-3 leading-relaxed font-normal">
                   Sehubungan dengan saldo kas tunai yang telah menipis untuk pembiayaan operasional harian, bersama ini kami mengajukan pengisian kembali kas tunai dengan rincian sebagai berikut:
                 </p>
 
                 {/* Tabel Rincian Pengisian Kas Tunai */}
-                <table className="w-full text-xs border-2 border-black border-collapse mb-8">
+                <table className="w-full text-xs border-2 border-black border-collapse mb-8 print:mb-4">
                   <thead>
                     <tr className="border-b-2 border-black bg-gray-50/50">
                       <th className="p-2.5 border-r-2 border-black text-center font-bold uppercase w-1/2">
@@ -863,14 +863,14 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
                 </table>
 
                 {/* Paragraf Penutup */}
-                <p className="text-xs mb-12 leading-relaxed font-normal">
+                <p className="text-xs mb-12 print:mb-4 leading-relaxed font-normal">
                   Demikian persetujuan ini kami buat, atas perhatiannya diucapkan terima kasih.
                 </p>
 
                 {/* Kolom Tanda Tangan (3 Kolom) */}
-                <div className="grid grid-cols-3 gap-4 text-xs text-center font-normal mt-16">
+                <div className="grid grid-cols-3 gap-4 text-xs text-center font-normal mt-16 print:mt-6">
                   {/* Kolom 1: Disetujui Oleh (Kepala Sekolah) */}
-                  <div className="flex flex-col items-center justify-between h-36">
+                  <div className="flex flex-col items-center justify-between h-36 print:h-28">
                     <div className="space-y-1">
                       <div>Disetujui Tanggal : {activeMemorial.approverDate || '............'}</div>
                       <div>Disetujui oleh,</div>
@@ -886,7 +886,7 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
                   </div>
 
                   {/* Kolom 2: Diperiksa Oleh */}
-                  <div className="flex flex-col items-center justify-between h-36">
+                  <div className="flex flex-col items-center justify-between h-36 print:h-28">
                     <div className="space-y-1">
                       <div className="opacity-0">.</div>
                       <div>Diperiksa Oleh,</div>
@@ -902,7 +902,7 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
                   </div>
 
                   {/* Kolom 3: Dibuat Oleh (Bendahara Kas Tunai) */}
-                  <div className="flex flex-col items-center justify-between h-36">
+                  <div className="flex flex-col items-center justify-between h-36 print:h-28">
                     <div className="space-y-1">
                       <div>{activeMemorial.city || 'Ngadirejo'}, {activeMemorial.date || '...................'}</div>
                       <div>Dibuat Oleh</div>
@@ -925,21 +925,21 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
             {/* ========================================================= */}
             {(printDocType === 'all' || printDocType === 'berita_acara') && (
               <div 
-                className={`printable-a4-page bg-white p-[15mm] print:p-0 print:m-0 border border-gray-300 shadow-xl print:shadow-none print:border-none font-sans text-black leading-normal select-text ${printDocType === 'all' ? 'page-break-always print-page-break mt-12 print:mt-0' : ''}`}
+                className={`printable-a4-page bg-white p-[15mm] print:p-0 print:m-0 border border-gray-300 shadow-xl print:shadow-none print:border-none font-sans text-black leading-normal select-text print:min-h-0 ${printDocType === 'all' ? 'page-break-always print-page-break mt-12 print:mt-0' : ''}`}
                 style={{ minHeight: '297mm' }}
               >
                 {/* Header Judul Berita Acara */}
-                <div className="text-center font-bold text-sm mb-4 tracking-wide uppercase">
+                <div className="text-center font-bold text-sm mb-4 print:mb-2 tracking-wide uppercase">
                   <div>BERITA ACARA</div>
                   <div>PERHITUNGAN UANG KAS</div>
                   <div className="text-base font-extrabold">{schoolSettings.schoolName || 'SMK MUHAMMADIYAH 1 NGADIREJO'}</div>
                   <div className="text-xs font-semibold capitalize">Per {activeMemorial.countDate || activeMemorial.date || `${activeMemorial.month} ${activeMemorial.year}`}</div>
                 </div>
 
-                <div className="border-b-2 border-black my-4" />
+                <div className="border-b-2 border-black my-4 print:my-2" />
 
                 {/* Ringkasan Saldo dan Pengeluaran Kas Tunai */}
-                <div className="text-xs space-y-2 mb-4">
+                <div className="text-xs space-y-2 mb-4 print:mb-2">
                   <div className="flex justify-between items-center max-w-xl">
                     <span>Saldo kecil / kas tunai per tanggal {activeMemorial.countDate || activeMemorial.date}</span>
                     <span className="font-mono font-medium">Rp. {formatRupiah(activeMemorial.remainingBalance)},-</span>
@@ -950,18 +950,18 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
                   </div>
                 </div>
 
-                <div className="border-b-2 border-black my-4" />
+                <div className="border-b-2 border-black my-4 print:my-2" />
 
                 {/* Pembuka Rincian */}
-                <p className="text-xs mb-4">
+                <p className="text-xs mb-4 print:mb-2">
                   Perhitungan uang kas per {activeMemorial.countDate || activeMemorial.date} menghasilkan jumlah sebagai berikut :
                 </p>
 
                 {/* Rincian Fisik Uang */}
-                <div className="text-xs space-y-4 mb-6 pl-2">
+                <div className="text-xs space-y-4 print:space-y-2 mb-6 print:mb-3 pl-2">
                   {/* 1. Uang Kertas */}
                   <div>
-                    <div className="font-bold mb-1.5">1. Uang kertas</div>
+                    <div className="font-bold mb-1.5 print:mb-1">1. Uang kertas</div>
                     <div className="pl-4 space-y-1 font-mono">
                       {(activeMemorial.paperNotes || []).filter(p => p.quantity > 0).length === 0 ? (
                         <div className="text-gray-500 italic text-[11px]">- Tidak ada catatan lembar uang kertas -</div>
@@ -982,7 +982,7 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
 
                   {/* 2. Uang Logam */}
                   <div>
-                    <div className="font-bold mb-1.5">2. Uang logam</div>
+                    <div className="font-bold mb-1.5 print:mb-1">2. Uang logam</div>
                     <div className="pl-4 space-y-1 font-mono">
                       {(activeMemorial.coins || []).filter(c => c.quantity > 0).length === 0 ? (
                         <div className="flex items-center max-w-lg">
@@ -1007,14 +1007,14 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
                 </div>
 
                 {/* Pernyataan Kesesuaian Saldo */}
-                <p className="text-xs mb-12 leading-relaxed">
+                <p className="text-xs mb-12 print:mb-4 leading-relaxed">
                   {activeMemorial.differenceNote || `Saldo kas kecil per ${activeMemorial.countDate || activeMemorial.date} sama dengan kas tunai yang dihitung pada tanggal tersebut.`}
                 </p>
 
                 {/* Kolom Tanda Tangan (2 Kolom: Kepala Sekolah & Bendahara Kas Tunai) */}
-                <div className="grid grid-cols-2 gap-8 text-xs text-center font-normal mt-16 max-w-2xl mx-auto">
+                <div className="grid grid-cols-2 gap-8 text-xs text-center font-normal mt-16 print:mt-6 max-w-2xl mx-auto">
                   {/* Kolom Kiri: Kepala Sekolah */}
-                  <div className="flex flex-col items-center justify-between h-36">
+                  <div className="flex flex-col items-center justify-between h-36 print:h-28">
                     <div className="space-y-1">
                       <div className="opacity-0">.</div>
                       <div>Kepala Sekolah</div>
@@ -1030,7 +1030,7 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
                   </div>
 
                   {/* Kolom Kanan: Bendahara Kas Tunai */}
-                  <div className="flex flex-col items-center justify-between h-36">
+                  <div className="flex flex-col items-center justify-between h-36 print:h-28">
                     <div className="space-y-1">
                       <div>{activeMemorial.city || 'Ngadirejo'}, {activeMemorial.countDate || activeMemorial.date || '...................'}</div>
                       <div>Bendahara kas tunai</div>
