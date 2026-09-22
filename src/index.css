@@ -108,6 +108,36 @@
     margin: 10mm;
   }
 
+  /* 1. Hide all application UI by default using visibility */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* 2. Show only the print wrappers and printable contents */
+  .memorial-print-wrapper,
+  .memorial-print-wrapper *,
+  .memo-print-wrapper,
+  .memo-print-wrapper *,
+  #memorial-kas-print-area,
+  #memorial-kas-print-area *,
+  #memo-budget-print-area,
+  #memo-budget-print-area * {
+    visibility: visible !important;
+  }
+
+  /* 3. Hide buttons, action bars, and top bars inside the print wrapper */
+  button,
+  header,
+  aside,
+  nav,
+  footer,
+  .print\:hidden,
+  [data-print-hide="true"] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* 4. Page & Body setup */
   html,
   body {
     background: #ffffff !important;
@@ -118,42 +148,18 @@
     width: 100% !important;
     height: auto !important;
     min-height: 0 !important;
+    max-height: none !important;
     overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Force pure white background on ALL container elements during print */
-  #root,
-  #root > *,
-  main,
-  div,
-  section,
-  article,
-  [class*="bg-natural"],
-  .min-h-screen {
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-    box-shadow: none !important;
-  }
-
-  /* Hide app navigation, headers, sidebars, buttons, and top bars */
-  header,
-  aside,
-  nav,
-  button,
-  .print\:hidden,
-  [data-print-hide="true"] {
-    display: none !important;
-  }
-
-  /* Container wrapper during print */
+  /* 5. Print wrappers placed at top-left */
   .memo-print-wrapper,
   .memorial-print-wrapper {
-    position: static !important;
-    display: block !important;
-    left: auto !important;
-    top: auto !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
     width: 100% !important;
     height: auto !important;
     padding: 0 !important;
@@ -162,7 +168,7 @@
     background-color: #ffffff !important;
     overflow: visible !important;
     inset: auto !important;
-    z-index: auto !important;
+    z-index: 9999 !important;
   }
 
   #memo-budget-print-area,
@@ -181,10 +187,10 @@
     overflow: visible !important;
   }
 
+  /* 6. A4 Printable Pages */
   .printable-a4-page {
     position: relative !important;
-    left: 0 !important;
-    top: 0 !important;
+    display: block !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
@@ -193,6 +199,7 @@
     box-shadow: none !important;
     background: #ffffff !important;
     background-color: #ffffff !important;
+    color: #000000 !important;
     min-height: auto !important;
     height: auto !important;
     font-size: 11pt !important;
@@ -201,6 +208,8 @@
     break-inside: avoid !important;
   }
 
+  /* 7. Page break rule for multi-page documents */
+  .page-break-always,
   .print-page-break {
     page-break-before: always !important;
     break-before: page !important;
@@ -208,10 +217,17 @@
     padding-top: 0 !important;
   }
 
-  /* Ensure text and tables stay black and pure white background */
+  /* 8. Table formatting for print */
   #memo-budget-print-area table,
   #memorial-kas-print-area table,
-  .printable-a4-page table,
+  .printable-a4-page table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border-color: #000000 !important;
+  }
+
   .printable-a4-page tr,
   .printable-a4-page td,
   .printable-a4-page th {
