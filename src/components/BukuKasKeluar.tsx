@@ -747,6 +747,15 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
     return Math.round((init + realTotalInflow - realTotalOutflow) * 10000) / 10000;
   }, [bkkSettings.initialBalance, realTotalInflow, realTotalOutflow]);
 
+  // Simpan cache saldo akhir kas riil agar sinkron ke memo budget seketika
+  useEffect(() => {
+    try {
+      localStorage.setItem('bkk_last_ending_balance', String(realFinalBalance));
+    } catch {
+      // ignore
+    }
+  }, [realFinalBalance]);
+
   // Saldo Awal Pindahan sebelum periode yang difilter
   const priorBalance = useMemo(() => {
     let bal = bkkSettings.initialBalance || 0;

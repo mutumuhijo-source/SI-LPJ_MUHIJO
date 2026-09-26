@@ -19,11 +19,11 @@ import {
   Send,
   RotateCw
 } from 'lucide-react';
-import { SchoolSettings, Report, BudgetMemo, BudgetMemoItem, OperationType } from '../types';
+import { SchoolSettings, Report, ReportStatus, BudgetMemo, BudgetMemoItem, OperationType } from '../types';
 import { Firestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { safeAlert, safeConfirm } from '../lib/utils';
 import { handleFirestoreError } from '../lib/error-handler';
-import { calculateBkkEndingBalance, getBkkSettingsFromCache } from '../lib/bkk-calculator';
+import { calculateBkkEndingBalance, getBkkSettingsFromCache, getLastBkkEndingBalanceFromCache } from '../lib/bkk-calculator';
 
 interface MemoBudgetPageProps {
   db: Firestore;
@@ -56,10 +56,23 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
   const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>(defaultCurrentMonth);
   const [selectedYearFilter, setSelectedYearFilter] = useState<string>(defaultCurrentYear);
 
+  // Flag to track whether the user has manually edited the operational balance in the current form
+  const hasUserEditedBalance = useRef(false);
+
   // States for calculating current Buku Kas ending balance
   const [bkkSettings, setBkkSettings] = useState<{ initialBalance: number; initialBalanceDate?: string }>(() => getBkkSettingsFromCache());
   const [cashInflows, setCashInflows] = useState<any[]>([]);
   const [directOutflows, setDirectOutflows] = useState<any[]>([]);
+
+  // Compute current real-time ending balance of Buku Kas (100% identik dengan Buku Kas)
+  const currentBkkEndingBalance = useMemo(() => {
+    const calculated = calculateBkkEndingBalance(bkkSettings, cashInflows, directOutflows, reports);
+    if (calculated === 0 && cashInflows.length === 0 && directOutflows.length === 0) {
+      const cachedLast = getLastBkkEndingBalanceFromCache();
+      if (cachedLast !== 0) return cachedLast;
+    }
+    return calculated;
+  }, [bkkSettings, cashInflows, directOutflows, reports]);
 
   // Form states
   const [week, setWeek] = useState('MINGGU 2');
@@ -67,7 +80,16 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
   const [year, setYear] = useState('2026');
   
   const [operationalAccountName, setOperationalAccountName] = useState('BANK BTM KOMITE (5.02.00097)');
-  const [operationalBalance, setOperationalBalance] = useState<number>(0);
+  const [operationalBalance, setOperationalBalance] = useState<number>(() => {
+    return getLastBkkEndingBalanceFromCache() || 0;
+  });
+
+  // Saat form mode create aktif, pastikan saldo operasional awal selalu tersinkron otomatis dengan saldo akhir buku kas
+  useEffect(() => {
+    if (mode === 'create' && !hasUserEditedBalance.current) {
+      setOperationalBalance(currentBkkEndingBalance);
+    }
+  }, [mode, currentBkkEndingBalance]);
   
   const [transferAccountName, setTransferAccountName] = useState('PEMASUKAN (5.02.00716)');
   
@@ -101,10 +123,16 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
     const unsubSettings = onSnapshot(doc(db, 'bkk_settings', 'general'), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        setBkkSettings({
+        const settingsObj = {
           initialBalance: Number(data.initialBalance) || 0,
           initialBalanceDate: data.initialBalanceDate || '2026-09-01'
-        });
+        };
+        setBkkSettings(settingsObj);
+        try {
+          localStorage.setItem('bkk_settings_cache', JSON.stringify(settingsObj));
+        } catch {
+          // ignore
+        }
       }
     }, (err) => console.warn("Error fetching bkk_settings:", err));
 
@@ -147,13 +175,30 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
     return () => unsub();
   }, [db]);
 
-  // Approved reports available for selection
-  const approvedReports = reports.filter(r => 
-    r.status === 'budget_approved' || 
-    r.status === 'reporting' || 
-    r.status === 'completed' || 
-    r.approvedAt != null
-  );
+  // Approved reports available for selection:
+  // Hanya memunculkan kegiatan yang saat ini masih berada pada status 'budget_approved' (Anggaran Disetujui).
+  // Jika status sudah dilaporkan ('reporting', 'completed') atau diarsipkan ('archived'), jangan muncul lagi.
+  const approvedReports = useMemo(() => {
+    return reports.filter(r => {
+      const status = (r.status || '').toLowerCase();
+      const isApproved = status === 'budget_approved' || r.status === ReportStatus.BUDGET_APPROVED;
+      const isReportedOrArchived = 
+        status === 'reporting' || 
+        r.status === ReportStatus.REPORTING ||
+        status === 'completed' || 
+        r.status === ReportStatus.COMPLETED ||
+        status === 'archived' || 
+        r.status === ReportStatus.ARCHIVED;
+
+      return isApproved && !isReportedOrArchived;
+    });
+  }, [reports]);
+
+  // Saring anggaran disetujui yang belum dimasukkan ke tabel pada form saat ini
+  const availableApprovedReports = useMemo(() => {
+    const existingReportIds = new Set(items.map(i => i.reportId).filter(Boolean));
+    return approvedReports.filter(r => !existingReportIds.has(r.id));
+  }, [approvedReports, items]);
 
   // Helper formatting numbers to Rupiah string
   const formatRupiah = (val: number) => {
@@ -164,6 +209,7 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
   // Prepopulate form when creating new
   const handleOpenCreate = () => {
     setActiveMemo(null);
+    hasUserEditedBalance.current = false;
     const now = new Date();
     const months = [
       'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI',
@@ -176,8 +222,7 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
     setOperationalAccountName('BANK BTM KOMITE (5.02.00097)');
     
     // Auto-pull ending balance from Buku Kas
-    const currentBkkBalance = calculateCurrentBkkEndingBalance();
-    setOperationalBalance(currentBkkBalance);
+    setOperationalBalance(currentBkkEndingBalance);
     
     setTransferAccountName('PEMASUKAN (5.02.00716)');
     
@@ -206,6 +251,7 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
   // Load existing memo to edit
   const handleOpenEdit = (memo: BudgetMemo) => {
     setActiveMemo(memo);
+    hasUserEditedBalance.current = true;
     setWeek(memo.week || 'MINGGU 2');
     setMonth(memo.month || 'SEPTEMBER');
     setYear(memo.year || '2026');
@@ -1073,29 +1119,24 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                   <div>
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
                       <label className="font-bold text-natural-secondary flex items-center gap-1.5">
                         <DollarSign className="w-3.5 h-3.5 text-emerald-600" /> Saldo Operasional Awal (Rp):
                       </label>
                       
-                      {mode === 'create' ? (
-                        <span className="text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                          <Wallet className="w-3 h-3" /> Saldo Kas Terkini
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const latest = calculateCurrentBkkEndingBalance();
-                            setOperationalBalance(latest);
-                            safeAlert(`Saldo Operasional diperbarui ke Saldo Kas Terkini: Rp ${formatRupiah(latest)}`);
-                          }}
-                          className="text-[10px] text-emerald-700 hover:text-emerald-900 underline font-bold flex items-center gap-1 cursor-pointer"
-                          title="Ambil saldo akhir buku kas saat ini"
-                        >
-                          <Wallet className="w-3 h-3" /> Sync Saldo Kas Saat Ini
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          hasUserEditedBalance.current = false;
+                          setOperationalBalance(currentBkkEndingBalance);
+                          safeAlert(`Saldo Operasional berhasil diselaraskan sama persis dengan Saldo Akhir Buku Kas: Rp ${formatRupiah(currentBkkEndingBalance)}`);
+                        }}
+                        className="text-[10px] text-emerald-800 bg-emerald-100/80 hover:bg-emerald-200 px-2.5 py-0.5 rounded-full font-bold border border-emerald-300 transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Klik untuk mengambil saldo akhir Buku Kas terkini"
+                      >
+                        <Wallet className="w-3 h-3 text-emerald-700" /> 
+                        <span>Saldo Buku Kas: <strong>Rp {formatRupiah(currentBkkEndingBalance)}</strong></span>
+                      </button>
                     </div>
                     
                     <input
@@ -1103,13 +1144,16 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
                       required
                       className="w-full p-3 bg-white border border-natural-border rounded-xl font-mono font-bold text-natural-primary focus:outline-hidden focus:border-natural-primary"
                       value={operationalBalance}
-                      onChange={e => setOperationalBalance(Number(e.target.value))}
+                      onChange={e => {
+                        hasUserEditedBalance.current = true;
+                        setOperationalBalance(Number(e.target.value));
+                      }}
                     />
                     
                     <p className="text-[10px] text-natural-secondary mt-1">
                       {mode === 'create' 
-                        ? 'Otomatis diambil dari saldo akhir buku kas saat ini.' 
-                        : 'Nilai ini tersimpan dari saat memo dibuat dan tidak berubah otomatis.'}
+                        ? `Otomatis diselaraskan sama persis dengan Saldo Akhir Buku Kas saat ini (Rp ${formatRupiah(currentBkkEndingBalance)}).` 
+                        : 'Nilai ini tersimpan dari saat memo dibuat. Klik tombol di atas jika ingin menyelaraskan ulang.'}
                     </p>
                   </div>
 
@@ -1136,17 +1180,28 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
 
                 {/* Option A: Pick from Approved Budget Reports */}
                 <div className="p-4 bg-white border border-natural-border rounded-2xl space-y-2">
-                  <label className="block font-bold text-natural-primary text-[11px]">
-                    Option A: Pilih dari Anggaran Disetujui (Rencana Anggaran Belanja)
-                  </label>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <label className="block font-bold text-natural-primary text-[11px]">
+                      Option A: Pilih dari Anggaran Disetujui (Rencana Anggaran Belanja)
+                    </label>
+                    <span className="text-[10px] text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full font-bold border border-emerald-200 w-fit">
+                      Hanya Status: Anggaran Disetujui ({availableApprovedReports.length} siap dipilih)
+                    </span>
+                  </div>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <select
                       className="flex-1 p-3 bg-natural-bg/40 border border-natural-border rounded-xl text-xs font-bold text-natural-primary focus:outline-hidden focus:border-natural-primary"
                       value={selectedReportId}
                       onChange={e => setSelectedReportId(e.target.value)}
                     >
-                      <option value="">-- Pilih Anggaran Kegiatan Disetujui --</option>
-                      {approvedReports.map(r => (
+                      <option value="">
+                        {availableApprovedReports.length === 0
+                          ? (approvedReports.length > 0 
+                              ? '-- Semua kegiatan berstatus disetujui sudah masuk tabel --' 
+                              : '-- Tidak ada kegiatan yang sedang berstatus Anggaran Disetujui --')
+                          : `-- Pilih Anggaran Kegiatan Disetujui (${availableApprovedReports.length} kegiatan) --`}
+                      </option>
+                      {availableApprovedReports.map(r => (
                         <option key={r.id} value={r.id}>
                           [{r.unitName}] {r.activityName} - Rp. {formatRupiah(r.amountReceived || r.totalSpent || 0)}
                         </option>

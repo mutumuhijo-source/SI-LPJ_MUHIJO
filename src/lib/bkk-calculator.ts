@@ -53,7 +53,22 @@ export const getBkkSettingsFromCache = (): { initialBalance: number; initialBala
   return { initialBalance: 0, initialBalanceDate: '2026-09-01' };
 };
 
-export const isDateBeforeBukuKasStart = (dateStr: string | null | undefined, initialBalanceDate?: string): boolean => {
+export const getLastBkkEndingBalanceFromCache = (): number => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const cached = localStorage.getItem('bkk_last_ending_balance');
+      if (cached !== null) {
+        const val = Number(cached);
+        if (!isNaN(val)) return val;
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+  return 0;
+};
+
+export const isDateBeforeBukuKasStart = (dateStr?: string | null, initialBalanceDate?: string): boolean => {
   if (!dateStr) return false;
   const parsed = parseTransactionDate(dateStr);
   if (!parsed) return false;
@@ -71,6 +86,7 @@ export const isDateBeforeBukuKasStart = (dateStr: string | null | undefined, ini
   } else {
     if (parsed.iso < '2026-09-01') return true;
   }
+
   return false;
 };
 
@@ -96,24 +112,41 @@ export const getReportingInstructionDate = (r: Report, initialBalanceDate?: stri
   return initialBalanceDate || '2026-09-01';
 };
 
-export const calculateBkkEndingBalance = (
+export const getEntryTimestamp = (val: any): number => {
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  if (typeof val.toMillis === 'function') return val.toMillis();
+  if (typeof val.toDate === 'function') return val.toDate().getTime();
+  if (val.seconds) return val.seconds * 1000 + (val.nanoseconds ? Math.floor(val.nanoseconds / 1000000) : 0);
+  const parsed = new Date(val).getTime();
+  return isNaN(parsed) ? 0 : parsed;
+};
+
+export interface CalculatedBkkSummary {
+  realFinalBalance: number;
+  realTotalInflow: number;
+  realTotalOutflow: number;
+  initialBalance: number;
+}
+
+export const calculateFullBkkSummary = (
   bkkSettings: { initialBalance: number; initialBalanceDate?: string },
   cashInflows: any[],
   directOutflows: any[],
   reports: Report[]
-): number => {
+): CalculatedBkkSummary => {
   const initDate = bkkSettings.initialBalanceDate || '2026-09-01';
   let totalInflow = 0;
   let totalOutflow = 0;
 
-  // 1. Cash Inflows (Pindah Buku)
+  // 1. Process Pindah Buku (Cash Inflow)
   cashInflows.forEach((inflow) => {
     const itemDate = inflow.date || initDate;
     if (isDateBeforeBukuKasStart(itemDate, initDate)) return;
     totalInflow += Number(inflow.amount) || 0;
   });
 
-  // 2. Reports (LPJ)
+  // 2. Process LPJ Reports (sama persis dengan allJournalItems di BukuKasKeluar)
   reports.forEach((r) => {
     const isInBudgetMenu = 
       r.status === ReportStatus.BUDGET_PROPOSAL ||
@@ -132,24 +165,28 @@ export const calculateBkkEndingBalance = (
         const validDetails = (r.details || []).filter(d => !isDateBeforeBukuKasStart(d.date || instructDate, initDate));
         if (validDetails.length === 0) return;
 
-        validDetails.forEach((d) => {
-          totalOutflow += Number(d.amount) || 0;
-        });
+        // Di BukuKasKeluar.tsx, item.groupDate = instructDate dan filter realTotalOutflow memeriksa !isDateBeforeBukuKasStart(item.groupDate || item.date)
+        const isGroupValid = !isDateBeforeBukuKasStart(instructDate, initDate);
+        if (isGroupValid) {
+          validDetails.forEach((d) => {
+            totalOutflow += Number(d.amount) || 0;
+          });
 
-        const latestDetailDate = (validDetails.length > 0 && validDetails[validDetails.length - 1].date)
-          ? validDetails[validDetails.length - 1].date
-          : '';
-        const closingDate = r.completedDate || latestDetailDate || instructDate;
+          const latestDetailDate = (validDetails.length > 0 && validDetails[validDetails.length - 1].date)
+            ? validDetails[validDetails.length - 1].date
+            : '';
+          const closingDate = r.completedDate || latestDetailDate || instructDate;
 
-        if (!isDateBeforeBukuKasStart(closingDate, initDate)) {
-          const budgetAmount = Number(r.amountReceived) || 0;
-          const totalReportSpent = (r.details || []).reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
-          const diff = Math.round((budgetAmount - totalReportSpent) * 10000) / 10000;
+          if (!isDateBeforeBukuKasStart(closingDate, initDate)) {
+            const budgetAmount = Number(r.amountReceived) || 0;
+            const totalReportSpent = (r.details || []).reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+            const diff = Math.round((budgetAmount - totalReportSpent) * 10000) / 10000;
 
-          if (diff > 0) {
-            totalOutflow += diff;
-          } else if (diff < 0) {
-            totalInflow += Math.abs(diff);
+            if (diff > 0) {
+              totalOutflow += diff;
+            } else if (diff < 0) {
+              totalInflow += Math.abs(diff);
+            }
           }
         }
       } else {
@@ -166,7 +203,7 @@ export const calculateBkkEndingBalance = (
     }
   });
 
-  // 3. Direct Outflows
+  // 3. Process Direct Cash Outflows
   directOutflows.forEach((item) => {
     const itemDate = item.date || initDate;
     if (isDateBeforeBukuKasStart(itemDate, initDate)) return;
@@ -174,5 +211,22 @@ export const calculateBkkEndingBalance = (
   });
 
   const init = Number(bkkSettings.initialBalance) || 0;
-  return Math.round((init + totalInflow - totalOutflow) * 10000) / 10000;
+  const realFinalBalance = Math.round((init + totalInflow - totalOutflow) * 10000) / 10000;
+
+  return {
+    realFinalBalance,
+    realTotalInflow: Math.round(totalInflow * 10000) / 10000,
+    realTotalOutflow: Math.round(totalOutflow * 10000) / 10000,
+    initialBalance: init,
+  };
+};
+
+export const calculateBkkEndingBalance = (
+  bkkSettings: { initialBalance: number; initialBalanceDate?: string },
+  cashInflows: any[],
+  directOutflows: any[],
+  reports: Report[]
+): number => {
+  const summary = calculateFullBkkSummary(bkkSettings, cashInflows, directOutflows, reports);
+  return summary.realFinalBalance;
 };
