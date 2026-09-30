@@ -355,8 +355,8 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
           </div>
 
           <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-2xl space-y-1">
-            <span className="text-[10px] font-bold uppercase text-slate-700 tracking-wider">6. Laporan Diarsipkan & Ditolak</span>
-            <p className="text-xs text-slate-700">Pemberitahuan saat laporan diarsipkan ke buku kas atau jika ada pengajuan yang ditolak beserta alasannya.</p>
+            <span className="text-[10px] font-bold uppercase text-slate-700 tracking-wider">6. Pengajuan Ditolak</span>
+            <p className="text-xs text-slate-700">Pemberitahuan jika usulan anggaran ditolak oleh Bendahara beserta alasannya. (Catatan: Saat Laporan Resmi Diarsipkan ke Buku Kas, notifikasi WhatsApp ditiadakan karena laporan sudah disahkan pada tahap sebelumnya).</p>
           </div>
         </div>
 

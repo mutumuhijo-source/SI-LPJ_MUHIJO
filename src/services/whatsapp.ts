@@ -231,10 +231,9 @@ export function buildStatusNotificationMessage(
         `Terima kasih atas tertib administrasi dan kerja sama yang baik dalam pelaporan keuangan sekolah.${footer}`;
 
     case ReportStatus.ARCHIVED:
-      return `📦 *LAPORAN RESMI DIARSIPKAN*\n*E-LAPOR BENDAHARA*\n${divider}\n` +
-        `Laporan kegiatan *${activity}* (${unit}) telah resmi *DIARSIPKAN* dalam Buku Kas Induk Bendahara.\n\n` +
-        `💰 *Realisasi Final*: ${spentStr}\n` +
-        `📅 *Tanggal*: ${dateStr}${footer}`;
+      // Notifikasi WhatsApp ditiadakan saat Laporan Resmi Diarsipkan oleh bendahara.
+      // Notifikasi WhatsApp hanya sampai laporan disetujui dan disahkan saja.
+      return '';
 
     case ReportStatus.REJECTED:
       return `❌ *PEMBERITAHUAN: PENGAJUAN DITOLAK*\n*E-LAPOR BENDAHARA*\n${divider}\n` +
@@ -261,6 +260,15 @@ export async function sendReportStatusNotification(
   notes?: string,
   db?: Firestore
 ): Promise<{ sent: boolean; message: string; details?: any }> {
+  // Notifikasi WhatsApp ditiadakan saat Laporan Resmi Diarsipkan oleh bendahara.
+  // Notifikasi WhatsApp hanya sampai laporan disetujui dan disahkan saja (COMPLETED).
+  if (status === ReportStatus.ARCHIVED) {
+    return { 
+      sent: false, 
+      message: 'Notifikasi WhatsApp ditiadakan untuk status Laporan Resmi Diarsipkan (notifikasi hanya sampai disetujui dan disahkan).' 
+    };
+  }
+
   const phone = report.whatsappNumber;
   if (!phone || !phone.trim()) {
     return { sent: false, message: 'Nomor WhatsApp pengaju tidak dicantumkan pada kegiatan ini.' };

@@ -3349,19 +3349,22 @@ const MainDashboard = () => {
       await refreshReports();
 
       // Kirim Notifikasi WhatsApp Otomatis ke Pengaju via Fonnte.com
-      const targetReport = reports.find(r => r.id === id);
-      if (targetReport) {
-        const mergedReport: Report = {
-          ...targetReport,
-          status: newStatus,
-          treasurerNotes: notes !== undefined ? notes : targetReport.treasurerNotes,
-          reportingInstructedDate: newStatus === ReportStatus.REPORTING 
-            ? (customDate || new Date().toISOString().split('T')[0]) 
-            : targetReport.reportingInstructedDate
-        };
-        sendReportStatusNotification(mergedReport, newStatus, notes, db).catch(err => {
-          console.warn('WhatsApp notification delivery error:', err);
-        });
+      // Notifikasi hanya sampai laporan disetujui & disahkan (COMPLETED), ditiadakan saat diarsipkan (ARCHIVED)
+      if (newStatus !== ReportStatus.ARCHIVED) {
+        const targetReport = reports.find(r => r.id === id);
+        if (targetReport) {
+          const mergedReport: Report = {
+            ...targetReport,
+            status: newStatus,
+            treasurerNotes: notes !== undefined ? notes : targetReport.treasurerNotes,
+            reportingInstructedDate: newStatus === ReportStatus.REPORTING 
+              ? (customDate || new Date().toISOString().split('T')[0]) 
+              : targetReport.reportingInstructedDate
+          };
+          sendReportStatusNotification(mergedReport, newStatus, notes, db).catch(err => {
+            console.warn('WhatsApp notification delivery error:', err);
+          });
+        }
       }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `reports/${id}`);
