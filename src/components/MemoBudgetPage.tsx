@@ -30,6 +30,7 @@ interface MemoBudgetPageProps {
   schoolSettings: SchoolSettings;
   reports: Report[];
   userEmail: string;
+  initialBkkEndingBalance?: number;
 }
 
 export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
@@ -37,6 +38,7 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
   schoolSettings,
   reports,
   userEmail,
+  initialBkkEndingBalance,
 }) => {
   const [memos, setMemos] = useState<BudgetMemo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,13 +68,16 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
 
   // Compute current real-time ending balance of Buku Kas (100% identik dengan Buku Kas)
   const currentBkkEndingBalance = useMemo(() => {
+    if (initialBkkEndingBalance !== undefined) {
+      return initialBkkEndingBalance;
+    }
     const calculated = calculateBkkEndingBalance(bkkSettings, cashInflows, directOutflows, reports);
     if (calculated === 0 && cashInflows.length === 0 && directOutflows.length === 0) {
       const cachedLast = getLastBkkEndingBalanceFromCache();
       if (cachedLast !== 0) return cachedLast;
     }
     return calculated;
-  }, [bkkSettings, cashInflows, directOutflows, reports]);
+  }, [bkkSettings, cashInflows, directOutflows, reports, initialBkkEndingBalance]);
 
   // Form states
   const [week, setWeek] = useState('MINGGU 2');
@@ -81,6 +86,7 @@ export const MemoBudgetPage: React.FC<MemoBudgetPageProps> = ({
   
   const [operationalAccountName, setOperationalAccountName] = useState('BANK BTM KOMITE (5.02.00097)');
   const [operationalBalance, setOperationalBalance] = useState<number>(() => {
+    if (initialBkkEndingBalance !== undefined) return initialBkkEndingBalance;
     return getLastBkkEndingBalanceFromCache() || 0;
   });
 

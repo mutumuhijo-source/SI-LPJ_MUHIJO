@@ -7,7 +7,7 @@ import { useState, useEffect, createContext, useContext, useMemo, useCallback, C
 import { HashRouter, Routes, Route, useNavigate, Navigate, useLocation, useParams } from 'react-router-dom';
 import { db } from './firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, setDoc, serverTimestamp, addDoc, getDocs, deleteDoc, limit, orderBy } from 'firebase/firestore';
-import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail, Employee, SchoolSettings } from './types';
+import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail, Employee, SchoolSettings, CashInflow, DirectCashOutflow, BkkSettings } from './types';
 import { handleFirestoreError } from './lib/error-handler';
 import { 
   LayoutDashboard, 
@@ -17,38 +17,39 @@ import {
   CircleCheck, 
   CircleX, 
   Clock, 
-  User as UserIcon,
-  Users,
-  Search,
-  ArrowLeft,
-  FileText,
-  AlertCircle,
-  Lock,
-  CircleUserRound,
-  Trash2,
-  Printer,
-  Settings,
-  RotateCw,
-  Folder,
-  Calendar,
-  Palette,
-  Check,
-  BookOpen,
-  Undo2,
-  MessageSquare,
-  Smartphone,
-  Send,
-  CheckCircle2,
-  ShieldCheck,
-  KeyRound,
-  Loader2,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Menu,
-  X,
-  Building2,
-  FileCheck2,
-  FileSpreadsheet
+  User as UserIcon, 
+  Users, 
+  Search, 
+  ArrowLeft, 
+  FileText, 
+  AlertCircle, 
+  Lock, 
+  CircleUserRound, 
+  Trash2, 
+  Printer, 
+  Settings, 
+  RotateCw, 
+  Folder, 
+  Calendar, 
+  Palette, 
+  Check, 
+  BookOpen, 
+  Undo2, 
+  MessageSquare, 
+  Smartphone, 
+  Send, 
+  CheckCircle2, 
+  ShieldCheck, 
+  KeyRound, 
+  Loader2, 
+  PanelLeftClose, 
+  PanelLeftOpen, 
+  Menu, 
+  X, 
+  Building2, 
+  FileCheck2, 
+  FileSpreadsheet,
+  Wallet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BukuKasKeluar } from './components/BukuKasKeluar';
@@ -58,6 +59,7 @@ import { MemoBudgetPage } from './components/MemoBudgetPage';
 import { MemorialKasTunaiPage } from './components/MemorialKasTunaiPage';
 import { sendReportStatusNotification, sendWhatsappVerificationCode } from './services/whatsapp';
 import { formatCurrency, parseAmount, terbilang } from './lib/utils';
+import { calculateFullBkkSummary, CalculatedBkkSummary, getBkkSettingsFromCache } from './lib/bkk-calculator';
 
 // Safe alert and confirm helper functions for sandboxed/iframe compliance
 const safeAlert = (message: string) => {
@@ -2272,7 +2274,17 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
   );
 };
 
-const DashboardStats = ({ reports }: { reports: Report[] }) => {
+const DashboardStats = ({ 
+  reports, 
+  bkkSummary, 
+  isAdmin, 
+  onOpenBkk 
+}: { 
+  reports: Report[]; 
+  bkkSummary?: CalculatedBkkSummary; 
+  isAdmin?: boolean; 
+  onOpenBkk?: () => void; 
+}) => {
   const proposal = reports.filter(r => 
     r.status === ReportStatus.BUDGET_PROPOSAL || 
     (r.status === ReportStatus.REVISION && (!r.details || r.details.length === 0))
@@ -2284,28 +2296,108 @@ const DashboardStats = ({ reports }: { reports: Report[] }) => {
     (r.status === ReportStatus.REVISION && r.details && r.details.length > 0)
   ).length;
 
+  const currentBalance = bkkSummary?.realFinalBalance ?? 0;
+  const isHealthy = currentBalance >= 0;
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-sm">
-        <div className="flex items-center gap-3 mb-2">
-          <Clock className="w-5 h-5 text-amber-500" />
-          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Pengajuan Anggaran</p>
+    <div className="space-y-6 mb-12">
+      {/* Featured Card: Saldo Buku Kas Saat Ini (Realtime Ending Balance) */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-white via-white to-natural-bg/40 p-6 sm:p-8 rounded-[36px] border border-natural-border shadow-md">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-800 flex items-center justify-center border border-emerald-500/20">
+                <Wallet className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-natural-secondary uppercase tracking-[0.2em] block">
+                  Buku Kas Keluar (Kas Tunai Bendahara)
+                </span>
+                <h3 className="font-serif italic font-bold text-xl text-natural-primary leading-tight">
+                  Saldo Buku Kas Saat Ini
+                </h3>
+              </div>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                Live Realtime
+              </span>
+            </div>
+
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-4xl sm:text-5xl font-mono font-bold tracking-tight ${isHealthy ? 'text-emerald-800' : 'text-red-700'}`}>
+                  Rp {formatCurrency(currentBalance)}
+                </span>
+                {!isHealthy && (
+                  <span className="text-xs font-bold text-red-600 uppercase tracking-wider">(Defisit)</span>
+                )}
+              </div>
+              <p className="text-xs text-natural-secondary italic mt-1">
+                Terbilang: {terbilang(Math.abs(currentBalance))} {isHealthy ? 'Rupiah' : 'Rupiah (Defisit Kas)'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-stretch sm:items-center gap-3">
+            {/* Realtime Mutasi Badges */}
+            <div className="grid grid-cols-3 gap-2 bg-natural-input/80 p-3 rounded-2xl border border-natural-border/70 text-center">
+              <div className="px-2">
+                <span className="text-[9px] uppercase font-bold text-natural-secondary tracking-wider block">Saldo Awal</span>
+                <span className="font-mono text-xs font-bold text-natural-primary block">
+                  Rp {formatCurrency(bkkSummary?.initialBalance ?? 0)}
+                </span>
+              </div>
+              <div className="px-2 border-x border-natural-border/60">
+                <span className="text-[9px] uppercase font-bold text-emerald-700 tracking-wider block">Penerimaan</span>
+                <span className="font-mono text-xs font-bold text-emerald-700 block">
+                  +Rp {formatCurrency(bkkSummary?.realTotalInflow ?? 0)}
+                </span>
+              </div>
+              <div className="px-2">
+                <span className="text-[9px] uppercase font-bold text-red-700 tracking-wider block">Pengeluaran</span>
+                <span className="font-mono text-xs font-bold text-red-700 block">
+                  -Rp {formatCurrency(bkkSummary?.realTotalOutflow ?? 0)}
+                </span>
+              </div>
+            </div>
+
+            {isAdmin && onOpenBkk && (
+              <button
+                type="button"
+                onClick={onOpenBkk}
+                className="px-5 py-3.5 bg-natural-primary text-white rounded-2xl font-serif italic text-sm hover:bg-natural-primary/90 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer flex-shrink-0"
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>Rincian Buku Kas</span>
+              </button>
+            )}
+          </div>
         </div>
-        <p className="text-3xl font-serif italic font-bold text-natural-primary">{proposal}</p>
       </div>
-      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-sm">
-        <div className="flex items-center gap-3 mb-2">
-          <CircleCheck className="w-5 h-5 text-green-500" />
-          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Anggaran Disetujui</p>
+
+      {/* 3 Status Workflow Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-xs hover:border-natural-primary/30 transition-colors">
+          <div className="flex items-center gap-3 mb-2">
+            <Clock className="w-5 h-5 text-amber-500" />
+            <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Pengajuan Anggaran</p>
+          </div>
+          <p className="text-3xl font-serif italic font-bold text-natural-primary">{proposal}</p>
         </div>
-        <p className="text-3xl font-serif italic font-bold text-natural-primary">{approved}</p>
-      </div>
-      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-sm">
-        <div className="flex items-center gap-3 mb-2">
-          <FileText className="w-5 h-5 text-blue-500" />
-          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Proses Pelaporan</p>
+        <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-xs hover:border-natural-primary/30 transition-colors">
+          <div className="flex items-center gap-3 mb-2">
+            <CircleCheck className="w-5 h-5 text-green-500" />
+            <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Anggaran Disetujui</p>
+          </div>
+          <p className="text-3xl font-serif italic font-bold text-natural-primary">{approved}</p>
         </div>
-        <p className="text-3xl font-serif italic font-bold text-natural-primary">{reporting}</p>
+        <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-xs hover:border-natural-primary/30 transition-colors">
+          <div className="flex items-center gap-3 mb-2">
+            <FileText className="w-5 h-5 text-blue-500" />
+            <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Proses Pelaporan</p>
+          </div>
+          <p className="text-3xl font-serif italic font-bold text-natural-primary">{reporting}</p>
+        </div>
       </div>
     </div>
   );
@@ -2770,6 +2862,23 @@ const MainDashboard = () => {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [initialUnitNameForAccount, setInitialUnitNameForAccount] = useState('');
 
+  // BKK Cash Data listeners for Realtime Balances across Dashboard & Memos
+  const [bkkSettings, setBkkSettings] = useState<BkkSettings>(() => getBkkSettingsFromCache());
+  const [cashInflows, setCashInflows] = useState<CashInflow[]>([]);
+  const [directOutflows, setDirectOutflows] = useState<DirectCashOutflow[]>([]);
+
+  // Compute live authoritative BKK summary (Saldo Akhir, Penerimaan, Pengeluaran)
+  const bkkSummary = useMemo<CalculatedBkkSummary>(() => {
+    return calculateFullBkkSummary(bkkSettings, cashInflows, directOutflows, reports);
+  }, [bkkSettings, cashInflows, directOutflows, reports]);
+
+  // Sync ending balance to cache
+  useEffect(() => {
+    try {
+      localStorage.setItem('bkk_last_ending_balance', String(bkkSummary.realFinalBalance));
+    } catch {}
+  }, [bkkSummary.realFinalBalance]);
+
   // Sidebar hidden state: persisted across sessions
   const [isSidebarHidden, setIsSidebarHidden] = useState<boolean>(() => {
     try {
@@ -2878,12 +2987,38 @@ const MainDashboard = () => {
       setLoading(false);
     });
 
+    // Listen to BKK settings
+    const unsubBkkSettings = onSnapshot(doc(db, 'bkk_settings', 'general'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as BkkSettings;
+        setBkkSettings(data);
+        try {
+          localStorage.setItem('bkk_settings_cache', JSON.stringify(data));
+        } catch {}
+      }
+    }, (err) => console.warn("BKK settings listener warning:", err));
+
+    // Listen to Cash Inflows (Pindah Buku)
+    const unsubInflows = onSnapshot(collection(db, 'cash_inflows'), (snap) => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as CashInflow));
+      setCashInflows(list);
+    }, (err) => console.warn("Cash inflows listener warning:", err));
+
+    // Listen to Direct Cash Outflows
+    const unsubOutflows = onSnapshot(collection(db, 'direct_cash_outflows'), (snap) => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as DirectCashOutflow));
+      setDirectOutflows(list);
+    }, (err) => console.warn("Direct outflows listener warning:", err));
+
     return () => {
       unsubUnits();
       unsubExp();
       unsubEmp();
       unsubSchool();
       unsubReports();
+      unsubBkkSettings();
+      unsubInflows();
+      unsubOutflows();
     };
   }, [user, isAdmin]);
 
@@ -3581,7 +3716,12 @@ const MainDashboard = () => {
                       <RotateCw className={`w-5 h-5 text-natural-secondary ${loading ? 'animate-spin' : ''}`} />
                     </button>
                   </div>
-                  <DashboardStats reports={reports} />
+                  <DashboardStats 
+                    reports={reports} 
+                    bkkSummary={bkkSummary}
+                    isAdmin={isAdmin}
+                    onOpenBkk={() => navigateTo('/buku-kas-keluar')}
+                  />
                   <div className="bg-white p-10 rounded-[40px] border border-natural-border shadow-sm">
                     <h3 className="font-serif italic text-2xl text-natural-primary mb-6">Informasi Hari Ini</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -3611,6 +3751,12 @@ const MainDashboard = () => {
                           <div className="flex justify-between items-center text-xs">
                             <span className="text-natural-secondary font-bold">Status Koneksi</span>
                             <span className="font-mono text-green-600 font-bold uppercase tracking-widest text-[9px]">Terhubung (Live)</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-natural-secondary font-bold">Saldo Buku Kas (Realtime)</span>
+                            <span className={`font-mono font-bold ${bkkSummary.realFinalBalance >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                              Rp {formatCurrency(bkkSummary.realFinalBalance)}
+                            </span>
                           </div>
                           <div className="flex justify-between items-center text-xs">
                             <span className="text-natural-secondary font-bold">Laporan Pending</span>
@@ -3968,6 +4114,7 @@ const MainDashboard = () => {
                       schoolSettings={schoolSettings}
                       reports={reports}
                       userEmail={user?.username || 'admin'}
+                      initialBkkEndingBalance={bkkSummary.realFinalBalance}
                     />
                   </motion.div>
                 ) : <Navigate to="/" replace />
