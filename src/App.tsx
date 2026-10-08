@@ -2338,29 +2338,7 @@ const DashboardStats = ({
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-stretch sm:items-center gap-3">
-            {/* Realtime Mutasi Badges */}
-            <div className="grid grid-cols-3 gap-2 bg-natural-input/80 p-3 rounded-2xl border border-natural-border/70 text-center">
-              <div className="px-2">
-                <span className="text-[9px] uppercase font-bold text-natural-secondary tracking-wider block">Saldo Awal</span>
-                <span className="font-mono text-xs font-bold text-natural-primary block">
-                  Rp {formatCurrency(bkkSummary?.initialBalance ?? 0)}
-                </span>
-              </div>
-              <div className="px-2 border-x border-natural-border/60">
-                <span className="text-[9px] uppercase font-bold text-emerald-700 tracking-wider block">Penerimaan</span>
-                <span className="font-mono text-xs font-bold text-emerald-700 block">
-                  +Rp {formatCurrency(bkkSummary?.realTotalInflow ?? 0)}
-                </span>
-              </div>
-              <div className="px-2">
-                <span className="text-[9px] uppercase font-bold text-red-700 tracking-wider block">Pengeluaran</span>
-                <span className="font-mono text-xs font-bold text-red-700 block">
-                  -Rp {formatCurrency(bkkSummary?.realTotalOutflow ?? 0)}
-                </span>
-              </div>
-            </div>
-
+          <div className="flex items-center gap-3">
             {isAdmin && onOpenBkk && (
               <button
                 type="button"
