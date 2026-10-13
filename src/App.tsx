@@ -2275,10 +2275,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
 };
 
 const DashboardStats = ({ 
-  reports, 
-  bkkSummary, 
-  isAdmin, 
-  onOpenBkk 
+  reports 
 }: { 
   reports: Report[]; 
   bkkSummary?: CalculatedBkkSummary; 
@@ -2296,86 +2293,28 @@ const DashboardStats = ({
     (r.status === ReportStatus.REVISION && r.details && r.details.length > 0)
   ).length;
 
-  const currentBalance = bkkSummary?.realFinalBalance ?? 0;
-  const isHealthy = currentBalance >= 0;
-
   return (
-    <div className="space-y-6 mb-12">
-      {/* Featured Card: Saldo Buku Kas Saat Ini (Realtime Ending Balance) */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-white via-white to-natural-bg/40 p-6 sm:p-8 rounded-[36px] border border-natural-border shadow-md">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-800 flex items-center justify-center border border-emerald-500/20">
-                <Wallet className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-natural-secondary uppercase tracking-[0.2em] block">
-                  Buku Kas Keluar (Kas Tunai Bendahara)
-                </span>
-                <h3 className="font-serif italic font-bold text-xl text-natural-primary leading-tight">
-                  Saldo Buku Kas Saat Ini
-                </h3>
-              </div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
-                <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-                Live Realtime
-              </span>
-            </div>
-
-            <div>
-              <div className="flex items-baseline gap-2">
-                <span className={`text-4xl sm:text-5xl font-mono font-bold tracking-tight ${isHealthy ? 'text-emerald-800' : 'text-red-700'}`}>
-                  Rp {formatCurrency(currentBalance)}
-                </span>
-                {!isHealthy && (
-                  <span className="text-xs font-bold text-red-600 uppercase tracking-wider">(Defisit)</span>
-                )}
-              </div>
-              <p className="text-xs text-natural-secondary italic mt-1">
-                Terbilang: {terbilang(Math.abs(currentBalance))} {isHealthy ? 'Rupiah' : 'Rupiah (Defisit Kas)'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {isAdmin && onOpenBkk && (
-              <button
-                type="button"
-                onClick={onOpenBkk}
-                className="px-5 py-3.5 bg-natural-primary text-white rounded-2xl font-serif italic text-sm hover:bg-natural-primary/90 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer flex-shrink-0"
-              >
-                <BookOpen className="w-4 h-4" />
-                <span>Rincian Buku Kas</span>
-              </button>
-            )}
-          </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-xs hover:border-natural-primary/30 transition-colors">
+        <div className="flex items-center gap-3 mb-2">
+          <Clock className="w-5 h-5 text-amber-500" />
+          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Pengajuan Anggaran</p>
         </div>
+        <p className="text-3xl font-serif italic font-bold text-natural-primary">{proposal}</p>
       </div>
-
-      {/* 3 Status Workflow Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-xs hover:border-natural-primary/30 transition-colors">
-          <div className="flex items-center gap-3 mb-2">
-            <Clock className="w-5 h-5 text-amber-500" />
-            <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Pengajuan Anggaran</p>
-          </div>
-          <p className="text-3xl font-serif italic font-bold text-natural-primary">{proposal}</p>
+      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-xs hover:border-natural-primary/30 transition-colors">
+        <div className="flex items-center gap-3 mb-2">
+          <CircleCheck className="w-5 h-5 text-green-500" />
+          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Anggaran Disetujui</p>
         </div>
-        <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-xs hover:border-natural-primary/30 transition-colors">
-          <div className="flex items-center gap-3 mb-2">
-            <CircleCheck className="w-5 h-5 text-green-500" />
-            <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Anggaran Disetujui</p>
-          </div>
-          <p className="text-3xl font-serif italic font-bold text-natural-primary">{approved}</p>
+        <p className="text-3xl font-serif italic font-bold text-natural-primary">{approved}</p>
+      </div>
+      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-xs hover:border-natural-primary/30 transition-colors">
+        <div className="flex items-center gap-3 mb-2">
+          <FileText className="w-5 h-5 text-blue-500" />
+          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Proses Pelaporan</p>
         </div>
-        <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-xs hover:border-natural-primary/30 transition-colors">
-          <div className="flex items-center gap-3 mb-2">
-            <FileText className="w-5 h-5 text-blue-500" />
-            <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest italic">Proses Pelaporan</p>
-          </div>
-          <p className="text-3xl font-serif italic font-bold text-natural-primary">{reporting}</p>
-        </div>
+        <p className="text-3xl font-serif italic font-bold text-natural-primary">{reporting}</p>
       </div>
     </div>
   );

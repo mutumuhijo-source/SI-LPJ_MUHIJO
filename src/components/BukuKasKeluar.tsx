@@ -830,6 +830,12 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
       periodLabel = `Tahun Anggaran ${selectedYear}`;
     }
 
+    // Rekapitulasi Periode Terfilter (Disesuaikan khusus 1 bulan yang difilter, bukan akumulasi keseluruhan buku kas)
+    const periodStartBalance = priorBalance;
+    const periodInflow = totalInflow;
+    const periodOutflow = totalOutflow;
+    const periodEndingBalance = Math.round((periodStartBalance + periodInflow - periodOutflow) * 10000) / 10000;
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -900,6 +906,8 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
               display: flex;
               justify-content: space-between;
               align-items: center;
+              page-break-inside: avoid;
+              break-inside: avoid;
             }
 
             .saldo-akhir-hero .lbl {
@@ -932,10 +940,6 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
               display: table-header-group;
             }
 
-            table.bkk-table tfoot {
-              display: table-footer-group;
-            }
-
             table.bkk-table tr {
               page-break-inside: avoid;
               break-inside: avoid;
@@ -959,12 +963,31 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
             .text-right { text-align: right; }
             .font-mono { font-family: 'JetBrains Mono', monospace; }
 
+            .rekap-container {
+              margin-bottom: 12px;
+              page-break-inside: avoid;
+              break-inside: avoid;
+            }
+
+            .rekap-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 8.5pt;
+            }
+
+            .rekap-table th, .rekap-table td {
+              border: 1px solid #000;
+              padding: 4px 8px;
+            }
+
             .terbilang-box {
               border: 1px solid #000;
               padding: 6px 10px;
               margin-bottom: 16px;
               background-color: #fafafa;
               font-size: 9pt;
+              page-break-inside: avoid;
+              break-inside: avoid;
             }
 
             .signature-wrapper {
@@ -972,6 +995,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
               display: flex;
               justify-content: space-between;
               page-break-inside: avoid;
+              break-inside: avoid;
               font-size: 9.5pt;
             }
 
@@ -992,7 +1016,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
           </style>
         </head>
         <body>
-          <div class="kop" style="display: flex; items-center; justify-content: center; gap: 15px;">
+          <div class="kop" style="display: flex; align-items: center; justify-content: center; gap: 15px;">
             ${schoolSettings?.schoolLogo ? `<img src="${schoolSettings.schoolLogo}" style="height: 65px; width: auto; object-fit: contain; margin-right: 12px;" />` : ''}
             <div>
               <h1 style="margin: 0;">${schoolSettings?.schoolName || 'SMK MUHAMMADIYAH 1 NGADIREJO'}</h1>
@@ -1007,13 +1031,13 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
 
           <div class="saldo-akhir-hero">
             <div>
-              <div class="lbl">Saldo Akhir Kas (Real Kas):</div>
+              <div class="lbl">Rekapitulasi Saldo Kas (${periodLabel}):</div>
               <div class="saldo-breakdown">
-                (Saldo Awal ${initialDateDisplay}: Rp ${formatCurrency(bkkSettings.initialBalance || 0)} + Total Penerimaan Kas Riil: Rp ${formatCurrency(realTotalInflow)} - Total Pengeluaran Kas Riil: Rp ${formatCurrency(realTotalOutflow)})
+                (Saldo Awal / Pindahan: Rp ${formatCurrency(periodStartBalance)} + Penerimaan: Rp ${formatCurrency(periodInflow)} - Pengeluaran: Rp ${formatCurrency(periodOutflow)})
               </div>
             </div>
             <div class="val">
-              Rp ${formatCurrency(realFinalBalance)}
+              Rp ${formatCurrency(periodEndingBalance)}
             </div>
           </div>
 
@@ -1088,20 +1112,64 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
                 </tr>
               `}
             </tbody>
-            <tfoot>
-              <tr style="font-weight: bold; background-color: #eaeaea;">
-                <td colspan="8" class="text-right" style="padding: 6px;">TOTAL TRANSAKSI PERIODE INI &amp; SALDO AKHIR KAS (REAL):</td>
-                <td class="text-right font-mono" style="padding: 6px; color: #15803d;">Rp ${formatCurrency(totalInflow)}</td>
-                <td class="text-right font-mono" style="padding: 6px; color: #b91c1c;">Rp ${formatCurrency(totalOutflow)}</td>
-                <td class="text-right font-mono" style="padding: 6px; font-size: 10pt; color: ${realFinalBalance >= 0 ? '#15803d' : '#b91c1c'};">
-                  Rp ${formatCurrency(realFinalBalance)}
-                </td>
-              </tr>
-            </tfoot>
           </table>
 
+          <!-- Rekapitulasi Kas khusus untuk 1 bulan / periode yang difilter -->
+          <div class="rekap-container">
+            <table class="rekap-table">
+              <thead>
+                <tr style="background-color: #eaeaea; font-weight: bold;">
+                  <th colspan="2" style="text-align: left;">
+                    REKAPITULASI KAS (${periodLabel.toUpperCase()})
+                  </th>
+                  <th style="text-align: right; width: 25%;">
+                    NOMINAL (RP)
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="width: 5%; text-align: center;">a.</td>
+                  <td>
+                    Saldo Awal / Pindahan (${headerRowInfo.subtitle || 'Awal Periode'})
+                  </td>
+                  <td class="font-mono text-right">
+                    Rp ${formatCurrency(periodStartBalance)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align: center;">b.</td>
+                  <td>
+                    Total Penerimaan Kas (${periodLabel})
+                  </td>
+                  <td class="font-mono text-right" style="color: #15803d; font-weight: 600;">
+                    Rp ${formatCurrency(periodInflow)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="text-align: center;">c.</td>
+                  <td>
+                    Total Pengeluaran Kas (${periodLabel})
+                  </td>
+                  <td class="font-mono text-right" style="color: #b91c1c; font-weight: 600;">
+                    Rp ${formatCurrency(periodOutflow)}
+                  </td>
+                </tr>
+                <tr style="font-weight: bold; background-color: #fafafa;">
+                  <td style="text-align: center;">d.</td>
+                  <td>
+                    Saldo Akhir Kas (${periodLabel}) [a + b - c]
+                  </td>
+                  <td class="font-mono text-right" style="font-size: 9.5pt; color: ${periodEndingBalance >= 0 ? '#15803d' : '#b91c1c'};">
+                    Rp ${formatCurrency(periodEndingBalance)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
           <div class="terbilang-box">
-            <div><strong>Terbilang Saldo Akhir Kas:</strong> <em>${terbilang(Math.abs(realFinalBalance))} ${realFinalBalance < 0 ? '(Defisit)' : 'Rupiah'}</em></div>
+            <div><strong>Terbilang Saldo Akhir Kas (${periodLabel}):</strong> <em>${terbilang(Math.abs(periodEndingBalance))} ${periodEndingBalance < 0 ? '(Defisit)' : 'Rupiah'}</em></div>
           </div>
 
           <div class="signature-wrapper">
