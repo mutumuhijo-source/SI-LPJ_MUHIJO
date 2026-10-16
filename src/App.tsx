@@ -49,7 +49,8 @@ import {
   Building2, 
   FileCheck2, 
   FileSpreadsheet,
-  Wallet
+  Wallet,
+  Eye
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BukuKasKeluar } from './components/BukuKasKeluar';
@@ -819,7 +820,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="max-w-5xl mx-auto py-10"
+      className="w-full max-w-7xl mx-auto py-8 px-2 sm:px-6"
     >
       <div className="flex items-center gap-6 mb-10">
         <button type="button" onClick={onCancel} className="p-3 hover:bg-white rounded-full transition-colors border border-natural-border bg-white shadow-sm">
@@ -1616,6 +1617,7 @@ const ReportTable = ({ reports, isAdmin, allowedStatuses, onSelect, onPrint, onP
 const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, onUpdateStatus }: { report: Report, onBack: () => void, isAdmin: boolean, onEdit: () => void, onPrint: () => void, onPrintRAB?: (r: Report) => void, onUpdateStatus: (id: string, s: ReportStatus, n?: string, d?: string) => Promise<void> }) => {
   const [notes, setNotes] = useState(report.treasurerNotes || '');
   const [updating, setUpdating] = useState(false);
+  const [viewMode, setViewMode] = useState<'detail' | 'preview'>('detail');
 
   const [showInstructModal, setShowInstructModal] = useState(false);
   const [instructDateInput, setInstructDateInput] = useState(() => {
@@ -1656,7 +1658,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
     }
   };
 
-  const balance = report.amountReceived - report.totalSpent;
+  const balance = (report.amountReceived || 0) - (report.totalSpent || 0);
   const [editingWa, setEditingWa] = useState(false);
   const [waNumberInput, setWaNumberInput] = useState(report.whatsappNumber || '');
   const [savingWa, setSavingWa] = useState(false);
@@ -1678,516 +1680,1140 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
     }
   };
 
+  const isBudgetStage = report.status === ReportStatus.BUDGET_PROPOSAL || report.status === ReportStatus.BUDGET_APPROVED || report.status === ReportStatus.REJECTED;
+  const hasRealization = Boolean(report.details && report.details.length > 0);
+
+  // Proposed total sum
+  const proposedTotal = (report.proposedDetails || []).reduce((acc, curr) => acc + (Number(curr?.amount) || 0), 0);
+
   return (
     <motion.div 
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="max-w-5xl mx-auto py-10 px-4"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-2 sm:px-6 lg:px-8 space-y-8"
     >
-      <div className="flex items-center gap-6 mb-10">
-        <button onClick={onBack} className="p-3 hover:bg-white rounded-full transition-colors border border-natural-border bg-white shadow-sm">
-          <ArrowLeft className="w-5 h-5 text-natural-primary" />
-        </button>
-        <div className="flex-1">
-          <h2 className="text-4xl font-serif italic text-natural-primary leading-tight">{report.activityName}</h2>
-          <p className="text-natural-secondary text-sm uppercase tracking-[0.2em] font-light mt-1">{report.unitName}</p>
-        </div>
-        <div className="flex items-center gap-4">
-           {onPrintRAB && (report.status === ReportStatus.REPORTING || report.status === ReportStatus.INCOMPLETE || report.status === ReportStatus.COMPLETED || report.status === ReportStatus.ARCHIVED) && (
-             <button 
-               onClick={() => onPrintRAB(report)}
-               className="p-3 bg-[#e8f5e9] border border-[#a5d6a7] text-[#2e7d32] rounded-full hover:bg-[#c8e6c9] transition-all shadow-sm flex items-center gap-2 px-6 font-bold uppercase text-[10px] tracking-widest"
-             >
-               <Printer className="w-4 h-4" />
-               Cetak RAB Disetujui
-             </button>
-           )}
-           <button 
-             onClick={onPrint}
-             className="p-3 bg-white border border-natural-border text-natural-primary rounded-full hover:bg-natural-input transition-all shadow-sm flex items-center gap-2 px-6 font-bold uppercase text-[10px] tracking-widest"
-           >
-             <Printer className="w-4 h-4" />
-             {report.status === ReportStatus.BUDGET_PROPOSAL || report.status === ReportStatus.BUDGET_APPROVED || report.status === ReportStatus.REJECTED ? 'Cetak RAB' : 'Cetak Laporan'}
-           </button>
-           <StatusBadge status={report.status} />
-        </div>
-      </div>
-
-      {/* WhatsApp Notification Card */}
-      <div className="bg-white p-6 rounded-[32px] border border-emerald-200/80 shadow-xs mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#25D366]/15 flex items-center justify-center text-[#128C7E] flex-shrink-0">
-            <Smartphone className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                Notifikasi WhatsApp Pengaju
+      {/* Top Header Navigation Bar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-4 border-b border-natural-border/60">
+        <div className="flex items-start sm:items-center gap-4">
+          <button 
+            onClick={onBack} 
+            className="p-3 hover:bg-white rounded-full transition-colors border border-natural-border bg-white shadow-xs shrink-0 cursor-pointer"
+            title="Kembali ke halaman sebelumnya"
+          >
+            <ArrowLeft className="w-5 h-5 text-natural-primary" />
+          </button>
+          <div className="min-w-0">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif italic text-natural-primary leading-tight break-words">
+              {report.activityName}
+            </h2>
+            <div className="flex flex-wrap items-center gap-3 mt-1.5">
+              <span className="text-natural-secondary text-xs sm:text-sm uppercase tracking-[0.2em] font-semibold">
+                {report.unitName}
               </span>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${report.whatsappVerified ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : report.whatsappNumber ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                {report.whatsappVerified ? '✅ Terverifikasi Aktif' : report.whatsappNumber ? 'Nomor Terdaftar' : 'Belum Ada Nomor'}
-              </span>
+              <span className="text-natural-secondary/40">•</span>
+              <StatusBadge status={report.status} />
+              {(report.submissionDate || report.submittedAt) && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-natural-secondary bg-white px-2.5 py-0.5 rounded-full border border-natural-border">
+                  <Calendar className="w-3 h-3 text-natural-secondary/70" />
+                  {formatDate(report.submissionDate || report.submittedAt)}
+                </span>
+              )}
             </div>
-            {editingWa ? (
-              <div className="flex items-center gap-2 mt-2">
-                <input 
-                  type="tel"
-                  className="p-2 px-3 border border-emerald-300 rounded-xl text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-emerald-400"
-                  placeholder="081234567890"
-                  value={waNumberInput}
-                  onChange={e => setWaNumberInput(e.target.value)}
-                />
-                <button
-                  type="button"
-                  disabled={savingWa}
-                  onClick={handleSaveWaNumber}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all"
-                >
-                  {savingWa ? '...' : 'Simpan'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingWa(false)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
-                >
-                  Batal
-                </button>
-              </div>
-            ) : (
-              <p className="text-sm font-mono font-bold text-natural-primary mt-0.5">
-                {report.whatsappNumber || <span className="text-natural-secondary/60 italic font-sans font-normal">Tidak ada nomor (klik edit untuk menambahkan)</span>}
-              </p>
-            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-end md:self-auto">
-          {!editingWa && (
+        {/* View Mode Switcher & Print Actions */}
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 self-start lg:self-auto">
+          {/* Mode Tabs: Rincian Detail vs Pratinjau Dokumen Cetak */}
+          <div className="flex items-center bg-white p-1 rounded-full border border-natural-border shadow-xs text-xs">
             <button
-              onClick={() => { setWaNumberInput(report.whatsappNumber || ''); setEditingWa(true); }}
-              className="text-[10px] uppercase font-bold text-natural-secondary hover:text-natural-primary px-3 py-1.5 rounded-full border border-natural-border bg-natural-input/50 transition-colors"
+              type="button"
+              onClick={() => setViewMode('detail')}
+              className={`px-3.5 sm:px-4 py-2 rounded-full font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'detail' 
+                  ? 'bg-natural-primary text-white shadow-xs' 
+                  : 'text-natural-secondary hover:text-natural-primary'
+              }`}
             >
-              {report.whatsappNumber ? 'Ubah Nomor' : '+ Tambah Nomor'}
+              <FileText className="w-3.5 h-3.5" />
+              <span className="text-[11px] uppercase tracking-wider">Rincian Detail</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('preview')}
+              className={`px-3.5 sm:px-4 py-2 rounded-full font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'preview' 
+                  ? 'bg-natural-primary text-white shadow-xs' 
+                  : 'text-natural-secondary hover:text-natural-primary'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span className="text-[11px] uppercase tracking-wider">Pratinjau Dokumen (A4)</span>
+            </button>
+          </div>
+
+          {onPrintRAB && (report.status === ReportStatus.REPORTING || report.status === ReportStatus.INCOMPLETE || report.status === ReportStatus.COMPLETED || report.status === ReportStatus.ARCHIVED) && (
+            <button 
+              onClick={() => onPrintRAB(report)}
+              className="p-2.5 sm:p-3 bg-[#e8f5e9] border border-[#a5d6a7] text-[#2e7d32] rounded-full hover:bg-[#c8e6c9] transition-all shadow-xs flex items-center gap-1.5 px-4 sm:px-5 font-bold uppercase text-[10px] tracking-widest cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span className="hidden sm:inline">Cetak</span> RAB Disetujui
             </button>
           )}
-          {report.whatsappNumber && (
-            <a 
-              href={`https://wa.me/${report.whatsappNumber.replace(/\D/g, '').replace(/^0/, '62')}`} 
-              target="_blank" 
-              rel="noreferrer"
-              className="text-[10px] uppercase font-bold text-[#128C7E] hover:bg-[#25D366]/10 px-3 py-1.5 rounded-full border border-[#25D366]/30 transition-all flex items-center gap-1.5"
-            >
-              <Send className="w-3 h-3" />
-              Buka Chat WA
-            </a>
-          )}
+
+          <button 
+            onClick={onPrint}
+            className="p-2.5 sm:p-3 bg-natural-primary text-white rounded-full hover:bg-natural-primary/90 transition-all shadow-sm flex items-center gap-1.5 px-4 sm:px-6 font-bold uppercase text-[10px] tracking-widest cursor-pointer"
+          >
+            <Printer className="w-4 h-4" />
+            {isBudgetStage ? 'Cetak RAB' : 'Cetak Laporan'}
+          </button>
         </div>
       </div>
 
-      {/* Date & Buku Kas Timeline Card */}
-      <div className="bg-white p-6 rounded-[32px] border border-natural-border shadow-xs mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-700 flex-shrink-0">
-            <Calendar className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-natural-secondary">
-                Tanggal Instruksi Laporan (Pencatatan Buku Kas)
-              </span>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                report.reportingInstructedDate 
-                  ? 'bg-blue-100 text-blue-800 border border-blue-200' 
-                  : 'bg-zinc-100 text-zinc-600'
-              }`}>
-                {report.reportingInstructedDate ? 'Tercatat di Buku Kas' : 'Belum Diinstruksikan'}
+      {/* ========================================================================= */}
+      {/* MODE 2: PRATINJAU DOKUMEN CETAK RESMI (A4 VIEW INTACT)                   */}
+      {/* ========================================================================= */}
+      {viewMode === 'preview' ? (
+        <div className="space-y-6">
+          <div className="bg-amber-50/80 border border-amber-200/80 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-amber-900 text-xs">
+            <div className="flex items-center gap-2 font-medium">
+              <Eye className="w-4 h-4 text-amber-700" />
+              <span>
+                Pratinjau Dokumen Resmi SMK Muhammadiyah 1 Ngadirejo. Tampilan disajikan utuh lengkap dengan kop surat dan pengesahan.
               </span>
             </div>
-            {editingInstructDate ? (
-              <div className="flex items-center gap-2 mt-2">
-                <input 
-                  type="date"
-                  className="p-2 px-3 border border-amber-300 rounded-xl text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-amber-400"
-                  value={customInstructDate}
-                  onChange={e => setCustomInstructDate(e.target.value)}
-                />
-                <button
-                  type="button"
-                  disabled={savingInstructDate}
-                  onClick={handleSaveInstructDate}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all"
-                >
-                  {savingInstructDate ? '...' : 'Simpan'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingInstructDate(false)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
-                >
-                  Batal
-                </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setViewMode('detail')}
+                className="px-3.5 py-1.5 bg-white border border-amber-300 text-amber-900 rounded-full font-bold text-[10px] uppercase tracking-wider hover:bg-amber-100/60 transition-all"
+              >
+                Kembali ke Rincian Detail
+              </button>
+              <button
+                onClick={onPrint}
+                className="px-4 py-1.5 bg-natural-primary text-white rounded-full font-bold text-[10px] uppercase tracking-wider hover:bg-natural-primary/90 transition-all shadow-xs flex items-center gap-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Cetak Dokumen Ini
+              </button>
+            </div>
+          </div>
+
+          {/* Paper Sheet Preview Container (A4 Proportions) */}
+          <div className="bg-stone-100/70 p-4 sm:p-8 rounded-3xl border border-natural-border shadow-inner">
+            <div className="max-w-[210mm] mx-auto bg-white p-8 sm:p-14 rounded-2xl shadow-xl border border-stone-300/60 font-serif text-slate-900 space-y-6 leading-relaxed">
+              {/* Kop Surat Resmi */}
+              <div className="text-center border-b-4 border-double border-slate-900 pb-3 mb-6">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-wider uppercase text-slate-900">
+                  SMK MUHAMMADIYAH 1 NGADIREJO
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-700 italic mt-0.5 font-sans">
+                  Alamat: Jl. Raya Candiroto, Ngaren, Ngadirejo, Temanggung, Jawa Tengah
+                </p>
               </div>
-            ) : (
-              <p className="text-sm font-mono font-bold text-natural-primary mt-0.5">
-                {report.reportingInstructedDate ? formatDate(report.reportingInstructedDate, { dateStyle: 'medium' }) : (
-                  <span className="text-natural-secondary/60 italic font-sans font-normal text-xs">
-                    Mengikuti tanggal saat anggaran diinstruksikan menjadi laporan
-                  </span>
+
+              {/* Title Header */}
+              <div className="text-center space-y-1">
+                <h2 className="text-lg sm:text-xl font-bold uppercase underline tracking-wide">
+                  {isBudgetStage ? 'Permohonan Anggaran Kegiatan (RAB)' : 'Laporan Realisasi Anggaran'}
+                </h2>
+                {!isBudgetStage && (
+                  <p className="text-xs italic font-sans text-slate-600">
+                    Ringkasan Pagu Anggaran vs Realisasi Pengeluaran
+                  </p>
                 )}
-              </p>
-            )}
-            <p className="text-[10px] text-natural-secondary mt-1">
-              *Di Buku Kas, tanggal urutan transaksi dicatat saat anggaran diinstruksikan menjadi laporan (bukan tertanggal disetujui awal pagu).
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 self-end md:self-auto">
-          {isAdmin && !editingInstructDate && (
-            <button
-              onClick={() => {
-                setCustomInstructDate(report.reportingInstructedDate || new Date().toISOString().split('T')[0]);
-                setEditingInstructDate(true);
-              }}
-              className="text-[10px] uppercase font-bold text-natural-secondary hover:text-natural-primary px-3 py-1.5 rounded-full border border-natural-border bg-natural-input/50 transition-colors"
-            >
-              {report.reportingInstructedDate ? 'Ubah Tgl Instruksi' : '+ Atur Tgl Instruksi'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
-        <div className="bg-white p-8 rounded-[32px] border border-natural-border shadow-sm">
-          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest mb-2 italic">Dana Dari Bendahara</p>
-          <p className="text-3xl font-mono font-bold text-natural-primary">Rp {formatCurrency(report.amountReceived)}</p>
-        </div>
-        <div className="bg-white p-8 rounded-[32px] border border-natural-border shadow-sm">
-          <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest mb-2 italic">Total Penggunaan</p>
-          <p className="text-3xl font-mono font-bold text-natural-primary">Rp {formatCurrency(report.totalSpent)}</p>
-        </div>
-        <div className={`p-8 rounded-[32px] border ${balance >= 0 ? 'bg-natural-bg/50 border-natural-secondary/20' : 'bg-red-50 border-red-100'}`}>
-          <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 italic ${balance >= 0 ? 'text-natural-secondary' : 'text-red-500'}`}>
-            {balance >= 0 ? 'Sisa Saldo di Unit' : 'Kekurangan Anggaran (Defisit)'}
-          </p>
-          <p className={`text-3xl font-mono font-bold ${balance >= 0 ? 'text-natural-primary' : 'text-red-700'}`}>
-            Rp {formatCurrency(Math.abs(balance))}
-          </p>
-          {balance < 0 && (
-            <p className="text-xs text-rose-600 mt-2 italic font-medium">
-              *Realisasi melebihi pagu anggaran disetujui. Kekurangan sebesar Rp {formatCurrency(Math.abs(balance))} dimasukkan ke Penerimaan Buku Kas untuk pengembalian/talangan oleh bendahara.
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-[40px] border border-natural-border shadow-sm overflow-hidden mb-10">
-          <div className="px-10 py-8 border-b border-natural-bg flex justify-between items-end">
-            <div>
-              <h3 className="font-serif italic text-2xl text-natural-primary">Rincian Anggaran (Usulan)</h3>
-              <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-1">Proposed Budget Details</p>
-            </div>
-          </div>
-          <div className="p-0">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-natural-bg/30">
-                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] w-20 italic">#</th>
-                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Kategori</th>
-                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Deskripsi Item</th>
-                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] text-right italic">Nominal</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-natural-bg/50">
-                {((report as any).proposedDetails || []).map((item: any, idx: number) => (
-                  <tr key={idx} className="hover:bg-natural-input transition-colors">
-                    <td className="px-10 py-6 font-mono text-xs text-natural-secondary">{String(idx + 1).padStart(2, '0')}</td>
-                    <td className="px-10 py-6 text-natural-primary font-bold text-xs uppercase italic">{item?.category || '-'}</td>
-                    <td className="px-10 py-6 text-natural-text font-medium italic">"{item?.description || ''}"</td>
-                    <td className="px-10 py-6 text-natural-primary font-mono font-bold text-right text-lg">Rp {formatCurrency(item?.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="px-10 py-10 grid grid-cols-2 gap-10 border-t border-natural-bg">
-            <div className="text-center">
-              <p className="text-sm font-bold text-natural-secondary uppercase tracking-widest mb-2 italic">Pejabat Penanda Tangan 1</p>
-              <p className="text-sm font-bold mb-1">{report.ketuaJabatan}</p>
-              <p className="text-sm font-bold border-b border-natural-bg inline-block px-4">{report.ketuaName}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-bold text-natural-secondary uppercase tracking-widest mb-2 italic">Pejabat Penanda Tangan 2</p>
-              <p className="text-sm font-bold mb-1">{report.bendaharaJabatan}</p>
-              <p className="text-sm font-bold border-b border-natural-bg inline-block px-4">{report.bendaharaName}</p>
-            </div>
-            <div className="col-span-2 text-center mt-5">
-              <p className="text-sm text-natural-secondary italic">Mengetahui, {report.unitName}</p>
-              <p className="text-xs text-natural-secondary uppercase tracking-widest mt-2">{report.submissionDate ? `Dibuat pada: ${formatDate(report.submissionDate)}` : ''}</p>
-            </div>
-            {report.includeWakaSignature && (
-              <div className="col-span-2 text-center mt-4 pt-4 border-t border-natural-bg/70">
-                <p className="text-xs font-bold text-natural-secondary uppercase tracking-widest mb-1 italic">Mengetahui</p>
-                <p className="text-sm font-bold">{report.wakaJabatan || 'Waka Urusan Terkait'}</p>
-                <p className="text-sm font-bold border-b border-natural-bg inline-block px-4 mt-1">{report.wakaName || '........................................'}</p>
               </div>
-            )}
-          </div>
-        </div>
 
-        <div className="bg-white rounded-[40px] border border-natural-border shadow-sm overflow-hidden mb-10">
-          <div className="px-10 py-8 border-b border-natural-bg flex flex-wrap justify-between items-center gap-4">
-            <div>
-              <h3 className="font-serif italic text-2xl text-natural-primary">Rincian Laporan</h3>
-              <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-1">Itemized Expense Report</p>
-            </div>
+              {/* Metadata Info Box */}
+              <div className="border border-slate-300 rounded-xl p-4 bg-slate-50/50 font-sans text-xs space-y-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-1">
+                  <span className="font-bold text-slate-600">Nama Kegiatan</span>
+                  <span className="sm:col-span-3 font-bold text-slate-900">: {report.activityName}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-1">
+                  <span className="font-bold text-slate-600">Unit Kerja Pengaju</span>
+                  <span className="sm:col-span-3 text-slate-800">: {report.unitName}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-1">
+                  <span className="font-bold text-slate-600">Tanggal Pengajuan</span>
+                  <span className="sm:col-span-3 text-slate-800">: {formatDate(report.submissionDate || report.submittedAt)}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-1">
+                  <span className="font-bold text-slate-600">Status Validasi</span>
+                  <span className="sm:col-span-3">
+                    : <span className="font-bold text-slate-900 uppercase">
+                      {report.status === ReportStatus.COMPLETED || report.status === ReportStatus.ARCHIVED 
+                        ? '✔ Disetujui & Disahkan oleh Bendahara' 
+                        : report.status === ReportStatus.BUDGET_APPROVED 
+                        ? '✔ Pagu Anggaran Telah Disetujui' 
+                        : report.status === ReportStatus.REJECTED 
+                        ? '❌ Ditolak' 
+                        : 'Dalam Proses'}
+                    </span>
+                  </span>
+                </div>
+              </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {/* User edit button */}
-              {!isAdmin && (report.status === ReportStatus.BUDGET_PROPOSAL || report.status === ReportStatus.REPORTING || report.status === ReportStatus.REVISION || report.status === ReportStatus.INCOMPLETE) && (
-                <button 
-                  onClick={onEdit}
-                  className="bg-natural-primary text-white px-5 py-2.5 rounded-full font-serif italic text-xs hover:bg-natural-primary/90 transition-all shadow-md flex items-center gap-1.5"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  Lengkapi / Edit Rincian
-                </button>
+              {/* SECTION: RINGKASAN PAGU VS REALISASI (FOR LAPORAN) */}
+              {!isBudgetStage && hasRealization && (
+                <div className="space-y-3 pt-2">
+                  <h3 className="text-sm font-bold uppercase tracking-wider font-sans text-slate-800">
+                    1. Matriks Realisasi per Item Anggaran
+                  </h3>
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-xs font-sans border-collapse border border-slate-400">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-800 font-bold">
+                          <th className="border border-slate-400 px-3 py-2 text-center w-10">No</th>
+                          <th className="border border-slate-400 px-3 py-2 text-left w-36">Kategori</th>
+                          <th className="border border-slate-400 px-3 py-2 text-left">Deskripsi Pagu Anggaran</th>
+                          <th className="border border-slate-400 px-3 py-2 text-right w-28">Pagu (Rp)</th>
+                          <th className="border border-slate-400 px-3 py-2 text-right w-28">Realisasi (Rp)</th>
+                          <th className="border border-slate-400 px-3 py-2 text-right w-28">Sisa / Selisih (Rp)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(report.proposedDetails || []).map((p, pIdx) => {
+                          const actualAmount = (report.details || [])
+                            .filter(d => d.proposedIndex === pIdx)
+                            .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+                          const diff = (Number(p.amount) || 0) - actualAmount;
+                          return (
+                            <tr key={pIdx} className="hover:bg-slate-50">
+                              <td className="border border-slate-400 px-3 py-2 text-center font-mono">{pIdx + 1}</td>
+                              <td className="border border-slate-400 px-3 py-2 font-semibold uppercase">{p.category || '-'}</td>
+                              <td className="border border-slate-400 px-3 py-2">{p.description}</td>
+                              <td className="border border-slate-400 px-3 py-2 text-right font-mono">{formatCurrency(p.amount)}</td>
+                              <td className="border border-slate-400 px-3 py-2 text-right font-mono">{formatCurrency(actualAmount)}</td>
+                              <td className={`border border-slate-400 px-3 py-2 text-right font-mono font-bold ${diff < 0 ? 'text-red-600' : 'text-slate-800'}`}>
+                                {formatCurrency(diff)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-100 font-bold border-t-2 border-slate-400">
+                          <td colSpan={3} className="border border-slate-400 px-3 py-2 text-right uppercase tracking-wider">
+                            Total Ringkasan:
+                          </td>
+                          <td className="border border-slate-400 px-3 py-2 text-right font-mono">
+                            {formatCurrency(report.amountReceived)}
+                          </td>
+                          <td className="border border-slate-400 px-3 py-2 text-right font-mono">
+                            {formatCurrency(report.totalSpent)}
+                          </td>
+                          <td className={`border border-slate-400 px-3 py-2 text-right font-mono ${balance < 0 ? 'text-red-700' : 'text-slate-900'}`}>
+                            {formatCurrency(balance)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
               )}
 
-              {/* Batal Input Realisasi -> Revert to BUDGET_APPROVED (available for both admin and user when in reporting/incomplete/revision state) */}
-              {(report.status === ReportStatus.REPORTING || report.status === ReportStatus.INCOMPLETE || (report.status === ReportStatus.REVISION && report.details && report.details.length > 0)) && (
-                <button 
+              {/* SECTION: RINCIAN USULAN ANGGARAN (IF BUDGET STAGE) */}
+              {isBudgetStage && (
+                <div className="space-y-3 pt-2">
+                  <h3 className="text-sm font-bold uppercase tracking-wider font-sans text-slate-800">
+                    Rincian Pos Usulan Anggaran
+                  </h3>
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-xs font-sans border-collapse border border-slate-400">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-800 font-bold">
+                          <th className="border border-slate-400 px-3 py-2 text-center w-12">No</th>
+                          <th className="border border-slate-400 px-3 py-2 text-left w-40">Kategori</th>
+                          <th className="border border-slate-400 px-3 py-2 text-left">Deskripsi Pos Kebutuhan</th>
+                          <th className="border border-slate-400 px-3 py-2 text-right w-36">Nominal Usul (Rp)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(report.proposedDetails || []).map((item, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="border border-slate-400 px-3 py-2 text-center font-mono">{idx + 1}</td>
+                            <td className="border border-slate-400 px-3 py-2 font-semibold uppercase">{item?.category || '-'}</td>
+                            <td className="border border-slate-400 px-3 py-2">{item?.description || ''}</td>
+                            <td className="border border-slate-400 px-3 py-2 text-right font-mono font-bold">
+                              {formatCurrency(item?.amount)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-100 font-bold border-t-2 border-slate-400">
+                          <td colSpan={3} className="border border-slate-400 px-3 py-2 text-right uppercase tracking-wider">
+                            Total Alokasi Pagu Anggaran:
+                          </td>
+                          <td className="border border-slate-400 px-3 py-2 text-right font-mono text-sm">
+                            Rp {formatCurrency(report.amountReceived)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION: RINCIAN DETAIL BELANJA LAPORAN (FOR LAPORAN) */}
+              {!isBudgetStage && hasRealization && (
+                <div className="space-y-3 pt-4">
+                  <h3 className="text-sm font-bold uppercase tracking-wider font-sans text-slate-800">
+                    2. Rincian Bukti & Transaksi Pengeluaran Riil
+                  </h3>
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-xs font-sans border-collapse border border-slate-400">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-800 font-bold">
+                          <th className="border border-slate-400 px-2 py-2 text-center w-8">No</th>
+                          <th className="border border-slate-400 px-2 py-2 text-center w-24">No. Bukti</th>
+                          <th className="border border-slate-400 px-2 py-2 text-center w-20">Tanggal</th>
+                          <th className="border border-slate-400 px-2 py-2 text-left w-32">Pagu Acuan</th>
+                          <th className="border border-slate-400 px-2 py-2 text-left">Rincian Belanja</th>
+                          <th className="border border-slate-400 px-2 py-2 text-left w-28">Penerima/Pegawai</th>
+                          <th className="border border-slate-400 px-2 py-2 text-right w-28">Nominal (Rp)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.details.map((d, index) => {
+                          const budgetItem = report.proposedDetails && d.proposedIndex !== undefined ? report.proposedDetails[d.proposedIndex] : null;
+                          const budgetDesc = budgetItem ? budgetItem.description : '-';
+                          const isPegawai = budgetItem?.category?.toLowerCase().includes('pegawai') || d.category?.toLowerCase().includes('pegawai');
+                          const employeeName = isPegawai ? (d.employeeName || 'Belum Ditentukan') : '-';
+                          return (
+                            <tr key={index} className="hover:bg-slate-50">
+                              <td className="border border-slate-400 px-2 py-2 text-center font-mono">{index + 1}</td>
+                              <td className="border border-slate-400 px-2 py-2 font-mono font-bold text-center">{d.noBukti || '-'}</td>
+                              <td className="border border-slate-400 px-2 py-2 text-center font-mono text-[11px]">{d.date}</td>
+                              <td className="border border-slate-400 px-2 py-2 text-[11px] text-slate-600 italic">{budgetDesc}</td>
+                              <td className="border border-slate-400 px-2 py-2 font-medium">{d.description}</td>
+                              <td className="border border-slate-400 px-2 py-2 text-[11px]">{employeeName}</td>
+                              <td className="border border-slate-400 px-2 py-2 text-right font-mono font-bold">
+                                {formatCurrency(d.amount)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-100 font-bold border-t-2 border-slate-400">
+                          <td colSpan={6} className="border border-slate-400 px-3 py-2 text-right uppercase tracking-wider">
+                            Total Realisasi Pengeluaran:
+                          </td>
+                          <td className="border border-slate-400 px-2 py-2 text-right font-mono text-sm">
+                            Rp {formatCurrency(report.totalSpent)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION: REKAPITULASI BIAYA PEGAWAI (IF ANY) */}
+              {report.proposedDetails?.some(b => b.category?.toLowerCase().includes('pegawai')) && (() => {
+                const empRecap: { [name: string]: number } = {};
+                (report.details || []).forEach(d => {
+                  const budgetItem = report.proposedDetails && d.proposedIndex !== undefined ? report.proposedDetails[d.proposedIndex] : null;
+                  const isPegawai = budgetItem?.category?.toLowerCase().includes('pegawai') || d.category?.toLowerCase().includes('pegawai');
+                  if (isPegawai) {
+                    const name = d.employeeName || 'Belum Ditentukan';
+                    empRecap[name] = (empRecap[name] || 0) + (Number(d.amount) || 0);
+                  }
+                });
+
+                if (Object.keys(empRecap).length === 0) return null;
+
+                return (
+                  <div className="space-y-3 pt-4">
+                    <h3 className="text-sm font-bold uppercase tracking-wider font-sans text-slate-800">
+                      3. Rekapitulasi Pembayaran Biaya Pegawai
+                    </h3>
+                    <div className="overflow-x-auto w-full">
+                      <table className="w-full text-xs font-sans border-collapse border border-slate-400">
+                        <thead>
+                          <tr className="bg-slate-100 font-bold">
+                            <th className="border border-slate-400 px-3 py-2 text-center w-12">No</th>
+                            <th className="border border-slate-400 px-3 py-2 text-left">Nama Pegawai / Penerima</th>
+                            <th className="border border-slate-400 px-3 py-2 text-right w-44">Total Diterima (Rp)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(empRecap).map(([name, sum], idx) => (
+                            <tr key={idx}>
+                              <td className="border border-slate-400 px-3 py-2 text-center font-mono">{idx + 1}</td>
+                              <td className="border border-slate-400 px-3 py-2 font-bold uppercase">{name}</td>
+                              <td className="border border-slate-400 px-3 py-2 text-right font-mono font-bold">
+                                {formatCurrency(sum)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-slate-100 font-bold border-t-2 border-slate-400">
+                            <td colSpan={2} className="border border-slate-400 px-3 py-2 text-right uppercase tracking-wider">
+                              Total Honor / Biaya Pegawai:
+                            </td>
+                            <td className="border border-slate-400 px-3 py-2 text-right font-mono text-sm">
+                              Rp {formatCurrency(Object.values(empRecap).reduce((a, b) => a + b, 0))}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Tanda Tangan & Pengesahan Dokumen */}
+              <div className="pt-8 space-y-6 font-sans">
+                <div className="text-center text-xs text-slate-600 italic">
+                  Temanggung, {formatDate(report.submissionDate || report.submittedAt)}
+                </div>
+                <div className="grid grid-cols-2 gap-8 text-center text-xs">
+                  <div>
+                    <p className="font-bold text-slate-700 uppercase tracking-wider mb-14">
+                      {report.ketuaJabatan || 'Pejabat Penanda Tangan 1'}
+                    </p>
+                    <p className="font-bold text-slate-900 underline text-sm">
+                      {report.ketuaName || '........................................'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-700 uppercase tracking-wider mb-14">
+                      {report.bendaharaJabatan || 'Pejabat Penanda Tangan 2'}
+                    </p>
+                    <p className="font-bold text-slate-900 underline text-sm">
+                      {report.bendaharaName || '........................................'}
+                    </p>
+                  </div>
+                </div>
+
+                {report.includeWakaSignature && (
+                  <div className="text-center pt-4 border-t border-slate-200">
+                    <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-14">
+                      Mengetahui,<br />
+                      {report.wakaJabatan || 'Waka Urusan Terkait'}
+                    </p>
+                    <p className="font-bold text-slate-900 underline text-sm inline-block px-8">
+                      {report.wakaName || '........................................'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ========================================================================= */
+        /* MODE 1: RINCIAN DETAIL INTERAKTIF (TAMPILAN UTUH & TIDAK TERPOTONG)       */
+        /* ========================================================================= */
+        <div className="space-y-8">
+          {/* WhatsApp Notification Card */}
+          <div className="bg-white p-5 sm:p-6 rounded-[28px] border border-emerald-200/80 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#25D366]/15 flex items-center justify-center text-[#128C7E] shrink-0">
+                <Smartphone className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                    Notifikasi WhatsApp Pengaju
+                  </span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${report.whatsappVerified ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : report.whatsappNumber ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                    {report.whatsappVerified ? '✅ Terverifikasi Aktif' : report.whatsappNumber ? 'Nomor Terdaftar' : 'Belum Ada Nomor'}
+                  </span>
+                </div>
+                {editingWa ? (
+                  <div className="flex items-center gap-2 mt-2">
+                    <input 
+                      type="tel"
+                      className="p-2 px-3 border border-emerald-300 rounded-xl text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-emerald-400"
+                      placeholder="081234567890"
+                      value={waNumberInput}
+                      onChange={e => setWaNumberInput(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      disabled={savingWa}
+                      onClick={handleSaveWaNumber}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+                    >
+                      {savingWa ? '...' : 'Simpan'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingWa(false)}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm font-mono font-bold text-natural-primary mt-0.5">
+                    {report.whatsappNumber || <span className="text-natural-secondary/60 italic font-sans font-normal text-xs">Tidak ada nomor (klik tambah nomor untuk notifikasi WhatsApp)</span>}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+              {!editingWa && (
+                <button
+                  onClick={() => { setWaNumberInput(report.whatsappNumber || ''); setEditingWa(true); }}
+                  className="text-[10px] uppercase font-bold text-natural-secondary hover:text-natural-primary px-3 py-1.5 rounded-full border border-natural-border bg-natural-input/50 transition-colors cursor-pointer"
+                >
+                  {report.whatsappNumber ? 'Ubah Nomor' : '+ Tambah Nomor'}
+                </button>
+              )}
+              {report.whatsappNumber && (
+                <a 
+                  href={`https://wa.me/${report.whatsappNumber.replace(/\D/g, '').replace(/^0/, '62')}`} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="text-[10px] uppercase font-bold text-[#128C7E] hover:bg-[#25D366]/10 px-3 py-1.5 rounded-full border border-[#25D366]/30 transition-all flex items-center gap-1.5"
+                >
+                  <Send className="w-3 h-3" />
+                  Buka Chat WA
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Date & Buku Kas Timeline Card */}
+          <div className="bg-white p-5 sm:p-6 rounded-[28px] border border-natural-border shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-700 shrink-0">
+                <Calendar className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-natural-secondary">
+                    Tanggal Instruksi Laporan (Pencatatan Buku Kas)
+                  </span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                    report.reportingInstructedDate 
+                      ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                      : 'bg-zinc-100 text-zinc-600'
+                  }`}>
+                    {report.reportingInstructedDate ? 'Tercatat di Buku Kas' : 'Belum Diinstruksikan'}
+                  </span>
+                </div>
+                {editingInstructDate ? (
+                  <div className="flex items-center gap-2 mt-2">
+                    <input 
+                      type="date"
+                      className="p-2 px-3 border border-amber-300 rounded-xl text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-amber-400"
+                      value={customInstructDate}
+                      onChange={e => setCustomInstructDate(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      disabled={savingInstructDate}
+                      onClick={handleSaveInstructDate}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+                    >
+                      {savingInstructDate ? '...' : 'Simpan'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingInstructDate(false)}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm font-mono font-bold text-natural-primary mt-0.5">
+                    {report.reportingInstructedDate ? formatDate(report.reportingInstructedDate, { dateStyle: 'medium' }) : (
+                      <span className="text-natural-secondary/60 italic font-sans font-normal text-xs">
+                        Mengikuti tanggal saat anggaran diinstruksikan menjadi laporan
+                      </span>
+                    )}
+                  </p>
+                )}
+                <p className="text-[10px] text-natural-secondary mt-1">
+                  *Di Buku Kas, transaksi dicatat saat anggaran diinstruksikan oleh bendahara.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+              {isAdmin && !editingInstructDate && (
+                <button
                   onClick={() => {
-                    if (safeConfirm('Batalkan input realisasi kegiatan ini? Status akan dikembalikan menjadi "Anggaran Disetujui" di menu Anggaran.')) {
-                      handleUpdateStatusAction(ReportStatus.BUDGET_APPROVED);
-                    }
+                    setCustomInstructDate(report.reportingInstructedDate || new Date().toISOString().split('T')[0]);
+                    setEditingInstructDate(true);
                   }}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-5 py-2.5 rounded-full font-serif italic text-xs transition-all shadow-xs flex items-center gap-1.5"
-                  title="Kembalikan ke status Anggaran Disetujui di menu Anggaran"
+                  className="text-[10px] uppercase font-bold text-natural-secondary hover:text-natural-primary px-3 py-1.5 rounded-full border border-natural-border bg-natural-input/50 transition-colors cursor-pointer"
                 >
-                  <Undo2 className="w-3.5 h-3.5 text-slate-600" />
-                  Batal Input Realisasi (Kembali ke Anggaran)
+                  {report.reportingInstructedDate ? 'Ubah Tgl Instruksi' : '+ Atur Tgl Instruksi'}
                 </button>
-              )}
-
-              {/* Admin: Start reporting */}
-              {isAdmin && report.status === ReportStatus.BUDGET_APPROVED && (
-                <button 
-                  onClick={() => setShowInstructModal(true)}
-                  className="bg-natural-secondary text-white px-5 py-2.5 rounded-full font-serif italic text-xs hover:bg-natural-secondary/90 transition-all shadow-md flex items-center gap-1.5"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  Instruksikan Pengisian Laporan (Pindah ke Menu Laporan)
-                </button>
-              )}
-
-              {/* Admin: Completed status actions (Batal Setujui Laporan, Revisi, Arsip) */}
-              {isAdmin && report.status === ReportStatus.COMPLETED && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <button 
-                    onClick={() => {
-                      if (safeConfirm('Batalkan persetujuan laporan ini? Status akan dikembalikan ke "Pelaporan" agar dapat ditinjau atau diedit kembali.')) {
-                        handleUpdateStatusAction(ReportStatus.REPORTING);
-                      }
-                    }}
-                    className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 px-5 py-2.5 rounded-full font-serif italic text-xs transition-all shadow-xs flex items-center gap-1.5"
-                    title="Batalkan status selesai dan kembalikan ke proses pelaporan"
-                  >
-                    <Undo2 className="w-3.5 h-3.5 text-amber-800" />
-                    Batal Setujui Laporan (Kembali ke Pelaporan)
-                  </button>
-                  <button 
-                    onClick={() => handleUpdateStatusAction(ReportStatus.REVISION)}
-                    className="bg-orange-600 text-white px-5 py-2.5 rounded-full font-serif italic text-xs hover:bg-orange-700 transition-all shadow-md"
-                  >
-                    Revisi Laporan
-                  </button>
-                  <button 
-                    onClick={() => handleUpdateStatusAction(ReportStatus.ARCHIVED)}
-                    className="bg-natural-primary text-white px-5 py-2.5 rounded-full font-serif italic text-xs hover:bg-natural-primary/90 transition-all shadow-md flex items-center gap-1.5"
-                  >
-                    <Lock className="w-3.5 h-3.5" />
-                    Setujui Laporan (Arsipkan)
-                  </button>
-                </div>
-              )}
-
-              {/* Admin: Reporting status actions */}
-              {isAdmin && (report.status === ReportStatus.REPORTING || report.status === ReportStatus.INCOMPLETE) && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <button 
-                    onClick={() => handleUpdateStatusAction(ReportStatus.REVISION)}
-                    className="bg-orange-600 text-white px-5 py-2.5 rounded-full font-serif italic text-xs hover:bg-orange-700 transition-all shadow-md"
-                  >
-                    Instruksikan Revisi
-                  </button>
-                  <button 
-                    onClick={() => handleUpdateStatusAction(ReportStatus.COMPLETED)}
-                    className="bg-emerald-600 text-white px-5 py-2.5 rounded-full font-serif italic text-xs hover:bg-emerald-700 transition-all shadow-md flex items-center gap-1.5"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    Setujui & Selesaikan Laporan
-                  </button>
-                </div>
               )}
             </div>
           </div>
-          <div className="p-0">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-natural-bg/30">
-                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] w-16 italic">#</th>
-                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">No. Bukti</th>
-                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Tanggal</th>
-                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Kategori</th>
-                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Deskripsi Item</th>
-                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Pegawai</th>
-                  <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] text-right italic">Nominal</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-natural-bg/50">
-                {report.details.map((item, idx) => {
-                  const budgetItem = report.proposedDetails && item.proposedIndex !== undefined ? report.proposedDetails[item.proposedIndex] : null;
-                  const isPegawai = budgetItem?.category?.toLowerCase().includes('pegawai') || item.category?.toLowerCase().includes('pegawai');
-                  return (
-                    <tr key={idx} className="hover:bg-natural-input transition-colors">
-                      <td className="px-10 py-6 font-mono text-xs text-natural-secondary">{String(idx + 1).padStart(2, '0')}</td>
-                      <td className="px-10 py-6 font-mono font-bold text-xs text-natural-primary">{item.noBukti || '-'}</td>
-                      <td className="px-10 py-6 text-natural-text text-sm">{item.date}</td>
-                      <td className="px-10 py-6 text-natural-secondary font-bold text-[10px] uppercase italic">
-                        {item.proposedIndex !== undefined ? report.proposedDetails[item.proposedIndex]?.category : '-'}
-                      </td>
-                      <td className="px-10 py-6 text-natural-text font-medium italic">"{item.description}"</td>
-                      <td className="px-10 py-6 text-natural-text text-xs italic">
-                        {isPegawai ? (
-                          <span className="bg-zinc-100 px-3 py-1.5 rounded-full text-zinc-800 text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-1">
-                            👤 {item.employeeName || 'Belum dipilih'}
-                          </span>
-                        ) : '-'}
-                      </td>
-                      <td className="px-10 py-6 text-natural-primary font-mono font-bold text-right text-lg">Rp {formatCurrency(item?.amount)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+
+          {/* 3 Metric Cards: Pagu, Realisasi, Sisa */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="bg-white p-6 sm:p-8 rounded-[28px] border border-natural-border shadow-xs">
+              <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest mb-1.5 italic">
+                Dana Pagu Dari Bendahara
+              </p>
+              <p className="text-2xl sm:text-3xl font-mono font-bold text-natural-primary">
+                Rp {formatCurrency(report.amountReceived)}
+              </p>
+              <p className="text-[11px] text-natural-secondary/70 mt-1">
+                Total plafon pagu disetujui
+              </p>
+            </div>
+
+            <div className="bg-white p-6 sm:p-8 rounded-[28px] border border-natural-border shadow-xs">
+              <p className="text-[10px] font-bold text-natural-secondary uppercase tracking-widest mb-1.5 italic">
+                Total Realisasi Penggunaan
+              </p>
+              <p className="text-2xl sm:text-3xl font-mono font-bold text-natural-primary">
+                Rp {formatCurrency(report.totalSpent)}
+              </p>
+              <p className="text-[11px] text-natural-secondary/70 mt-1">
+                {(report.details || []).length} bukti nota/transaksi riil
+              </p>
+            </div>
+
+            <div className={`p-6 sm:p-8 rounded-[28px] border ${balance >= 0 ? 'bg-natural-bg/50 border-natural-secondary/20' : 'bg-red-50 border-red-200'}`}>
+              <p className={`text-[10px] font-bold uppercase tracking-widest mb-1.5 italic ${balance >= 0 ? 'text-natural-secondary' : 'text-red-600'}`}>
+                {balance >= 0 ? 'Sisa Saldo di Unit' : 'Kekurangan Anggaran (Defisit)'}
+              </p>
+              <p className={`text-2xl sm:text-3xl font-mono font-bold ${balance >= 0 ? 'text-natural-primary' : 'text-red-700'}`}>
+                Rp {formatCurrency(Math.abs(balance))}
+              </p>
+              {balance < 0 ? (
+                <p className="text-xs text-rose-600 mt-1.5 italic font-medium leading-relaxed">
+                  *Realisasi melebihi pagu anggaran. Kekurangan sebesar Rp {formatCurrency(Math.abs(balance))} dimasukkan ke Penerimaan Buku Kas untuk pengembalian/talangan oleh bendahara.
+                </p>
+              ) : (
+                <p className="text-[11px] text-natural-secondary/70 mt-1">
+                  Sisa dana yang harus dipertanggungjawabkan/dikembalikan
+                </p>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Rekapitulasi Penerimaan Biaya Pegawai (Interactive summary container) */}
-        {report.proposedDetails?.some(b => b.category?.toLowerCase().includes('pegawai')) && (() => {
-          const employeeRecap: { [name: string]: number } = {};
-          (report.details || []).forEach(d => {
-            const budgetItem = report.proposedDetails && d.proposedIndex !== undefined ? report.proposedDetails[d.proposedIndex] : null;
-            const isPegawai = budgetItem?.category?.toLowerCase().includes('pegawai') || d.category?.toLowerCase().includes('pegawai');
-            if (isPegawai) {
-              const name = d.employeeName || 'Belum Ditentukan';
-              employeeRecap[name] = (employeeRecap[name] || 0) + (d.amount || 0);
-            }
-          });
-
-          return (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-[40px] border border-natural-border shadow-sm overflow-hidden mb-10"
-            >
-              <div className="px-10 py-8 border-b border-natural-bg">
-                <h3 className="font-serif italic text-2xl text-natural-primary">Rekapitulasi Penerimaan Biaya Pegawai</h3>
-                <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-1">Summary of Personnel/Employee Expense Payments</p>
+          {/* TABEL 1: RINCIAN USULAN ANGGARAN (PAGU) */}
+          <div className="bg-white rounded-[32px] border border-natural-border shadow-xs overflow-hidden">
+            <div className="px-6 sm:px-8 py-5 border-b border-natural-bg flex flex-wrap justify-between items-center gap-3">
+              <div>
+                <h3 className="font-serif italic text-2xl text-natural-primary">Rincian Anggaran (Usulan)</h3>
+                <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-0.5">
+                  Proposed Budget Breakdown ({(report.proposedDetails || []).length} Item Pos)
+                </p>
               </div>
-              <div className="p-0">
-                <table className="w-full text-left">
+              <span className="font-mono text-xs font-bold text-natural-primary bg-natural-bg px-3.5 py-1.5 rounded-full border border-natural-border">
+                Total Pagu: Rp {formatCurrency(proposedTotal || report.amountReceived)}
+              </span>
+            </div>
+
+            {/* Responsive Table Wrapper without clipping */}
+            <div className="overflow-x-auto custom-scrollbar w-full">
+              <table className="w-full text-left min-w-[680px]">
+                <thead>
+                  <tr className="bg-natural-bg/40 border-b border-natural-border/60">
+                    <th className="px-6 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] w-14 text-center italic">#</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] w-48 italic">Kategori</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] italic">Deskripsi Pos Item</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] text-right w-48 italic">Nominal Pagu</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-natural-bg/60 text-sm">
+                  {((report as any).proposedDetails || []).map((item: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-natural-input/40 transition-colors">
+                      <td className="px-6 py-4 font-mono text-xs text-natural-secondary text-center">
+                        {String(idx + 1).padStart(2, '0')}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-block px-2.5 py-1 bg-natural-primary/5 text-natural-primary font-bold text-xs uppercase rounded-lg border border-natural-primary/10">
+                          {item?.category || '-'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-natural-text font-medium break-words">
+                        "{item?.description || ''}"
+                      </td>
+                      <td className="px-6 py-4 text-natural-primary font-mono font-bold text-right text-base whitespace-nowrap">
+                        Rp {formatCurrency(item?.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-natural-bg/30 font-bold border-t-2 border-natural-border/80">
+                    <td colSpan={3} className="px-6 py-4 text-right text-xs uppercase tracking-wider text-natural-secondary">
+                      Total Pagu Anggaran Disetujui:
+                    </td>
+                    <td className="px-6 py-4 text-right font-mono font-bold text-lg text-natural-primary whitespace-nowrap">
+                      Rp {formatCurrency(proposedTotal || report.amountReceived)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          {/* TABEL 2: PERBANDINGAN PAGU VS REALISASI PER ITEM (JIKA SUDAH ADA REALISASI) */}
+          {hasRealization && (
+            <div className="bg-white rounded-[32px] border border-natural-border shadow-xs overflow-hidden">
+              <div className="px-6 sm:px-8 py-5 border-b border-natural-bg flex flex-wrap justify-between items-center gap-3">
+                <div>
+                  <h3 className="font-serif italic text-2xl text-natural-primary">Matriks Realisasi per Item Anggaran</h3>
+                  <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-0.5">
+                    Budget vs Actual Comparison per Proposed Item
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto custom-scrollbar w-full">
+                <table className="w-full text-left min-w-[760px]">
                   <thead>
-                    <tr className="bg-natural-bg/30">
-                      <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] w-24 italic">No</th>
-                      <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] italic">Nama Pegawai</th>
-                      <th className="px-10 py-5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.2em] text-right italic">Total Penerimaan</th>
+                    <tr className="bg-natural-bg/40 border-b border-natural-border/60">
+                      <th className="px-5 py-3.5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] w-12 text-center italic">#</th>
+                      <th className="px-5 py-3.5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] w-44 italic">Kategori</th>
+                      <th className="px-5 py-3.5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] italic">Deskripsi Pos</th>
+                      <th className="px-5 py-3.5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] text-right w-36 italic">Pagu (Rp)</th>
+                      <th className="px-5 py-3.5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] text-right w-36 italic">Realisasi (Rp)</th>
+                      <th className="px-5 py-3.5 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] text-right w-36 italic">Sisa / Selisih (Rp)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-natural-bg/50">
-                    {Object.keys(employeeRecap).length > 0 ? (
-                      Object.entries(employeeRecap).map(([name, sum], idx) => (
-                        <tr key={idx} className="hover:bg-natural-input transition-colors">
-                          <td className="px-10 py-6 font-mono text-xs text-natural-secondary">{String(idx + 1).padStart(2, '0')}</td>
-                          <td className="px-10 py-6 text-natural-text text-sm font-semibold uppercase tracking-wider">{name}</td>
-                          <td className="px-10 py-6 text-natural-primary font-mono font-bold text-right text-lg">Rp {formatCurrency(sum)}</td>
+                  <tbody className="divide-y divide-natural-bg/60 text-sm">
+                    {(report.proposedDetails || []).map((p, pIdx) => {
+                      const actualAmount = (report.details || [])
+                        .filter(d => d.proposedIndex === pIdx)
+                        .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+                      const diff = (Number(p.amount) || 0) - actualAmount;
+                      return (
+                        <tr key={pIdx} className="hover:bg-natural-input/40 transition-colors">
+                          <td className="px-5 py-4 font-mono text-xs text-natural-secondary text-center">
+                            {pIdx + 1}
+                          </td>
+                          <td className="px-5 py-4 font-bold text-xs uppercase text-natural-primary whitespace-nowrap">
+                            {p.category || '-'}
+                          </td>
+                          <td className="px-5 py-4 text-natural-text font-medium break-words">
+                            {p.description}
+                          </td>
+                          <td className="px-5 py-4 text-right font-mono font-bold text-natural-primary whitespace-nowrap">
+                            Rp {formatCurrency(p.amount)}
+                          </td>
+                          <td className="px-5 py-4 text-right font-mono font-bold text-natural-secondary whitespace-nowrap">
+                            Rp {formatCurrency(actualAmount)}
+                          </td>
+                          <td className={`px-5 py-4 text-right font-mono font-bold whitespace-nowrap ${diff < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                            {diff < 0 ? `-Rp ${formatCurrency(Math.abs(diff))}` : `Rp ${formatCurrency(diff)}`}
+                          </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={3} className="px-10 py-8 text-center text-natural-secondary italic text-sm">
-                          Belum ada realisasi pembayaran pegawai.
-                        </td>
-                      </tr>
-                    )}
+                      );
+                    })}
                   </tbody>
-                  {Object.keys(employeeRecap).length > 0 && (
-                    <tfoot>
-                      <tr className="bg-natural-input/50 font-bold border-t border-natural-border">
-                        <td colSpan={2} className="px-10 py-6 text-right text-xs uppercase tracking-wider text-natural-secondary">Total Pengeluaran Pegawai</td>
-                        <td className="px-10 py-6 text-right text-lg font-mono text-natural-primary">
-                          Rp {formatCurrency(Object.values(employeeRecap).reduce((a, b) => a + b, 0))}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  )}
+                  <tfoot>
+                    <tr className="bg-natural-bg/30 font-bold border-t-2 border-natural-border/80">
+                      <td colSpan={3} className="px-5 py-4 text-right text-xs uppercase tracking-wider text-natural-secondary">
+                        Total Akumulasi:
+                      </td>
+                      <td className="px-5 py-4 text-right font-mono font-bold text-natural-primary whitespace-nowrap">
+                        Rp {formatCurrency(report.amountReceived)}
+                      </td>
+                      <td className="px-5 py-4 text-right font-mono font-bold text-natural-secondary whitespace-nowrap">
+                        Rp {formatCurrency(report.totalSpent)}
+                      </td>
+                      <td className={`px-5 py-4 text-right font-mono font-bold whitespace-nowrap ${balance < 0 ? 'text-red-700' : 'text-emerald-800'}`}>
+                        {balance < 0 ? `-Rp ${formatCurrency(Math.abs(balance))}` : `Rp ${formatCurrency(balance)}`}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* TABEL 3: RINCIAN REALISASI LAPORAN (BUKTI TRANSAKSI PENGELUARAN) */}
+          <div className="bg-white rounded-[32px] border border-natural-border shadow-xs overflow-hidden">
+            <div className="px-6 sm:px-8 py-5 border-b border-natural-bg flex flex-wrap justify-between items-center gap-4">
+              <div>
+                <h3 className="font-serif italic text-2xl text-natural-primary">Rincian Laporan (Realisasi Belanja)</h3>
+                <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-0.5">
+                  Itemized Expense Records & Proof of Transactions
+                </p>
+              </div>
+
+              {/* Action Buttons for User & Admin */}
+              <div className="flex flex-wrap items-center gap-2">
+                {!isAdmin && (report.status === ReportStatus.BUDGET_PROPOSAL || report.status === ReportStatus.REPORTING || report.status === ReportStatus.REVISION || report.status === ReportStatus.INCOMPLETE) && (
+                  <button 
+                    onClick={onEdit}
+                    className="bg-natural-primary text-white px-5 py-2.5 rounded-full font-serif italic text-xs hover:bg-natural-primary/90 transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Lengkapi / Edit Rincian
+                  </button>
+                )}
+
+                {(report.status === ReportStatus.REPORTING || report.status === ReportStatus.INCOMPLETE || (report.status === ReportStatus.REVISION && hasRealization)) && (
+                  <button 
+                    onClick={() => {
+                      if (safeConfirm('Batalkan input realisasi kegiatan ini? Status akan dikembalikan menjadi "Anggaran Disetujui" di menu Anggaran.')) {
+                        handleUpdateStatusAction(ReportStatus.BUDGET_APPROVED);
+                      }
+                    }}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-5 py-2.5 rounded-full font-serif italic text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    title="Kembalikan ke status Anggaran Disetujui di menu Anggaran"
+                  >
+                    <Undo2 className="w-3.5 h-3.5 text-slate-600" />
+                    Batal Input Realisasi (Kembali ke Anggaran)
+                  </button>
+                )}
+
+                {isAdmin && report.status === ReportStatus.BUDGET_APPROVED && (
+                  <button 
+                    onClick={() => setShowInstructModal(true)}
+                    className="bg-natural-secondary text-white px-5 py-2.5 rounded-full font-serif italic text-xs hover:bg-natural-secondary/90 transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Instruksikan Pengisian Laporan (Pindah ke Menu Laporan)
+                  </button>
+                )}
+
+                {isAdmin && report.status === ReportStatus.COMPLETED && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button 
+                      onClick={() => {
+                        if (safeConfirm('Batalkan persetujuan laporan ini? Status akan dikembalikan ke "Pelaporan" agar dapat ditinjau atau diedit kembali.')) {
+                          handleUpdateStatusAction(ReportStatus.REPORTING);
+                        }
+                      }}
+                      className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 px-4 py-2 rounded-full font-serif italic text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      title="Batalkan status selesai dan kembalikan ke proses pelaporan"
+                    >
+                      <Undo2 className="w-3.5 h-3.5 text-amber-800" />
+                      Batal Setujui Laporan
+                    </button>
+                    <button 
+                      onClick={() => handleUpdateStatusAction(ReportStatus.REVISION)}
+                      className="bg-orange-600 text-white px-4 py-2 rounded-full font-serif italic text-xs hover:bg-orange-700 transition-all shadow-md cursor-pointer"
+                    >
+                      Revisi Laporan
+                    </button>
+                    <button 
+                      onClick={() => handleUpdateStatusAction(ReportStatus.ARCHIVED)}
+                      className="bg-natural-primary text-white px-4 py-2 rounded-full font-serif italic text-xs hover:bg-natural-primary/90 transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      Setujui (Arsipkan)
+                    </button>
+                  </div>
+                )}
+
+                {isAdmin && (report.status === ReportStatus.REPORTING || report.status === ReportStatus.INCOMPLETE) && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button 
+                      onClick={() => handleUpdateStatusAction(ReportStatus.REVISION)}
+                      className="bg-orange-600 text-white px-4 py-2 rounded-full font-serif italic text-xs hover:bg-orange-700 transition-all shadow-md cursor-pointer"
+                    >
+                      Instruksikan Revisi
+                    </button>
+                    <button 
+                      onClick={() => handleUpdateStatusAction(ReportStatus.COMPLETED)}
+                      className="bg-emerald-600 text-white px-5 py-2 rounded-full font-serif italic text-xs hover:bg-emerald-700 transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      Setujui & Selesaikan
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Table Content or Empty State Banner */}
+            {hasRealization ? (
+              <div className="overflow-x-auto custom-scrollbar w-full">
+                <table className="w-full text-left min-w-[950px]">
+                  <thead>
+                    <tr className="bg-natural-bg/40 border-b border-natural-border/60">
+                      <th className="px-5 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] w-12 text-center italic">#</th>
+                      <th className="px-5 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] w-28 italic">No. Bukti</th>
+                      <th className="px-5 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] w-28 italic">Tanggal</th>
+                      <th className="px-5 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] w-44 italic">Pagu Acuan</th>
+                      <th className="px-5 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] w-36 italic">Kategori</th>
+                      <th className="px-5 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] italic">Deskripsi Pengeluaran</th>
+                      <th className="px-5 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] w-44 italic">Pegawai / Penerima</th>
+                      <th className="px-5 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] text-right w-44 italic">Nominal Realisasi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-natural-bg/60 text-sm">
+                    {report.details.map((item, idx) => {
+                      const budgetItem = report.proposedDetails && item.proposedIndex !== undefined ? report.proposedDetails[item.proposedIndex] : null;
+                      const isPegawai = budgetItem?.category?.toLowerCase().includes('pegawai') || item.category?.toLowerCase().includes('pegawai');
+                      return (
+                        <tr key={idx} className="hover:bg-natural-input/40 transition-colors">
+                          <td className="px-5 py-4 font-mono text-xs text-natural-secondary text-center">
+                            {String(idx + 1).padStart(2, '0')}
+                          </td>
+                          <td className="px-5 py-4 font-mono font-bold text-xs text-natural-primary whitespace-nowrap">
+                            <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                              {item.noBukti || '-'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 font-mono text-xs text-natural-secondary whitespace-nowrap">
+                            {item.date}
+                          </td>
+                          <td className="px-5 py-4 text-xs italic text-natural-secondary">
+                            {budgetItem?.description || '-'}
+                          </td>
+                          <td className="px-5 py-4 font-bold text-xs uppercase text-natural-secondary whitespace-nowrap">
+                            {budgetItem?.category || item.category || '-'}
+                          </td>
+                          <td className="px-5 py-4 text-natural-text font-medium break-words">
+                            "{item.description}"
+                          </td>
+                          <td className="px-5 py-4 whitespace-nowrap text-xs">
+                            {isPegawai ? (
+                              <span className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1">
+                                👤 {item.employeeName || 'Belum dipilih'}
+                              </span>
+                            ) : '-'}
+                          </td>
+                          <td className="px-5 py-4 text-natural-primary font-mono font-bold text-right text-base whitespace-nowrap">
+                            Rp {formatCurrency(item?.amount)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-natural-bg/30 font-bold border-t-2 border-natural-border/80">
+                      <td colSpan={7} className="px-5 py-4 text-right text-xs uppercase tracking-wider text-natural-secondary">
+                        Total Realisasi Pengeluaran:
+                      </td>
+                      <td className="px-5 py-4 text-right font-mono font-bold text-lg text-natural-primary whitespace-nowrap">
+                        Rp {formatCurrency(report.totalSpent)}
+                      </td>
+                    </tr>
+                    <tr className="bg-natural-bg/50 font-bold border-t border-natural-border/60">
+                      <td colSpan={7} className="px-5 py-3 text-right text-xs uppercase tracking-wider text-natural-secondary">
+                        {balance >= 0 ? 'Sisa Saldo Pagu di Unit:' : 'Defisit / Kekurangan Anggaran:'}
+                      </td>
+                      <td className={`px-5 py-3 text-right font-mono font-bold text-base whitespace-nowrap ${balance < 0 ? 'text-red-700' : 'text-emerald-800'}`}>
+                        {balance < 0 ? `-Rp ${formatCurrency(Math.abs(balance))}` : `Rp ${formatCurrency(balance)}`}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            ) : (
+              <div className="p-8 sm:p-12 text-center bg-natural-bg/10 space-y-3">
+                <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-natural-secondary/60 mx-auto border border-natural-border shadow-xs">
+                  <FileText className="w-7 h-7" />
+                </div>
+                <h4 className="font-serif italic text-lg text-natural-primary">
+                  {isBudgetStage ? 'Tahap Usulan Anggaran Pagu' : 'Belum Ada Realisasi Pengeluaran yang Diinput'}
+                </h4>
+                <p className="text-xs text-natural-secondary max-w-lg mx-auto leading-relaxed">
+                  {isBudgetStage 
+                    ? 'Kegiatan ini saat ini berada pada tahap Usulan/Persetujuan Anggaran (Pagu). Rincian realisasi belanja dapat diisi setelah bendahara menyetujui dan menginstruksikan pembuatan laporan.' 
+                    : 'Unit belum menginput item nota/kuitansi belanja untuk kegiatan ini. Klik tombol "Lengkapi / Edit Rincian" di atas untuk menambahkan bukti transaksi.'}
+                </p>
+                {!isAdmin && (report.status === ReportStatus.REPORTING || report.status === ReportStatus.INCOMPLETE || report.status === ReportStatus.REVISION) && (
+                  <button 
+                    onClick={onEdit}
+                    className="mt-2 inline-flex items-center gap-1.5 px-6 py-2.5 bg-natural-primary text-white text-xs font-bold rounded-full hover:bg-natural-primary/90 transition-all shadow-xs cursor-pointer"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    Input Realisasi Pengeluaran Sekarang
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* TABEL 4: REKAPITULASI PENERIMAAN BIAYA PEGAWAI (JIKA ADA) */}
+          {report.proposedDetails?.some(b => b.category?.toLowerCase().includes('pegawai')) && (() => {
+            const employeeRecap: { [name: string]: number } = {};
+            (report.details || []).forEach(d => {
+              const budgetItem = report.proposedDetails && d.proposedIndex !== undefined ? report.proposedDetails[d.proposedIndex] : null;
+              const isPegawai = budgetItem?.category?.toLowerCase().includes('pegawai') || d.category?.toLowerCase().includes('pegawai');
+              if (isPegawai) {
+                const name = d.employeeName || 'Belum Ditentukan';
+                employeeRecap[name] = (employeeRecap[name] || 0) + (Number(d.amount) || 0);
+              }
+            });
+
+            return (
+              <div className="bg-white rounded-[32px] border border-natural-border shadow-xs overflow-hidden">
+                <div className="px-6 sm:px-8 py-5 border-b border-natural-bg">
+                  <h3 className="font-serif italic text-2xl text-natural-primary">Rekapitulasi Penerimaan Biaya Pegawai</h3>
+                  <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-0.5">
+                    Summary of Personnel & Employee Expense Distributions
+                  </p>
+                </div>
+                <div className="overflow-x-auto custom-scrollbar w-full">
+                  <table className="w-full text-left min-w-[600px]">
+                    <thead>
+                      <tr className="bg-natural-bg/40 border-b border-natural-border/60">
+                        <th className="px-6 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] w-20 text-center italic">#</th>
+                        <th className="px-6 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] italic">Nama Pegawai / Penerima</th>
+                        <th className="px-6 py-4 text-[11px] font-bold text-natural-secondary uppercase tracking-[0.15em] text-right w-56 italic">Total Penerimaan</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-natural-bg/60 text-sm">
+                      {Object.keys(employeeRecap).length > 0 ? (
+                        Object.entries(employeeRecap).map(([name, sum], idx) => (
+                          <tr key={idx} className="hover:bg-natural-input/40 transition-colors">
+                            <td className="px-6 py-4 font-mono text-xs text-natural-secondary text-center">
+                              {String(idx + 1).padStart(2, '0')}
+                            </td>
+                            <td className="px-6 py-4 text-natural-primary text-sm font-bold uppercase tracking-wider">
+                              👤 {name}
+                            </td>
+                            <td className="px-6 py-4 text-natural-primary font-mono font-bold text-right text-base whitespace-nowrap">
+                              Rp {formatCurrency(sum)}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="px-6 py-8 text-center text-natural-secondary italic text-xs">
+                            Belum ada realisasi pembayaran pegawai untuk kegiatan ini.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                    {Object.keys(employeeRecap).length > 0 && (
+                      <tfoot>
+                        <tr className="bg-natural-bg/30 font-bold border-t-2 border-natural-border/80">
+                          <td colSpan={2} className="px-6 py-4 text-right text-xs uppercase tracking-wider text-natural-secondary">
+                            Total Pengeluaran Honor/Pegawai:
+                          </td>
+                          <td className="px-6 py-4 text-right text-lg font-mono font-bold text-natural-primary whitespace-nowrap">
+                            Rp {formatCurrency(Object.values(employeeRecap).reduce((a, b) => a + b, 0))}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* SECTION: PEJABAT PENANDA TANGAN & PENGESAHAN DOKUMEN */}
+          <div className="bg-white rounded-[32px] border border-natural-border shadow-xs p-6 sm:p-10 space-y-6">
+            <div className="text-center pb-4 border-b border-natural-bg">
+              <h4 className="font-serif italic text-xl text-natural-primary">Pejabat Pengesahan & Penanda Tangan</h4>
+              <p className="text-natural-secondary text-xs uppercase tracking-widest font-bold mt-0.5">
+                Mengetahui Unit Kerja {report.unitName} &bull; {report.submissionDate ? `Dibuat pada: ${formatDate(report.submissionDate)}` : ''}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 text-center">
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-natural-secondary uppercase tracking-widest mb-1 italic">
+                  Pejabat Penanda Tangan 1
+                </p>
+                <p className="text-sm font-bold text-natural-primary">{report.ketuaJabatan || 'Ketua / Koordinator'}</p>
+                <div className="pt-8">
+                  <p className="text-sm font-bold text-natural-primary border-b border-natural-border inline-block px-6 pb-1">
+                    {report.ketuaName || '........................................'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-natural-secondary uppercase tracking-widest mb-1 italic">
+                  Pejabat Penanda Tangan 2
+                </p>
+                <p className="text-sm font-bold text-natural-primary">{report.bendaharaJabatan || 'Bendahara Pengeluaran'}</p>
+                <div className="pt-8">
+                  <p className="text-sm font-bold text-natural-primary border-b border-natural-border inline-block px-6 pb-1">
+                    {report.bendaharaName || '........................................'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {report.includeWakaSignature && (
+              <div className="text-center pt-6 border-t border-natural-bg/70 space-y-1">
+                <p className="text-xs font-bold text-natural-secondary uppercase tracking-widest mb-1 italic">
+                  Mengetahui
+                </p>
+                <p className="text-sm font-bold text-natural-primary">{report.wakaJabatan || 'Waka Urusan Terkait'}</p>
+                <div className="pt-8">
+                  <p className="text-sm font-bold text-natural-primary border-b border-natural-border inline-block px-8 pb-1">
+                    {report.wakaName || '........................................'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION: REVIEW BENDAHARA UTAMA (ADMIN ACTION) */}
+          {isAdmin && report.status === ReportStatus.BUDGET_PROPOSAL && (
+            <motion.div 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="bg-natural-primary p-8 sm:p-12 rounded-[36px] text-white shadow-xl"
+            >
+              <div className="mb-6">
+                <h3 className="text-2xl sm:text-3xl font-serif italic mb-1.5">Review Bendahara Utama</h3>
+                <p className="text-white/70 text-xs uppercase tracking-widest font-bold">
+                  Verifikasi kebenaran dan kesesuaian alokasi pagu dana
+                </p>
+              </div>
+              
+              <textarea 
+                className="w-full bg-white/10 border border-white/20 rounded-2xl p-5 text-white placeholder-white/40 focus:ring-2 focus:ring-white/40 outline-none mb-6 min-h-[140px] italic text-sm"
+                placeholder="Tambahkan evaluasi, arahan, atau catatan revisi untuk unit kerja..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button 
+                  disabled={updating}
+                  onClick={() => handleUpdateStatusAction(ReportStatus.REJECTED)}
+                  className="flex-1 py-4 border border-white/30 hover:bg-red-600 hover:border-red-600 rounded-full font-bold uppercase text-xs tracking-widest transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  Tolak Usulan
+                </button>
+                <button 
+                  disabled={updating}
+                  onClick={() => handleUpdateStatusAction(ReportStatus.REVISION)}
+                  className="flex-1 py-4 border border-white/30 hover:bg-orange-600 hover:border-orange-600 rounded-full font-bold uppercase text-xs tracking-widest transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  Minta Revisi
+                </button>
+                <button 
+                  disabled={updating}
+                  onClick={() => handleUpdateStatusAction(ReportStatus.BUDGET_APPROVED)}
+                  className="flex-1 py-4 bg-white text-natural-primary rounded-full font-serif italic text-base hover:bg-natural-secondary hover:text-white transition-all shadow-lg disabled:opacity-50 cursor-pointer"
+                >
+                  Setujui & Tandai Sah
+                </button>
+              </div>
             </motion.div>
-          );
-        })()}
+          )}
 
-      {isAdmin && report.status === ReportStatus.BUDGET_PROPOSAL && (
-        <motion.div 
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="bg-natural-primary p-12 rounded-[40px] text-white shadow-2xl"
-        >
-          <div className="mb-8">
-            <h3 className="text-3xl font-serif italic mb-2">Review Bendahara Utama</h3>
-            <p className="text-white/60 text-xs uppercase tracking-widest font-bold">Verifikasi kebenaran dan kesesuaian dana</p>
-          </div>
-          
-          <textarea 
-            className="w-full bg-white/5 border border-white/10 rounded-3xl p-6 text-white placeholder-white/30 focus:ring-2 focus:ring-natural-secondary outline-none mb-8 min-h-[160px] italic"
-            placeholder="Tambahkan evaluasi atau catatan revisi untuk unit kerja..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-          <div className="flex gap-6">
-            <button 
-              disabled={updating}
-              onClick={() => handleUpdateStatusAction(ReportStatus.REJECTED)}
-              className="flex-1 py-5 border border-white/20 hover:bg-red-600 hover:border-red-600 rounded-full font-bold uppercase text-xs tracking-widest transition-all disabled:opacity-50"
-            >
-              Tolak
-            </button>
-            <button 
-              disabled={updating}
-              onClick={() => handleUpdateStatusAction(ReportStatus.REVISION)}
-              className="flex-1 py-5 border border-white/20 hover:bg-orange-600 hover:border-orange-600 rounded-full font-bold uppercase text-xs tracking-widest transition-all disabled:opacity-50"
-            >
-              Minta Revisi
-            </button>
-            <button 
-              disabled={updating}
-              onClick={() => handleUpdateStatusAction(ReportStatus.BUDGET_APPROVED)}
-              className="flex-1 py-5 bg-natural-secondary text-white rounded-full font-serif italic text-xl hover:bg-white hover:text-natural-primary transition-all shadow-xl shadow-black/10 disabled:opacity-50"
-            >
-              Setujui & Tandai Sah
-            </button>
-          </div>
-        </motion.div>
-      )}
-
-      {report.treasurerNotes && (
-        <div className="bg-natural-secondary/10 border-l-4 border-natural-secondary p-8 rounded-r-[32px] rounded-l-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <AlertCircle className="w-5 h-5 text-natural-secondary" />
-            <h4 className="font-bold text-natural-primary uppercase tracking-widest text-xs">Ulasan Bendahara</h4>
-          </div>
-          <p className="text-natural-text italic font-medium leading-relaxed">"{report.treasurerNotes}"</p>
+          {/* Notes Banner if exists */}
+          {report.treasurerNotes && (
+            <div className="bg-natural-secondary/10 border-l-4 border-natural-secondary p-6 rounded-r-[28px] rounded-l-lg space-y-2">
+              <div className="flex items-center gap-2.5">
+                <AlertCircle className="w-5 h-5 text-natural-secondary" />
+                <h4 className="font-bold text-natural-primary uppercase tracking-widest text-xs">
+                  Catatan / Evaluasi Bendahara
+                </h4>
+              </div>
+              <p className="text-natural-text italic font-medium leading-relaxed pl-7">
+                "{report.treasurerNotes}"
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -2251,7 +2877,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                 type="button"
                 onClick={() => setShowInstructModal(false)}
                 disabled={updating}
-                className="px-4 py-2 rounded-full border border-natural-border text-natural-secondary text-xs font-bold hover:bg-natural-bg"
+                className="px-4 py-2 rounded-full border border-natural-border text-natural-secondary text-xs font-bold hover:bg-natural-bg cursor-pointer"
               >
                 Batal
               </button>
@@ -2262,7 +2888,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                   handleUpdateStatusAction(ReportStatus.REPORTING, instructDateInput);
                 }}
                 disabled={updating || !instructDateInput}
-                className="px-5 py-2 rounded-full bg-natural-secondary hover:bg-natural-secondary/90 text-white text-xs font-bold font-serif italic shadow-md disabled:opacity-50 flex items-center gap-1.5"
+                className="px-5 py-2 rounded-full bg-natural-secondary hover:bg-natural-secondary/90 text-white text-xs font-bold font-serif italic shadow-md disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
               >
                 {updating ? 'Memproses...' : 'Konfirmasi Instruksikan'}
               </button>
