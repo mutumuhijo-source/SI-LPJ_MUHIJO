@@ -13,16 +13,18 @@ import {
   Check, 
   Search, 
   ShieldCheck, 
-  KeyRound 
+  KeyRound,
+  Palette 
 } from 'lucide-react';
 import { SchoolSettings, ExpenseType, Employee, Unit, DBUser, OperationType } from '../types';
 import { SchoolSettingsView } from './SchoolSettingsView';
 import { WhatsAppSettings } from './WhatsAppSettings';
+import { ThemeSettingsSection } from '../lib/theme';
 import { Firestore, addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { safeAlert, safeConfirm } from '../lib/utils';
 import { handleFirestoreError } from '../lib/error-handler';
 
-export type SettingsSubTab = 'school' | 'users' | 'units' | 'expenses' | 'employees' | 'whatsapp';
+export type SettingsSubTab = 'school' | 'users' | 'units' | 'expenses' | 'employees' | 'whatsapp' | 'theme';
 
 interface SettingsPageProps {
   activeSubTab?: SettingsSubTab;
@@ -153,6 +155,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             <MessageSquare className="w-4 h-4" />
             Notifikasi WA
           </button>
+
+          <button
+            onClick={() => handleTabClick('theme')}
+            className={`px-5 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 whitespace-nowrap cursor-pointer ${
+              currentTab === 'theme'
+                ? 'bg-natural-primary text-white shadow-md ring-2 ring-natural-primary/20'
+                : 'bg-natural-bg/60 text-natural-secondary hover:bg-natural-bg hover:text-natural-primary border border-natural-border/50'
+            }`}
+          >
+            <Palette className="w-4 h-4" />
+            Tema & Tampilan
+          </button>
         </div>
       </div>
 
@@ -182,6 +196,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
       {currentTab === 'whatsapp' && (
         <WhatsAppSettings db={db} userEmail={userEmail} />
+      )}
+
+      {currentTab === 'theme' && (
+        <ThemeSettingsSection />
       )}
     </div>
   );

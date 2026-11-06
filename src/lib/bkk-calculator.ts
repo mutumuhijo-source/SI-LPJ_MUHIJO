@@ -128,6 +128,35 @@ export const isDateBeforeBukuKasStart = (dateStr?: string | null, initialBalance
   return false;
 };
 
+export const normalizeTransactionDateForBkk = (dateStr?: string | null, instructDate?: string, initDate = '2026-09-01'): string => {
+  if (!dateStr || typeof dateStr !== 'string') return instructDate || initDate;
+  const clean = dateStr.trim().split('T')[0];
+  if (!clean) return instructDate || initDate;
+
+  // Check if year-month-day has swapped month and day
+  // E.g. clean = '2026-05-11' where month is 05 and day is 11, but report is in Nov 2026 -> swap to '2026-11-05'
+  const m = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (m) {
+    const y = m[1];
+    const mth = parseInt(m[2], 10);
+    const day = parseInt(m[3], 10);
+
+    if (isDateBeforeBukuKasStart(clean, initDate) && day >= 9 && day <= 12 && mth <= 31) {
+      const swapped = `${y}-${day.toString().padStart(2, '0')}-${mth.toString().padStart(2, '0')}`;
+      if (!isDateBeforeBukuKasStart(swapped, initDate)) {
+        return swapped;
+      }
+    }
+  }
+
+  // If dateStr is still before initDate, but the report itself was instructed/active in the Buku Kas period:
+  if (isDateBeforeBukuKasStart(clean, initDate) && !isDateBeforeBukuKasStart(instructDate, initDate)) {
+    return instructDate || initDate;
+  }
+
+  return clean;
+};
+
 export const getReportingInstructionDate = (r: Report, initialBalanceDate?: string): string => {
   if (r.reportingInstructedDate) return r.reportingInstructedDate;
   if (r.reportingInstructedAt && typeof r.reportingInstructedAt.toDate === 'function') {
@@ -206,10 +235,11 @@ export const generateAllJournalItems = (
 
   // 2. Process LPJ Reports
   reports.forEach((r, rIdx) => {
+    // Only exclude pure proposals without instruction, rejected, or empty revisions
     const isInBudgetMenu = 
       r.status === ReportStatus.BUDGET_PROPOSAL ||
-      r.status === ReportStatus.BUDGET_APPROVED ||
       r.status === ReportStatus.REJECTED ||
+      (r.status === ReportStatus.BUDGET_APPROVED && !r.reportingInstructedDate) ||
       (r.status === ReportStatus.REVISION && (!r.details || r.details.length === 0));
 
     if (isInBudgetMenu) return;
@@ -223,7 +253,20 @@ export const generateAllJournalItems = (
       const hasDetails = r.details && r.details.length > 0;
 
       if (hasDetails) {
-        const validDetails = (r.details || []).filter(d => !isDateBeforeBukuKasStart(d.date || instructDate, initDate));
+        // If the report itself is in the active Buku Kas period, all details are preserved and normalized
+        const isReportInBkkPeriod = 
+          !isDateBeforeBukuKasStart(instructDate, initDate) || 
+          !isDateBeforeBukuKasStart(r.completedDate, initDate) ||
+          !isDateBeforeBukuKasStart(r.submissionDate, initDate);
+
+        const detailsWithNormalizedDates = (r.details || []).map(d => ({
+          ...d,
+          date: normalizeTransactionDateForBkk(d.date, instructDate, initDate)
+        }));
+
+        const validDetails = isReportInBkkPeriod 
+          ? detailsWithNormalizedDates 
+          : detailsWithNormalizedDates.filter(d => !isDateBeforeBukuKasStart(d.date || instructDate, initDate));
 
         if (validDetails.length === 0) return;
 
@@ -262,7 +305,7 @@ export const generateAllJournalItems = (
         const latestDetailDate = (validDetails.length > 0 && validDetails[validDetails.length - 1].date) 
           ? validDetails[validDetails.length - 1].date 
           : '';
-        const closingDate = r.completedDate || latestDetailDate || instructDate;
+        const closingDate = normalizeTransactionDateForBkk(r.completedDate || latestDetailDate || instructDate, instructDate, initDate);
 
         if (!isDateBeforeBukuKasStart(closingDate, initDate)) {
           const budgetAmount = Number(r.amountReceived) || 0;

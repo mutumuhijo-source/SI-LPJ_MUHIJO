@@ -1632,10 +1632,16 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
     if (!report.id || !customInstructDate) return;
     setSavingInstructDate(true);
     try {
-      await setDoc(doc(db, 'reports', report.id), {
+      const updatePayload: Record<string, any> = {
         reportingInstructedDate: customInstructDate,
         updatedAt: serverTimestamp()
-      }, { merge: true });
+      };
+      if (report.status === ReportStatus.BUDGET_APPROVED) {
+        updatePayload.status = ReportStatus.REPORTING;
+        updatePayload.reportingInstructedAt = serverTimestamp();
+        report.status = ReportStatus.REPORTING;
+      }
+      await setDoc(doc(db, 'reports', report.id), updatePayload, { merge: true });
       report.reportingInstructedDate = customInstructDate;
       setEditingInstructDate(false);
     } catch (e) {
