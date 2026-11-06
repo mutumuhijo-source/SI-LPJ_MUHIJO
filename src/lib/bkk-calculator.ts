@@ -235,12 +235,13 @@ export const generateAllJournalItems = (
 
   // 2. Process LPJ Reports
   reports.forEach((r, rIdx) => {
-    // Only exclude pure proposals without instruction, rejected, or empty revisions
+    // Only exclude pure proposals without instruction, rejected, or empty revisions without instruction
+    const hasInstruction = Boolean(r.reportingInstructedDate || r.reportingInstructedAt);
     const isInBudgetMenu = 
       r.status === ReportStatus.BUDGET_PROPOSAL ||
       r.status === ReportStatus.REJECTED ||
-      (r.status === ReportStatus.BUDGET_APPROVED && !r.reportingInstructedDate) ||
-      (r.status === ReportStatus.REVISION && (!r.details || r.details.length === 0));
+      (r.status === ReportStatus.BUDGET_APPROVED && !hasInstruction) ||
+      (r.status === ReportStatus.REVISION && !hasInstruction && (!r.details || r.details.length === 0));
 
     if (isInBudgetMenu) return;
 
@@ -395,7 +396,7 @@ export const generateAllJournalItems = (
       }
     } else {
       if (!isDateBeforeBukuKasStart(instructDate, initDate)) {
-        const amt = Number(r.amountReceived) || 0;
+        const amt = Number(r.amountReceived) || (r.proposedDetails || []).reduce((acc, p) => acc + (Number(p.amount) || 0), 0) || Number(r.totalSpent) || 0;
         if (amt > 0) {
           items.push({
             id: `lpj-alloc-${r.id || 'r'}`,
@@ -411,12 +412,16 @@ export const generateAllJournalItems = (
             inputOrder: rIdx,
             noBukti: `BKK/ANG-${(r.id || '000').substring(0, 5).toUpperCase()}`,
             category: 'Pencairan Anggaran LPJ',
-            description: `Alokasi Anggaran: ${r.activityName} (${r.unitName}) - Diinstruksikan Pengisian Laporan`,
+            description: r.status === ReportStatus.BUDGET_APPROVED
+              ? `Alokasi Anggaran: ${r.activityName} (${r.unitName}) - Telah Diinstruksikan`
+              : `Alokasi Anggaran: ${r.activityName} (${r.unitName}) - Diinstruksikan Pengisian Laporan`,
             partyName: `Unit ${r.unitName}`,
             inflowAmount: 0,
             outflowAmount: amt,
             status: r.status,
-            notes: 'Diinstruksikan untuk pengisian laporan realisasi',
+            notes: r.status === ReportStatus.BUDGET_APPROVED
+              ? 'Tercatat di Buku Kas (dikembalikan ke anggaran/telah diinstruksikan)'
+              : 'Diinstruksikan untuk pengisian laporan realisasi',
             report: r,
             detailOrder: 5,
           });

@@ -1632,17 +1632,16 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
     if (!report.id || !customInstructDate) return;
     setSavingInstructDate(true);
     try {
-      const updatePayload: Record<string, any> = {
-        reportingInstructedDate: customInstructDate,
-        updatedAt: serverTimestamp()
-      };
+      await onUpdateStatus(
+        report.id, 
+        report.status === ReportStatus.BUDGET_APPROVED ? ReportStatus.REPORTING : report.status, 
+        notes, 
+        customInstructDate
+      );
+      report.reportingInstructedDate = customInstructDate;
       if (report.status === ReportStatus.BUDGET_APPROVED) {
-        updatePayload.status = ReportStatus.REPORTING;
-        updatePayload.reportingInstructedAt = serverTimestamp();
         report.status = ReportStatus.REPORTING;
       }
-      await setDoc(doc(db, 'reports', report.id), updatePayload, { merge: true });
-      report.reportingInstructedDate = customInstructDate;
       setEditingInstructDate(false);
     } catch (e) {
       console.error('Failed to update instruction date:', e);
@@ -2480,11 +2479,14 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
 
                 {isAdmin && report.status === ReportStatus.BUDGET_APPROVED && (
                   <button 
-                    onClick={() => setShowInstructModal(true)}
+                    onClick={() => {
+                      setInstructDateInput(new Date().toISOString().split('T')[0]);
+                      setShowInstructModal(true);
+                    }}
                     className="bg-natural-secondary text-white px-5 py-2.5 rounded-full font-serif italic text-xs hover:bg-natural-secondary/90 transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
                   >
                     <FileText className="w-3.5 h-3.5" />
-                    Instruksikan Pengisian Laporan (Pindah ke Menu Laporan)
+                    {report.reportingInstructedDate ? 'Instruksikan Ulang Pengisian Laporan' : 'Instruksikan Pengisian Laporan (Pindah ke Menu Laporan)'}
                   </button>
                 )}
 
@@ -2846,12 +2848,20 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
             </div>
 
             <p className="text-xs text-natural-secondary leading-relaxed">
-              Anggaran kegiatan <strong>{report.activityName}</strong> akan dipindahkan ke menu <strong>Laporan</strong> dan dicatatkan ke dalam <strong>Buku Kas</strong> pada tanggal instruksi/pencairan di bawah ini.
+              {report.reportingInstructedDate ? (
+                <>
+                  Kegiatan <strong>{report.activityName}</strong> sebelumnya pernah tercatat di Buku Kas. Menentukan tanggal instruksi baru akan memperbarui posisi tanggal transaksi di <strong>Buku Kas</strong> ke tanggal instruksi baru ini dan mengaktifkannya kembali di menu <strong>Laporan</strong>.
+                </>
+              ) : (
+                <>
+                  Anggaran kegiatan <strong>{report.activityName}</strong> akan dipindahkan ke menu <strong>Laporan</strong> dan dicatatkan ke dalam <strong>Buku Kas</strong> pada tanggal instruksi/pencairan di bawah ini.
+                </>
+              )}
             </p>
 
             <div className="space-y-1.5 pt-2">
               <label className="text-[10px] uppercase tracking-wider font-bold text-natural-primary block">
-                Tanggal Instruksi Laporan / Pencairan Dana ke Unit (Buku Kas)
+                {report.reportingInstructedDate ? 'Tanggal Instruksi Baru (Buku Kas)' : 'Tanggal Instruksi Laporan / Pencairan Dana ke Unit (Buku Kas)'}
               </label>
               <input 
                 type="date"
@@ -2861,7 +2871,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                 onChange={(e) => setInstructDateInput(e.target.value)}
               />
               <p className="text-[10px] text-amber-800 italic">
-                *Sesuai ketentuan, tanggal urutan transaksi di Buku Kas dicatat berdasarkan tanggal instruksi ini (bukan tertanggal disetujui awal anggaran).
+                *Transaksi di Buku Kas dicatat berdasarkan tanggal instruksi ini (posisi urutan buku kas akan otomatis mengikuti tanggal ini).
               </p>
             </div>
 
@@ -2896,7 +2906,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                 disabled={updating || !instructDateInput}
                 className="px-5 py-2 rounded-full bg-natural-secondary hover:bg-natural-secondary/90 text-white text-xs font-bold font-serif italic shadow-md disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
               >
-                {updating ? 'Memproses...' : 'Konfirmasi Instruksikan'}
+                {updating ? 'Memproses...' : (report.reportingInstructedDate ? 'Konfirmasi Tanggal Baru & Instruksikan' : 'Konfirmasi Instruksikan')}
               </button>
             </div>
           </motion.div>
@@ -4010,24 +4020,25 @@ const MainDashboard = () => {
 
   const handleStatusUpdate = async (id: string, newStatus: ReportStatus, notes?: string, customDate?: string) => {
     try {
+      const targetReport = reports.find(r => r.id === id);
       const updatePayload: any = { 
         status: newStatus, 
-        treasurerNotes: notes !== undefined ? notes : '',
+        treasurerNotes: notes !== undefined ? notes : (targetReport?.treasurerNotes || ''),
         updatedAt: serverTimestamp() 
       };
       if (newStatus === ReportStatus.BUDGET_APPROVED) {
         updatePayload.approvedAt = serverTimestamp();
-        updatePayload.approvalDate = customDate || new Date().toISOString().split('T')[0];
+        updatePayload.approvalDate = customDate || targetReport?.approvalDate || new Date().toISOString().split('T')[0];
         updatePayload.completedAt = null;
         updatePayload.completedDate = null;
       } else if (newStatus === ReportStatus.REPORTING) {
         updatePayload.reportingInstructedAt = serverTimestamp();
-        updatePayload.reportingInstructedDate = customDate || new Date().toISOString().split('T')[0];
+        updatePayload.reportingInstructedDate = customDate || targetReport?.reportingInstructedDate || new Date().toISOString().split('T')[0];
         updatePayload.completedAt = null;
         updatePayload.completedDate = null;
       } else if (newStatus === ReportStatus.COMPLETED || newStatus === ReportStatus.ARCHIVED) {
         updatePayload.completedAt = serverTimestamp();
-        updatePayload.completedDate = customDate || new Date().toISOString().split('T')[0];
+        updatePayload.completedDate = customDate || targetReport?.completedDate || new Date().toISOString().split('T')[0];
       }
       await setDoc(doc(db, 'reports', id), updatePayload, { merge: true });
       await refreshReports();
