@@ -60,7 +60,7 @@ import { MemoBudgetPage } from './components/MemoBudgetPage';
 import { MemorialKasTunaiPage } from './components/MemorialKasTunaiPage';
 import { sendReportStatusNotification, sendWhatsappVerificationCode } from './services/whatsapp';
 import { formatCurrency, parseAmount, terbilang } from './lib/utils';
-import { calculateFullBkkSummary, CalculatedBkkSummary, getBkkSettingsFromCache } from './lib/bkk-calculator';
+import { calculateFullBkkSummary, CalculatedBkkSummary, getBkkSettingsFromCache, createPendingDisbursementFromReport } from './lib/bkk-calculator';
 
 // Safe alert and confirm helper functions for sandboxed/iframe compliance
 const safeAlert = (message: string) => {
@@ -1401,15 +1401,25 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
             <button
               type="button"
               onClick={async () => {
-                if (safeConfirm('Batalkan input realisasi dan kembalikan status kegiatan ini ke "Anggaran Disetujui" di menu Anggaran?')) {
+                if (safeConfirm('Batalkan input realisasi dan kembalikan status kegiatan ini ke "Anggaran Disetujui" di menu Anggaran? Catatan: Pencairan sebelumnya tetap tercatat memotong Buku Kas sebagai pending.')) {
                   setLoading(true);
                   try {
-                    await setDoc(doc(db, 'reports', editReport.id!), {
+                    const pendingEntry = createPendingDisbursementFromReport(
+                      editReport,
+                      'Dikembalikan ke anggaran (uang tetap tercatat keluar di Buku Kas)'
+                    );
+                    const returnPayload: Record<string, any> = {
                       status: ReportStatus.BUDGET_APPROVED,
                       updatedAt: serverTimestamp(),
                       completedAt: null,
-                      completedDate: null
-                    }, { merge: true });
+                      completedDate: null,
+                      reportingInstructedDate: null,
+                      reportingInstructedAt: null
+                    };
+                    if (pendingEntry) {
+                      returnPayload.pendingDisbursements = [...(editReport.pendingDisbursements || []), pendingEntry];
+                    }
+                    await setDoc(doc(db, 'reports', editReport.id!), returnPayload, { merge: true });
                     onSuccess();
                   } catch (err) {
                     handleFirestoreError(err, OperationType.UPDATE, `reports/${editReport.id}`);
@@ -1632,16 +1642,16 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
     if (!report.id || !customInstructDate) return;
     setSavingInstructDate(true);
     try {
-      await onUpdateStatus(
-        report.id, 
-        report.status === ReportStatus.BUDGET_APPROVED ? ReportStatus.REPORTING : report.status, 
-        notes, 
-        customInstructDate
-      );
-      report.reportingInstructedDate = customInstructDate;
       if (report.status === ReportStatus.BUDGET_APPROVED) {
+        await onUpdateStatus(report.id, ReportStatus.REPORTING, notes, customInstructDate);
         report.status = ReportStatus.REPORTING;
+      } else {
+        await setDoc(doc(db, 'reports', report.id), {
+          reportingInstructedDate: customInstructDate,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
       }
+      report.reportingInstructedDate = customInstructDate;
       setEditingInstructDate(false);
     } catch (e) {
       console.error('Failed to update instruction date:', e);
@@ -2202,9 +2212,15 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
                     report.reportingInstructedDate 
                       ? 'bg-blue-100 text-blue-800 border border-blue-200' 
-                      : 'bg-zinc-100 text-zinc-600'
+                      : (report.pendingDisbursements && report.pendingDisbursements.length > 0)
+                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                        : 'bg-zinc-100 text-zinc-600'
                   }`}>
-                    {report.reportingInstructedDate ? 'Tercatat di Buku Kas' : 'Belum Diinstruksikan'}
+                    {report.reportingInstructedDate
+                      ? 'Tercatat di Buku Kas'
+                      : (report.pendingDisbursements && report.pendingDisbursements.length > 0)
+                        ? `Pending (${report.pendingDisbursements.length}x Tetap Memotong Kas)`
+                        : 'Belum Diinstruksikan'}
                   </span>
                 </div>
                 {editingInstructDate ? (
@@ -2235,10 +2251,25 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                   <p className="text-sm font-mono font-bold text-natural-primary mt-0.5">
                     {report.reportingInstructedDate ? formatDate(report.reportingInstructedDate, { dateStyle: 'medium' }) : (
                       <span className="text-natural-secondary/60 italic font-sans font-normal text-xs">
-                        Mengikuti tanggal saat anggaran diinstruksikan menjadi laporan
+                        {(report.pendingDisbursements && report.pendingDisbursements.length > 0)
+                          ? 'Menunggu instruksi ulang pengisian laporan (potongan sebelumnya tetap tercatat di Buku Kas)'
+                          : 'Mengikuti tanggal saat anggaran diinstruksikan menjadi laporan'}
                       </span>
                     )}
                   </p>
+                )}
+                {report.pendingDisbursements && report.pendingDisbursements.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {report.pendingDisbursements.map((pend, pIdx) => (
+                      <div key={pend.id || pIdx} className="text-[10px] bg-amber-50 text-amber-900 border border-amber-200/80 rounded-lg px-2.5 py-1 flex flex-wrap items-center gap-2">
+                        <span className="font-bold">Riwayat Pending #{pIdx + 1}:</span>
+                        <span className="font-mono">{formatDate(pend.instructedDate, { dateStyle: 'medium' })}</span>
+                        <span>•</span>
+                        <span className="font-mono font-bold">Rp {formatCurrency(pend.amount)}</span>
+                        <span className="text-amber-700">(tetap memotong Buku Kas)</span>
+                      </div>
+                    ))}
+                  </div>
                 )}
                 <p className="text-[10px] text-natural-secondary mt-1">
                   *Di Buku Kas, transaksi dicatat saat anggaran diinstruksikan oleh bendahara.
@@ -2465,7 +2496,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                 {(report.status === ReportStatus.REPORTING || report.status === ReportStatus.INCOMPLETE || (report.status === ReportStatus.REVISION && hasRealization)) && (
                   <button 
                     onClick={() => {
-                      if (safeConfirm('Batalkan input realisasi kegiatan ini? Status akan dikembalikan menjadi "Anggaran Disetujui" di menu Anggaran.')) {
+                      if (safeConfirm('Batalkan input realisasi kegiatan ini dan kembalikan ke "Anggaran Disetujui"? Catatan: Pencairan sebelumnya tetap tercatat memotong Buku Kas sebagai pending.')) {
                         handleUpdateStatusAction(ReportStatus.BUDGET_APPROVED);
                       }
                     }}
@@ -2486,7 +2517,9 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                     className="bg-natural-secondary text-white px-5 py-2.5 rounded-full font-serif italic text-xs hover:bg-natural-secondary/90 transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
                   >
                     <FileText className="w-3.5 h-3.5" />
-                    {report.reportingInstructedDate ? 'Instruksikan Ulang Pengisian Laporan' : 'Instruksikan Pengisian Laporan (Pindah ke Menu Laporan)'}
+                    {(report.reportingInstructedDate || (report.pendingDisbursements && report.pendingDisbursements.length > 0))
+                      ? 'Instruksikan Ulang Pengisian Laporan'
+                      : 'Instruksikan Pengisian Laporan (Pindah ke Menu Laporan)'}
                   </button>
                 )}
 
@@ -2848,9 +2881,9 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
             </div>
 
             <p className="text-xs text-natural-secondary leading-relaxed">
-              {report.reportingInstructedDate ? (
+              {(report.reportingInstructedDate || (report.pendingDisbursements && report.pendingDisbursements.length > 0)) ? (
                 <>
-                  Kegiatan <strong>{report.activityName}</strong> sebelumnya pernah tercatat di Buku Kas. Menentukan tanggal instruksi baru akan memperbarui posisi tanggal transaksi di <strong>Buku Kas</strong> ke tanggal instruksi baru ini dan mengaktifkannya kembali di menu <strong>Laporan</strong>.
+                  Kegiatan <strong>{report.activityName}</strong> sebelumnya pernah diinstruksikan/pending dan tetap tercatat memotong <strong>Buku Kas</strong>. Menentukan tanggal instruksi baru akan mencatatkan pengurangan baru di <strong>Buku Kas</strong> pada tanggal ini dan mengaktifkan kembali di menu <strong>Laporan</strong>.
                 </>
               ) : (
                 <>
@@ -2861,7 +2894,9 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
 
             <div className="space-y-1.5 pt-2">
               <label className="text-[10px] uppercase tracking-wider font-bold text-natural-primary block">
-                {report.reportingInstructedDate ? 'Tanggal Instruksi Baru (Buku Kas)' : 'Tanggal Instruksi Laporan / Pencairan Dana ke Unit (Buku Kas)'}
+                {(report.reportingInstructedDate || (report.pendingDisbursements && report.pendingDisbursements.length > 0))
+                  ? 'Tanggal Instruksi Baru (Memotong Buku Kas Lagi)'
+                  : 'Tanggal Instruksi Laporan / Pencairan Dana ke Unit (Buku Kas)'}
               </label>
               <input 
                 type="date"
@@ -2871,7 +2906,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                 onChange={(e) => setInstructDateInput(e.target.value)}
               />
               <p className="text-[10px] text-amber-800 italic">
-                *Transaksi di Buku Kas dicatat berdasarkan tanggal instruksi ini (posisi urutan buku kas akan otomatis mengikuti tanggal ini).
+                *Transaksi baru di Buku Kas dicatat berdasarkan tanggal instruksi ini. Riwayat pending sebelumnya tetap tercatat keluar di Buku Kas.
               </p>
             </div>
 
@@ -2906,7 +2941,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                 disabled={updating || !instructDateInput}
                 className="px-5 py-2 rounded-full bg-natural-secondary hover:bg-natural-secondary/90 text-white text-xs font-bold font-serif italic shadow-md disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
               >
-                {updating ? 'Memproses...' : (report.reportingInstructedDate ? 'Konfirmasi Tanggal Baru & Instruksikan' : 'Konfirmasi Instruksikan')}
+                {updating ? 'Memproses...' : ((report.reportingInstructedDate || (report.pendingDisbursements && report.pendingDisbursements.length > 0)) ? 'Konfirmasi Instruksi Ulang' : 'Konfirmasi Instruksikan')}
               </button>
             </div>
           </motion.div>
@@ -4031,9 +4066,48 @@ const MainDashboard = () => {
         updatePayload.approvalDate = customDate || targetReport?.approvalDate || new Date().toISOString().split('T')[0];
         updatePayload.completedAt = null;
         updatePayload.completedDate = null;
+
+        // Jika kegiatan dikembalikan ke anggaran setelah sempat diinstruksikan pengisian laporan,
+        // simpan transaksi keluar sebelumnya ke pendingDisbursements agar tetap memotong Buku Kas,
+        // lalu bersihkan tanggal instruksi aktif supaya saat diinstruksikan ulang nanti memotong lagi.
+        if (
+          targetReport &&
+          targetReport.status !== ReportStatus.BUDGET_PROPOSAL &&
+          targetReport.status !== ReportStatus.BUDGET_APPROVED &&
+          targetReport.status !== ReportStatus.REJECTED
+        ) {
+          const pendingEntry = createPendingDisbursementFromReport(
+            targetReport,
+            'Dikembalikan ke anggaran (uang tetap tercatat keluar di Buku Kas)'
+          );
+          if (pendingEntry) {
+            updatePayload.pendingDisbursements = [...(targetReport.pendingDisbursements || []), pendingEntry];
+          }
+          updatePayload.reportingInstructedDate = null;
+          updatePayload.reportingInstructedAt = null;
+        }
       } else if (newStatus === ReportStatus.REPORTING) {
+        // Penjagaan untuk data lama yang sempat dikembalikan ke anggaran sebelum fitur pendingDisbursements:
+        // jika status sebelumnya BUDGET_APPROVED tetapi masih menyimpan reportingInstructedDate, arsipkan dulu ke pendingDisbursements
+        // sebelum menetapkan tanggal instruksi yang baru agar kedua pencairan tetap memotong Buku Kas.
+        if (
+          targetReport &&
+          targetReport.status === ReportStatus.BUDGET_APPROVED &&
+          (targetReport.reportingInstructedDate || targetReport.reportingInstructedAt)
+        ) {
+          const legacyPending = createPendingDisbursementFromReport(
+            targetReport,
+            'Pending sebelumnya saat dikembalikan ke anggaran (tetap tercatat keluar di Buku Kas)'
+          );
+          if (legacyPending) {
+            updatePayload.pendingDisbursements = [...(targetReport.pendingDisbursements || []), legacyPending];
+          }
+        }
         updatePayload.reportingInstructedAt = serverTimestamp();
-        updatePayload.reportingInstructedDate = customDate || targetReport?.reportingInstructedDate || new Date().toISOString().split('T')[0];
+        updatePayload.reportingInstructedDate =
+          targetReport?.status === ReportStatus.BUDGET_APPROVED
+            ? (customDate || new Date().toISOString().split('T')[0])
+            : (customDate || targetReport?.reportingInstructedDate || new Date().toISOString().split('T')[0]);
         updatePayload.completedAt = null;
         updatePayload.completedDate = null;
       } else if (newStatus === ReportStatus.COMPLETED || newStatus === ReportStatus.ARCHIVED) {
@@ -4045,21 +4119,18 @@ const MainDashboard = () => {
 
       // Kirim Notifikasi WhatsApp Otomatis ke Pengaju via Fonnte.com
       // Notifikasi hanya sampai laporan disetujui & disahkan (COMPLETED), ditiadakan saat diarsipkan (ARCHIVED)
-      if (newStatus !== ReportStatus.ARCHIVED) {
-        const targetReport = reports.find(r => r.id === id);
-        if (targetReport) {
-          const mergedReport: Report = {
-            ...targetReport,
-            status: newStatus,
-            treasurerNotes: notes !== undefined ? notes : targetReport.treasurerNotes,
-            reportingInstructedDate: newStatus === ReportStatus.REPORTING 
-              ? (customDate || new Date().toISOString().split('T')[0]) 
-              : targetReport.reportingInstructedDate
-          };
-          sendReportStatusNotification(mergedReport, newStatus, notes, db).catch(err => {
-            console.warn('WhatsApp notification delivery error:', err);
-          });
-        }
+      if (newStatus !== ReportStatus.ARCHIVED && targetReport) {
+        const mergedReport: Report = {
+          ...targetReport,
+          status: newStatus,
+          treasurerNotes: notes !== undefined ? notes : targetReport.treasurerNotes,
+          reportingInstructedDate: newStatus === ReportStatus.REPORTING 
+            ? (customDate || new Date().toISOString().split('T')[0]) 
+            : targetReport.reportingInstructedDate
+        };
+        sendReportStatusNotification(mergedReport, newStatus, notes, db).catch(err => {
+          console.warn('WhatsApp notification delivery error:', err);
+        });
       }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `reports/${id}`);

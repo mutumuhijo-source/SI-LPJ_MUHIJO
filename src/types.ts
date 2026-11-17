@@ -39,6 +39,14 @@ export interface ExpenseType {
   name: string;
 }
 
+export interface PendingDisbursement {
+  id: string;
+  instructedDate: string;
+  returnedDate: string;
+  amount: number;
+  notes?: string;
+}
+
 export interface Report {
   id?: string;
   unitId: string;
@@ -55,6 +63,7 @@ export interface Report {
   approvalDate?: string;
   reportingInstructedAt?: any;
   reportingInstructedDate?: string;
+  pendingDisbursements?: PendingDisbursement[];
   completedAt?: any;
   completedDate?: string;
   submittedBy: string;

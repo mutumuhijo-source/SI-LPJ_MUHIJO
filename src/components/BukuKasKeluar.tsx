@@ -56,6 +56,8 @@ export interface UnifiedJournalItem {
   id: string;
   itemType: JournalItemType;
   reportId?: string;
+  groupKey?: string;
+  isPendingAllocation?: boolean;
   directId?: string;
   inflowId?: string;
   activityName: string;
@@ -416,8 +418,10 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
         return true;
       })
       .sort((a, b) => {
-        // 1. Jika berasal dari laporan kegiatan LPJ yang sama, WAJIB pertahankan urutan input rincian & sisa/kekurangan di urutan paling bawah
-        if (a.reportId && b.reportId && a.reportId === b.reportId) {
+        // 1. Jika berasal dari kelompok laporan/siklus yang sama, WAJIB pertahankan urutan input rincian & sisa/kekurangan di urutan paling bawah
+        const groupA = a.groupKey || (a.reportId ? `report-${a.reportId}` : `single-${a.id}`);
+        const groupB = b.groupKey || (b.reportId ? `report-${b.reportId}` : `single-${b.id}`);
+        if ((a.groupKey || a.reportId) && (b.groupKey || b.reportId) && groupA === groupB) {
           return a.detailOrder - b.detailOrder;
         }
 
@@ -429,9 +433,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
         if (cmpDate !== 0) return cmpDate;
 
         // 3. Jika tanggal sama dan berbeda laporan / transaksi:
-        // Kelompokkan per laporan kegiatan agar rincian kegiatan tetap utuh berurutan
-        const groupA = a.reportId ? `report-${a.reportId}` : `single-${a.id}`;
-        const groupB = b.reportId ? `report-${b.reportId}` : `single-${b.id}`;
+        // Kelompokkan per siklus laporan kegiatan agar rincian kegiatan tetap utuh berurutan
         if (groupA !== groupB) {
           // Tetap diurutkan berdasarkan urutan input (inputTimestamp / inputOrder)
           if (a.inputTimestamp && b.inputTimestamp && a.inputTimestamp !== b.inputTimestamp) {
@@ -1089,7 +1091,7 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
                     ${item.category}
                     ${item.itemType === 'lpj_remaining' ? '<br/><em style="color:#b45309; font-size:7.5pt;">[Sisa Anggaran di Urutan Bawah]</em>' : ''}
                     ${item.itemType === 'lpj_deficit' ? '<br/><em style="color:#be123c; font-size:7.5pt;">[Kekurangan Anggaran (Penerimaan)]</em>' : ''}
-                    ${item.itemType === 'lpj_allocation' ? '<br/><em style="color:#1d4ed8; font-size:7.5pt;">[Alokasi Anggaran Total]</em>' : ''}
+                    ${item.itemType === 'lpj_allocation' ? (item.isPendingAllocation ? '<br/><em style="color:#b45309; font-size:7.5pt;">[Pending / Kembali ke Anggaran]</em>' : '<br/><em style="color:#1d4ed8; font-size:7.5pt;">[Alokasi Anggaran Total]</em>') : ''}
                     ${item.itemType === 'inflow_pindah_buku' ? '<br/><em style="color:#15803d; font-size:7.5pt;">[Pindah Buku Bank]</em>' : ''}
                   </td>
                   <td>${item.description}</td>
@@ -1734,8 +1736,10 @@ export const BukuKasKeluar: React.FC<BukuKasKeluarProps> = ({
                           </span>
                         )}
                         {item.itemType === 'lpj_allocation' && (
-                          <span className="block mt-0.5 text-[9px] text-blue-700 font-bold uppercase tracking-wider">
-                            Alokasi Anggaran Total
+                          <span className={`block mt-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                            item.isPendingAllocation ? 'text-amber-700' : 'text-blue-700'
+                          }`}>
+                            {item.isPendingAllocation ? 'Pending / Kembali ke Anggaran' : 'Alokasi Anggaran Total'}
                           </span>
                         )}
                         {item.itemType === 'direct_outflow' && (

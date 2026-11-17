@@ -1,4 +1,4 @@
-import { Report, ReportStatus, CashInflow, DirectCashOutflow, BkkSettings } from '../types';
+import { Report, ReportStatus, CashInflow, DirectCashOutflow, BkkSettings, PendingDisbursement } from '../types';
 
 export type JournalItemType = 
   | 'inflow_pindah_buku' 
@@ -12,6 +12,8 @@ export interface UnifiedJournalItem {
   id: string;
   itemType: JournalItemType;
   reportId?: string;
+  groupKey?: string;
+  isPendingAllocation?: boolean;
   directId?: string;
   inflowId?: string;
   activityName: string;
@@ -189,6 +191,44 @@ export const getEntryTimestamp = (val: any): number => {
   return isNaN(parsed) ? 0 : parsed;
 };
 
+export const getReportBudgetAmount = (r: Partial<Report>): number => {
+  return (
+    Number(r.amountReceived) ||
+    (r.proposedDetails || []).reduce((acc, p) => acc + (Number(p?.amount) || 0), 0) ||
+    Number(r.totalSpent) ||
+    0
+  );
+};
+
+export const createPendingDisbursementFromReport = (
+  report: Report,
+  notes?: string
+): PendingDisbursement | null => {
+  const wasInstructed =
+    Boolean(report.reportingInstructedDate || report.reportingInstructedAt) ||
+    report.status === ReportStatus.REPORTING ||
+    report.status === ReportStatus.INCOMPLETE ||
+    report.status === ReportStatus.COMPLETED ||
+    report.status === ReportStatus.ARCHIVED ||
+    (report.status === ReportStatus.REVISION && (report.details?.length || 0) > 0);
+
+  if (!wasInstructed) return null;
+
+  const amount = getReportBudgetAmount(report);
+  if (amount <= 0) return null;
+
+  const instructedDate = getReportingInstructionDate(report);
+  const returnedDate = new Date().toISOString().split('T')[0];
+
+  return {
+    id: `pend-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    instructedDate,
+    returnedDate,
+    amount,
+    notes: notes || 'Dikembalikan ke anggaran (pending di luar buku kas)',
+  };
+};
+
 /**
  * Membangun seluruh item jurnal Buku Kas secara lengkap dan presisi
  * Digunakan bersama oleh BukuKasKeluar, MemoBudgetPage, dan Ringkasan Dashboard
@@ -235,7 +275,51 @@ export const generateAllJournalItems = (
 
   // 2. Process LPJ Reports
   reports.forEach((r, rIdx) => {
-    // Only exclude pure proposals without instruction, rejected, or empty revisions without instruction
+    const activeGroupKey = `active-${r.id || rIdx}`;
+
+    // 2A. Selalu catat riwayat pencairan/instruksi yang sebelumnya sempat dikembalikan ke anggaran (pending).
+    // Sesuai aturan kas: dana yang sudah sempat keluar saat diinstruksikan tetap tercatat sebagai pengeluaran di Buku Kas
+    // meskipun kegiatannya pending/dikembalikan ke anggaran (karena pengembalian uang berada di rekening luar Buku Kas).
+    // Saat diinstruksikan ulang nanti, pencairan baru akan memotong Buku Kas lagi di bagian 2B.
+    if (r.status !== ReportStatus.REJECTED && r.pendingDisbursements && r.pendingDisbursements.length > 0) {
+      r.pendingDisbursements.forEach((pend, pIdx) => {
+        const rawPendDate = pend.instructedDate || r.submissionDate || initDate;
+        const pDate = normalizeTransactionDateForBkk(rawPendDate, rawPendDate, initDate);
+        const amt = Number(pend.amount) || 0;
+        if (amt > 0 && !isDateBeforeBukuKasStart(pDate, initDate)) {
+          const parsedP = parseTransactionDate(pDate);
+          const pTs = parsedP ? new Date(parsedP.iso).getTime() : 0;
+          items.push({
+            id: `lpj-pending-${r.id || rIdx}-${pend.id || pIdx}`,
+            itemType: 'lpj_allocation',
+            isPendingAllocation: true,
+            reportId: r.id,
+            groupKey: `pending-${r.id || rIdx}-${pIdx}`,
+            activityName: r.activityName || 'Kegiatan',
+            unitName: r.unitName || 'Umum',
+            date: pDate,
+            instructionDate: pDate,
+            approvalDate: pDate,
+            groupDate: pDate,
+            inputTimestamp: pTs,
+            inputOrder: rIdx,
+            noBukti: `BKK/PND-${(r.id || '000').substring(0, 5).toUpperCase()}`,
+            category: 'Pencairan Anggaran (Pending)',
+            description: `Alokasi Anggaran Pending (Kembali ke Anggaran): ${r.activityName} (${r.unitName})`,
+            partyName: `Unit ${r.unitName}`,
+            inflowAmount: 0,
+            outflowAmount: amt,
+            status: r.status,
+            notes: pend.notes || 'Kegiatan sempat dikembalikan ke anggaran; dana tercatat tetap keluar di Buku Kas',
+            report: r,
+            detailOrder: 5,
+          });
+        }
+      });
+    }
+
+    // 2B. Process siklus aktif laporan / instruksi saat ini
+    // Only exclude pure proposals without active instruction, rejected, or empty revisions without instruction
     const hasInstruction = Boolean(r.reportingInstructedDate || r.reportingInstructedAt);
     const isInBudgetMenu = 
       r.status === ReportStatus.BUDGET_PROPOSAL ||
@@ -283,6 +367,7 @@ export const generateAllJournalItems = (
             id: `lpj-det-${r.id || 'r'}-${idx}`,
             itemType: 'lpj_detail',
             reportId: r.id,
+            groupKey: activeGroupKey,
             activityName: r.activityName || 'Kegiatan',
             unitName: r.unitName || 'Umum',
             date: detailDate,
@@ -318,6 +403,7 @@ export const generateAllJournalItems = (
               id: `lpj-rem-${r.id || 'r'}`,
               itemType: 'lpj_remaining',
               reportId: r.id,
+              groupKey: activeGroupKey,
               activityName: r.activityName || 'Kegiatan',
               unitName: r.unitName || 'Umum',
               date: closingDate,
@@ -343,6 +429,7 @@ export const generateAllJournalItems = (
               id: `lpj-def-${r.id || 'r'}`,
               itemType: 'lpj_deficit',
               reportId: r.id,
+              groupKey: activeGroupKey,
               activityName: r.activityName || 'Kegiatan',
               unitName: r.unitName || 'Umum',
               date: closingDate,
@@ -366,12 +453,13 @@ export const generateAllJournalItems = (
         }
       } else {
         if (!isDateBeforeBukuKasStart(instructDate, initDate)) {
-          const amt = Number(r.amountReceived) || 0;
+          const amt = getReportBudgetAmount(r);
           if (amt > 0) {
             items.push({
               id: `lpj-alloc-${r.id || 'r'}`,
               itemType: 'lpj_allocation',
               reportId: r.id,
+              groupKey: activeGroupKey,
               activityName: r.activityName || 'Kegiatan',
               unitName: r.unitName || 'Umum',
               date: instructDate,
@@ -396,12 +484,15 @@ export const generateAllJournalItems = (
       }
     } else {
       if (!isDateBeforeBukuKasStart(instructDate, initDate)) {
-        const amt = Number(r.amountReceived) || (r.proposedDetails || []).reduce((acc, p) => acc + (Number(p.amount) || 0), 0) || Number(r.totalSpent) || 0;
+        const amt = getReportBudgetAmount(r);
         if (amt > 0) {
+          const isLegacyReturned = r.status === ReportStatus.BUDGET_APPROVED;
           items.push({
             id: `lpj-alloc-${r.id || 'r'}`,
             itemType: 'lpj_allocation',
+            isPendingAllocation: isLegacyReturned,
             reportId: r.id,
+            groupKey: activeGroupKey,
             activityName: r.activityName || 'Kegiatan',
             unitName: r.unitName || 'Umum',
             date: instructDate,
@@ -410,17 +501,19 @@ export const generateAllJournalItems = (
             groupDate: instructDate,
             inputTimestamp: reportTs,
             inputOrder: rIdx,
-            noBukti: `BKK/ANG-${(r.id || '000').substring(0, 5).toUpperCase()}`,
-            category: 'Pencairan Anggaran LPJ',
-            description: r.status === ReportStatus.BUDGET_APPROVED
-              ? `Alokasi Anggaran: ${r.activityName} (${r.unitName}) - Telah Diinstruksikan`
+            noBukti: isLegacyReturned
+              ? `BKK/PND-${(r.id || '000').substring(0, 5).toUpperCase()}`
+              : `BKK/ANG-${(r.id || '000').substring(0, 5).toUpperCase()}`,
+            category: isLegacyReturned ? 'Pencairan Anggaran (Pending)' : 'Pencairan Anggaran LPJ',
+            description: isLegacyReturned
+              ? `Alokasi Anggaran Pending (Kembali ke Anggaran): ${r.activityName} (${r.unitName})`
               : `Alokasi Anggaran: ${r.activityName} (${r.unitName}) - Diinstruksikan Pengisian Laporan`,
             partyName: `Unit ${r.unitName}`,
             inflowAmount: 0,
             outflowAmount: amt,
             status: r.status,
-            notes: r.status === ReportStatus.BUDGET_APPROVED
-              ? 'Tercatat di Buku Kas (dikembalikan ke anggaran/telah diinstruksikan)'
+            notes: isLegacyReturned
+              ? 'Kegiatan sempat dikembalikan ke anggaran; dana tercatat tetap keluar di Buku Kas'
               : 'Diinstruksikan untuk pengisian laporan realisasi',
             report: r,
             detailOrder: 5,

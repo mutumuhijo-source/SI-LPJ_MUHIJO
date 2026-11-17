@@ -289,9 +289,19 @@ export const MemorialKasTunaiPage: React.FC<MemorialKasTunaiPageProps> = ({
         }
       });
 
-      // 2. Completed / Reporting reports with dates in this month
+      // 2. Completed / Reporting / Pending Disbursement reports with dates in this month
       reports.forEach(r => {
-        if (r.status === ReportStatus.COMPLETED || r.status === ReportStatus.REPORTING) {
+        if (r.pendingDisbursements && r.pendingDisbursements.length > 0) {
+          r.pendingDisbursements.forEach(pend => {
+            if (pend.instructedDate) {
+              const pd = new Date(pend.instructedDate);
+              if (!isNaN(pd.getTime()) && pd.getMonth() === targetMonthIndex && pd.getFullYear() === targetYearNum) {
+                calculatedExpense += Number(pend.amount || 0);
+              }
+            }
+          });
+        }
+        if (r.status === ReportStatus.COMPLETED || r.status === ReportStatus.REPORTING || (r.status === ReportStatus.BUDGET_APPROVED && r.reportingInstructedDate)) {
           const repDateStr = r.completedDate || r.reportingInstructedDate || r.approvalDate || r.submissionDate;
           if (repDateStr) {
             const d = new Date(repDateStr);
