@@ -19,7 +19,8 @@ import {
   sendFonnteMessage, 
   WhatsappSettings as IWhatsappSettings, 
   DEFAULT_WHATSAPP_SETTINGS,
-  formatPhoneNumber 
+  formatPhoneNumber,
+  WHATSAPP_TEMPORARILY_DISABLED
 } from '../services/whatsapp';
 
 export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?: string }) => {
@@ -127,6 +128,18 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
           <ExternalLink className="w-3.5 h-3.5" />
         </a>
       </div>
+
+      {WHATSAPP_TEMPORARILY_DISABLED && (
+        <div className="p-5 bg-amber-50 border border-amber-200 text-amber-900 rounded-3xl flex items-start gap-3 text-sm">
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold">Verifikasi & Notifikasi Otomatis WhatsApp Dinonaktifkan Sementara</p>
+            <p className="text-xs text-amber-800 mt-1">
+              Kewajiban verifikasi OTP WhatsApp dan pengiriman notifikasi status otomatis sedang dijeda sementara karena layanan WhatsApp bermasalah. Pengajuan tetap dapat diproses tanpa verifikasi WhatsApp.
+            </p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl flex items-center gap-3 text-sm">

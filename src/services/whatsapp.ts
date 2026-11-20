@@ -10,6 +10,9 @@ export interface WhatsappSettings {
   updatedBy?: string;
 }
 
+// Flag sementara untuk menonaktifkan kewajiban verifikasi & notifikasi WhatsApp saat layanan bermasalah
+export const WHATSAPP_TEMPORARILY_DISABLED = true;
+
 export const DEFAULT_WHATSAPP_SETTINGS: WhatsappSettings = {
   fonnteToken: '',
   enabled: true,
@@ -260,6 +263,13 @@ export async function sendReportStatusNotification(
   notes?: string,
   db?: Firestore
 ): Promise<{ sent: boolean; message: string; details?: any }> {
+  if (WHATSAPP_TEMPORARILY_DISABLED) {
+    return {
+      sent: false,
+      message: 'Notifikasi WhatsApp dinonaktifkan sementara.'
+    };
+  }
+
   // Notifikasi WhatsApp ditiadakan saat Laporan Resmi Diarsipkan oleh bendahara.
   // Notifikasi WhatsApp hanya sampai laporan disetujui dan disahkan saja (COMPLETED).
   if (status === ReportStatus.ARCHIVED) {
@@ -325,6 +335,12 @@ export async function sendWhatsappVerificationCode({
   activityName?: string;
   db: Firestore;
 }): Promise<{ success: boolean; message: string }> {
+  if (WHATSAPP_TEMPORARILY_DISABLED) {
+    return {
+      success: false,
+      message: 'Verifikasi WhatsApp dinonaktifkan sementara.'
+    };
+  }
   try {
     const settings = await getWhatsappSettings(db);
     if (!settings.enabled) {

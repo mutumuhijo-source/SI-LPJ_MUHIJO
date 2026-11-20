@@ -58,7 +58,7 @@ import { WhatsAppSettings } from './components/WhatsAppSettings';
 import { SettingsPage } from './components/SettingsPage';
 import { MemoBudgetPage } from './components/MemoBudgetPage';
 import { MemorialKasTunaiPage } from './components/MemorialKasTunaiPage';
-import { sendReportStatusNotification, sendWhatsappVerificationCode } from './services/whatsapp';
+import { sendReportStatusNotification, sendWhatsappVerificationCode, WHATSAPP_TEMPORARILY_DISABLED } from './services/whatsapp';
 import { formatCurrency, parseAmount, terbilang } from './lib/utils';
 import { calculateFullBkkSummary, CalculatedBkkSummary, getBkkSettingsFromCache, createPendingDisbursementFromReport } from './lib/bkk-calculator';
 
@@ -716,14 +716,16 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
     e.preventDefault();
     if (!formData.unitId || !formData.activityName) return;
 
-    if (!formData.whatsappNumber || !formData.whatsappNumber.trim()) {
-      safeAlert('Nomor WhatsApp Pengaju wajib diisi! Anggaran tidak dapat diajukan tanpa nomor WhatsApp untuk notifikasi status.');
-      return;
-    }
+    if (!WHATSAPP_TEMPORARILY_DISABLED) {
+      if (!formData.whatsappNumber || !formData.whatsappNumber.trim()) {
+        safeAlert('Nomor WhatsApp Pengaju wajib diisi! Anggaran tidak dapat diajukan tanpa nomor WhatsApp untuk notifikasi status.');
+        return;
+      }
 
-    if (!isWaVerified && !isAdmin) {
-      safeAlert('Nomor WhatsApp wajib diverifikasi aktif terlebih dahulu!\nSilakan klik tombol "Verifikasi Nomor WhatsApp" untuk memastikan nomor aktif menerima notifikasi.');
-      return;
+      if (!isWaVerified && !isAdmin) {
+        safeAlert('Nomor WhatsApp wajib diverifikasi aktif terlebih dahulu!\nSilakan klik tombol "Verifikasi Nomor WhatsApp" untuk memastikan nomor aktif menerima notifikasi.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -787,8 +789,8 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
         bendaharaJabatan: formData.bendaharaJabatan,
         submissionDate: formData.submissionDate,
         whatsappNumber: formData.whatsappNumber || '',
-        whatsappVerified: isWaVerified || isAdmin,
-        whatsappVerifiedAt: isWaVerified ? new Date().toISOString() : undefined,
+        whatsappVerified: WHATSAPP_TEMPORARILY_DISABLED ? Boolean(editReport?.whatsappVerified) : (isWaVerified || isAdmin),
+        whatsappVerifiedAt: isWaVerified ? new Date().toISOString() : (editReport?.whatsappVerifiedAt || null),
         includeWakaSignature: Boolean(formData.includeWakaSignature),
         wakaName: formData.wakaName || '',
         wakaJabatan: formData.wakaJabatan || ''
@@ -797,13 +799,13 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
       if (editReport?.id) {
         await setDoc(doc(db, 'reports', editReport.id), payload as any, { merge: true });
         // Jika ada perubahan status dan nomor WhatsApp terisi, kirim notifikasi
-        if (finalStatus !== editReport.status && formData.whatsappNumber) {
+        if (!WHATSAPP_TEMPORARILY_DISABLED && finalStatus !== editReport.status && formData.whatsappNumber) {
           sendReportStatusNotification({ id: editReport.id, ...payload } as any, finalStatus, undefined, db).catch(console.error);
         }
       } else {
         const newDocRef = await addDoc(collection(db, 'reports'), payload as any);
         // Kirim notifikasi pengajuan baru via WhatsApp ke pengaju
-        if (formData.whatsappNumber) {
+        if (!WHATSAPP_TEMPORARILY_DISABLED && formData.whatsappNumber) {
           sendReportStatusNotification({ id: newDocRef.id, ...payload } as any, ReportStatus.BUDGET_PROPOSAL, undefined, db).catch(console.error);
         }
       }
@@ -908,7 +910,30 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
             </div>
           </div>
 
-          {/* Nomor WhatsApp Pengaju & Verifikasi Aktif */}
+          {/* Nomor WhatsApp Pengaju (Opsional saat verifikasi & notifikasi WA dinonaktifkan sementara) */}
+          {WHATSAPP_TEMPORARILY_DISABLED ? (
+            <div className="p-6 border border-natural-border rounded-3xl space-y-3 bg-natural-input/30">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-xs uppercase tracking-wider font-bold text-natural-primary flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-natural-secondary" />
+                  Nomor WhatsApp Pengaju (Opsional)
+                </label>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                  Verifikasi & Notifikasi WA Nonaktif Sementara
+                </span>
+              </div>
+              <input 
+                type="tel"
+                className="w-full p-4 bg-white rounded-2xl border border-natural-border text-sm font-mono font-bold text-natural-primary focus:ring-2 focus:ring-natural-primary/20 outline-none placeholder:text-natural-secondary/50 transition-all"
+                placeholder="Contoh: 081234567890 (opsional, boleh dikosongkan)"
+                value={formData.whatsappNumber}
+                onChange={(e) => setFormData({...formData, whatsappNumber: e.target.value})}
+              />
+              <p className="text-xs text-natural-secondary italic">
+                *Kewajiban verifikasi dan notifikasi otomatis WhatsApp sedang dinonaktifkan sementara. Pengajuan dapat langsung dikirim tanpa verifikasi WhatsApp.
+              </p>
+            </div>
+          ) : (
           <div className={`p-6 border rounded-3xl space-y-4 transition-all ${isWaVerified ? 'bg-emerald-50/60 border-emerald-300' : 'bg-amber-50/50 border-amber-200'}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="text-xs uppercase tracking-wider font-bold text-natural-primary flex items-center gap-2">
@@ -1015,6 +1040,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
               </p>
             )}
           </div>
+          )}
 
           {/* Opsi Tanda Tangan Mengetahui Waka */}
           <div className="p-6 bg-natural-input/40 border border-natural-border rounded-3xl space-y-4">
@@ -2136,10 +2162,24 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                    Notifikasi WhatsApp Pengaju
+                    Kontak WhatsApp Pengaju
                   </span>
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${report.whatsappVerified ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : report.whatsappNumber ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                    {report.whatsappVerified ? '✅ Terverifikasi Aktif' : report.whatsappNumber ? 'Nomor Terdaftar' : 'Belum Ada Nomor'}
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                    WHATSAPP_TEMPORARILY_DISABLED
+                      ? 'bg-slate-100 text-slate-600 border border-slate-200'
+                      : report.whatsappVerified
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : report.whatsappNumber
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {WHATSAPP_TEMPORARILY_DISABLED
+                      ? 'Notifikasi Nonaktif Sementara'
+                      : report.whatsappVerified
+                        ? '✅ Terverifikasi Aktif'
+                        : report.whatsappNumber
+                          ? 'Nomor Terdaftar'
+                          : 'Belum Ada Nomor'}
                   </span>
                 </div>
                 {editingWa ? (
@@ -4119,7 +4159,7 @@ const MainDashboard = () => {
 
       // Kirim Notifikasi WhatsApp Otomatis ke Pengaju via Fonnte.com
       // Notifikasi hanya sampai laporan disetujui & disahkan (COMPLETED), ditiadakan saat diarsipkan (ARCHIVED)
-      if (newStatus !== ReportStatus.ARCHIVED && targetReport) {
+      if (!WHATSAPP_TEMPORARILY_DISABLED && newStatus !== ReportStatus.ARCHIVED && targetReport) {
         const mergedReport: Report = {
           ...targetReport,
           status: newStatus,
