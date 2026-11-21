@@ -9,6 +9,31 @@ export const WHATSAPP_TEMPORARILY_DISABLED = false;
 export const DEFAULT_WABA_API_VERSION = 'v21.0';
 export const DEFAULT_STATUS_TEMPLATE_NAME = 'elapor_notifikasi_status';
 export const DEFAULT_OTP_TEMPLATE_NAME = 'elapor_verifikasi_otp';
+export const DEFAULT_OTP_UTILITY_TEMPLATE_NAME = 'elapor_verifikasi_kode';
+
+export const STATUS_TEMPLATE_PRESET_BODY =
+  `Pemberitahuan Status E-Lapor Bendahara ({{1}})\n\n` +
+  `Unit Kerja: {{2}}\n` +
+  `Kegiatan: {{3}}\n` +
+  `Nominal / Realisasi: {{4}}\n` +
+  `Keterangan: {{5}}\n` +
+  `Catatan Bendahara: {{6}}\n\n` +
+  `Silakan buka sistem E-Lapor SMK Muhammadiyah 1 Ngadirejo untuk melihat rincian dan tindak lanjut.`;
+
+export const STATUS_TEMPLATE_PRESET_EXAMPLES = [
+  'Anggaran Disetujui',
+  'Kurikulum',
+  'Workshop Kurikulum Merdeka',
+  'Rp 5.000.000',
+  'Pengajuan anggaran disetujui oleh Bendahara. Silakan koordinasi jadwal pelaksanaan.',
+  'Harap melampirkan nota asli saat pelaporan'
+];
+
+export const OTP_UTILITY_TEMPLATE_BODY =
+  `Kode verifikasi WhatsApp E-Lapor Bendahara Anda adalah *{{1}}*.\n\n` +
+  `Masukkan kode 6 digit ini pada form pengajuan anggaran. Demi keamanan, jangan bagikan kode ini kepada siapa pun.`;
+
+export const OTP_UTILITY_TEMPLATE_EXAMPLES = ['482910'];
 
 export const DEFAULT_WHATSAPP_SETTINGS: WhatsappSettings = {
   enabled: true,
@@ -20,6 +45,7 @@ export const DEFAULT_WHATSAPP_SETTINGS: WhatsappSettings = {
   statusTemplateLanguage: 'id',
   otpTemplateName: DEFAULT_OTP_TEMPLATE_NAME,
   otpTemplateLanguage: 'id',
+  otpTemplateMode: 'AUTHENTICATION',
   requireOtpVerification: false,
   senderName: 'Bendahara SMK MUH 1 NGADIREJO',
   schoolName: 'SMK MUHAMMADIYAH 1 NGADIREJO'
@@ -1014,7 +1040,123 @@ export async function sendReportStatusNotification(
 }
 
 /**
- * Mengirim kode OTP verifikasi ke nomor WhatsApp pengaju melalui Template Authentication WABA Official
+ * Pengajuan cepat 1-klik untuk preset template resmi E-Lapor (Status, OTP Auth, atau OTP Teks Sederhana)
+ */
+export async function quickSubmitTemplatePreset({
+  preset,
+  accessToken,
+  wabaAccountId,
+  apiVersion = DEFAULT_WABA_API_VERSION,
+  language = 'id'
+}: {
+  preset: 'status' | 'otp_auth' | 'otp_utility';
+  accessToken: string;
+  wabaAccountId: string;
+  apiVersion?: string;
+  language?: string;
+}) {
+  if (preset === 'otp_auth') {
+    return submitWabaTemplate({
+      accessToken,
+      wabaAccountId,
+      apiVersion,
+      name: DEFAULT_OTP_TEMPLATE_NAME,
+      category: 'AUTHENTICATION',
+      language,
+      addSecurityRecommendation: true,
+      codeExpirationMinutes: 10,
+      otpButtonText: 'Salin Kode'
+    });
+  }
+
+  if (preset === 'otp_utility') {
+    return submitWabaTemplate({
+      accessToken,
+      wabaAccountId,
+      apiVersion,
+      name: DEFAULT_OTP_UTILITY_TEMPLATE_NAME,
+      category: 'UTILITY',
+      language,
+      bodyText: OTP_UTILITY_TEMPLATE_BODY,
+      bodyExamples: OTP_UTILITY_TEMPLATE_EXAMPLES,
+      footerText: 'E-Lapor SMK Muhammadiyah 1 Ngadirejo'
+    });
+  }
+
+  return submitWabaTemplate({
+    accessToken,
+    wabaAccountId,
+    apiVersion,
+    name: DEFAULT_STATUS_TEMPLATE_NAME,
+    category: 'UTILITY',
+    language,
+    bodyText: STATUS_TEMPLATE_PRESET_BODY,
+    bodyExamples: STATUS_TEMPLATE_PRESET_EXAMPLES,
+    footerText: 'Sistem Informasi Keuangan E-Lapor SMK Muh 1 Ngadirejo'
+  });
+}
+
+/**
+ * Mengirim kode OTP verifikasi menggunakan pengaturan langsung (berguna untuk uji coba maupun alur pengajuan)
+ */
+export async function sendOtpWithWabaSettings({
+  settings,
+  phone,
+  code
+}: {
+  settings: WhatsappSettings;
+  phone: string;
+  code: string;
+}): Promise<{ success: boolean; message: string; response?: any }> {
+  const mode = settings.otpTemplateMode || 'AUTHENTICATION';
+  const templateName = settings.otpTemplateName || (mode === 'UTILITY' ? DEFAULT_OTP_UTILITY_TEMPLATE_NAME : DEFAULT_OTP_TEMPLATE_NAME);
+  const languageCode = settings.otpTemplateLanguage || 'id';
+
+  if (mode === 'UTILITY') {
+    return sendWabaTemplateMessage({
+      accessToken: settings.wabaAccessToken,
+      phoneNumberId: settings.wabaPhoneNumberId,
+      apiVersion: settings.wabaApiVersion || DEFAULT_WABA_API_VERSION,
+      target: phone,
+      templateName,
+      languageCode,
+      bodyParams: [code]
+    });
+  }
+
+  // Mode AUTHENTICATION (Meta Copy Code OTP membutuhkan bodyParams & buttonUrlParams)
+  const res = await sendWabaTemplateMessage({
+    accessToken: settings.wabaAccessToken,
+    phoneNumberId: settings.wabaPhoneNumberId,
+    apiVersion: settings.wabaApiVersion || DEFAULT_WABA_API_VERSION,
+    target: phone,
+    templateName,
+    languageCode,
+    bodyParams: [code],
+    buttonUrlParams: [code]
+  });
+
+  // Fallback otomatis jika ternyata template di Meta bertipe teks/tanpa tombol OTP
+  const errCode = res.response?.error?.code;
+  const errMsg = String(res.response?.error?.message || res.message || '');
+  if (!res.success && (errCode === 132000 || errCode === 132012 || /button|parameter/i.test(errMsg))) {
+    const retryRes = await sendWabaTemplateMessage({
+      accessToken: settings.wabaAccessToken,
+      phoneNumberId: settings.wabaPhoneNumberId,
+      apiVersion: settings.wabaApiVersion || DEFAULT_WABA_API_VERSION,
+      target: phone,
+      templateName,
+      languageCode,
+      bodyParams: [code]
+    });
+    if (retryRes.success) return retryRes;
+  }
+
+  return res;
+}
+
+/**
+ * Mengirim kode OTP verifikasi ke nomor WhatsApp pengaju melalui Template WABA Official
  */
 export async function sendWhatsappVerificationCode({
   phone,
@@ -1046,17 +1188,7 @@ export async function sendWhatsappVerificationCode({
       };
     }
 
-    const res = await sendWabaTemplateMessage({
-      accessToken: settings.wabaAccessToken,
-      phoneNumberId: settings.wabaPhoneNumberId,
-      apiVersion: settings.wabaApiVersion || DEFAULT_WABA_API_VERSION,
-      target: phone,
-      templateName: settings.otpTemplateName || DEFAULT_OTP_TEMPLATE_NAME,
-      languageCode: settings.otpTemplateLanguage || 'id',
-      bodyParams: [code],
-      buttonUrlParams: [code]
-    });
-
+    const res = await sendOtpWithWabaSettings({ settings, phone, code });
     return {
       success: res.success,
       message: res.message

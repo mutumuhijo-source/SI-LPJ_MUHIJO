@@ -17,7 +17,11 @@ import {
   Trash2,
   Sparkles,
   Check,
-  Copy
+  Copy,
+  Zap,
+  KeyRound,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Firestore } from 'firebase/firestore';
 import { safeConfirm } from '../lib/utils';
@@ -26,7 +30,9 @@ import {
   saveWhatsappSettings, 
   sendWabaTemplateMessage,
   sendWabaTextMessage,
+  sendOtpWithWabaSettings,
   submitWabaTemplate,
+  quickSubmitTemplatePreset,
   fetchWabaTemplates,
   deleteWabaTemplate,
   verifyWabaConnection,
@@ -38,26 +44,13 @@ import {
   DEFAULT_WABA_API_VERSION,
   DEFAULT_STATUS_TEMPLATE_NAME,
   DEFAULT_OTP_TEMPLATE_NAME,
+  DEFAULT_OTP_UTILITY_TEMPLATE_NAME,
+  STATUS_TEMPLATE_PRESET_BODY,
+  STATUS_TEMPLATE_PRESET_EXAMPLES,
+  OTP_UTILITY_TEMPLATE_BODY,
+  OTP_UTILITY_TEMPLATE_EXAMPLES,
   WabaTemplateRecord
 } from '../services/whatsapp';
-
-const STATUS_TEMPLATE_PRESET_BODY =
-  `Pemberitahuan Status E-Lapor Bendahara ({{1}})\n\n` +
-  `Unit Kerja: {{2}}\n` +
-  `Kegiatan: {{3}}\n` +
-  `Nominal / Realisasi: {{4}}\n` +
-  `Keterangan: {{5}}\n` +
-  `Catatan Bendahara: {{6}}\n\n` +
-  `Silakan buka sistem E-Lapor SMK Muhammadiyah 1 Ngadirejo untuk melihat rincian dan tindak lanjut.`;
-
-const STATUS_TEMPLATE_PRESET_EXAMPLES = [
-  'Anggaran Disetujui',
-  'Kurikulum',
-  'Workshop Kurikulum Merdeka',
-  'Rp 5.000.000',
-  'Pengajuan anggaran disetujui oleh Bendahara. Silakan koordinasi jadwal pelaksanaan.',
-  'Harap melampirkan nota asli saat pelaporan'
-];
 
 export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?: string }) => {
   const [settings, setSettings] = useState<IWhatsappSettings>(DEFAULT_WHATSAPP_SETTINGS);
@@ -82,6 +75,9 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
   const [tplAuthExpMin, setTplAuthExpMin] = useState(10);
   const [tplAuthBtnText, setTplAuthBtnText] = useState('Salin Kode');
   const [submittingTpl, setSubmittingTpl] = useState(false);
+  const [quickSubmitting, setQuickSubmitting] = useState<string | null>(null);
+  const [quickLang, setQuickLang] = useState('id');
+  const [showCustomEditor, setShowCustomEditor] = useState(false);
   const [submitTplResult, setSubmitTplResult] = useState<{ success: boolean; message: string; response?: any } | null>(null);
   const [copiedTpl, setCopiedTpl] = useState(false);
 
@@ -105,8 +101,9 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
   const [templatesMessage, setTemplatesMessage] = useState<{ success: boolean; text: string } | null>(null);
 
   // Test send state
-  const [testMode, setTestMode] = useState<'template' | 'text'>('template');
+  const [testMode, setTestMode] = useState<'template' | 'otp' | 'text'>('template');
   const [testNumber, setTestNumber] = useState('');
+  const [testOtpCode, setTestOtpCode] = useState('123456');
   const [testTemplateName, setTestTemplateName] = useState(DEFAULT_STATUS_TEMPLATE_NAME);
   const [testTemplateLang, setTestTemplateLang] = useState('id');
   const [testTemplateParams, setTestTemplateParams] = useState(STATUS_TEMPLATE_PRESET_EXAMPLES.join(' | '));
@@ -153,25 +150,150 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
   const handleApplyStatusPreset = () => {
     setTplName(DEFAULT_STATUS_TEMPLATE_NAME);
     setTplCategory('UTILITY');
-    setTplLanguage('id');
+    setTplLanguage(quickLang);
     setTplHeaderText('');
     setTplHeaderExample('');
     setTplBodyText(STATUS_TEMPLATE_PRESET_BODY);
     setTplBodyExamples([...STATUS_TEMPLATE_PRESET_EXAMPLES]);
     setTplFooterText('Sistem Informasi Keuangan E-Lapor SMK Muh 1 Ngadirejo');
     setSubmitTplResult(null);
+    setShowCustomEditor(true);
   };
 
   const handleApplyOtpPreset = () => {
     setTplName(DEFAULT_OTP_TEMPLATE_NAME);
     setTplCategory('AUTHENTICATION');
-    setTplLanguage('id');
+    setTplLanguage(quickLang);
     setTplHeaderText('');
     setTplHeaderExample('');
     setTplAuthAddSec(true);
     setTplAuthExpMin(10);
     setTplAuthBtnText('Salin Kode');
     setSubmitTplResult(null);
+    setShowCustomEditor(true);
+  };
+
+  const handleApplyOtpUtilityPreset = () => {
+    setTplName(DEFAULT_OTP_UTILITY_TEMPLATE_NAME);
+    setTplCategory('UTILITY');
+    setTplLanguage(quickLang);
+    setTplHeaderText('');
+    setTplHeaderExample('');
+    setTplBodyText(OTP_UTILITY_TEMPLATE_BODY);
+    setTplBodyExamples([...OTP_UTILITY_TEMPLATE_EXAMPLES]);
+    setTplFooterText('E-Lapor SMK Muhammadiyah 1 Ngadirejo');
+    setSubmitTplResult(null);
+    setShowCustomEditor(true);
+  };
+
+  const applyTemplateSelectionAndSave = async (patch: Partial<IWhatsappSettings>, infoText: string) => {
+    const nextSettings = { ...settings, ...patch };
+    setSettings(nextSettings);
+    try {
+      await saveWhatsappSettings(db, nextSettings, userEmail);
+      setTemplatesMessage({ success: true, text: infoText });
+    } catch (err: any) {
+      setTemplatesMessage({ success: false, text: 'Template dipilih, tetapi gagal auto-simpan: ' + err.message });
+    }
+  };
+
+  const handleQuickSubmit = async (preset: 'status' | 'otp_auth' | 'otp_utility' | 'bundle') => {
+    setQuickSubmitting(preset);
+    setSubmitTplResult(null);
+
+    const token = sanitizeWabaToken(settings.wabaAccessToken);
+    const wabaId = sanitizeWabaId(settings.wabaAccountId);
+    const version = normalizeWabaApiVersion(settings.wabaApiVersion);
+
+    if (preset === 'bundle') {
+      const [statusRes, otpRes] = await Promise.all([
+        quickSubmitTemplatePreset({
+          preset: 'status',
+          accessToken: token,
+          wabaAccountId: wabaId,
+          apiVersion: version,
+          language: quickLang
+        }),
+        quickSubmitTemplatePreset({
+          preset: 'otp_auth',
+          accessToken: token,
+          wabaAccountId: wabaId,
+          apiVersion: version,
+          language: quickLang
+        })
+      ]);
+
+      const alreadyStatus = /already exists|sudah ada/i.test(statusRes.message);
+      const alreadyOtp = /already exists|sudah ada/i.test(otpRes.message);
+      const okStatus = statusRes.success || alreadyStatus;
+      const okOtp = otpRes.success || alreadyOtp;
+
+      if (okStatus || okOtp) {
+        const patch: Partial<IWhatsappSettings> = {};
+        if (okStatus) {
+          patch.statusTemplateName = DEFAULT_STATUS_TEMPLATE_NAME;
+          patch.statusTemplateLanguage = quickLang;
+        }
+        if (okOtp) {
+          patch.otpTemplateName = DEFAULT_OTP_TEMPLATE_NAME;
+          patch.otpTemplateLanguage = quickLang;
+          patch.otpTemplateMode = 'AUTHENTICATION';
+        }
+        const nextSettings = { ...settings, ...patch };
+        setSettings(nextSettings);
+        await saveWhatsappSettings(db, nextSettings, userEmail).catch(console.warn);
+        handleFetchTemplates();
+      }
+
+      setSubmitTplResult({
+        success: okStatus && okOtp,
+        message: `Status Notifikasi: ${statusRes.success ? 'Berhasil diajukan!' : statusRes.message} | Template OTP: ${otpRes.success ? 'Berhasil diajukan!' : otpRes.message}`,
+        response: okStatus && okOtp ? { status: statusRes.response, otp: otpRes.response } : (otpRes.response || statusRes.response)
+      });
+      setQuickSubmitting(null);
+      return;
+    }
+
+    const res = await quickSubmitTemplatePreset({
+      preset,
+      accessToken: token,
+      wabaAccountId: wabaId,
+      apiVersion: version,
+      language: quickLang
+    });
+
+    const isAlreadyExists = /already exists|sudah ada/i.test(res.message);
+    if (res.success || isAlreadyExists) {
+      const patch: Partial<IWhatsappSettings> =
+        preset === 'status'
+          ? { statusTemplateName: DEFAULT_STATUS_TEMPLATE_NAME, statusTemplateLanguage: quickLang }
+          : preset === 'otp_auth'
+            ? {
+                otpTemplateName: DEFAULT_OTP_TEMPLATE_NAME,
+                otpTemplateLanguage: quickLang,
+                otpTemplateMode: 'AUTHENTICATION'
+              }
+            : {
+                otpTemplateName: DEFAULT_OTP_UTILITY_TEMPLATE_NAME,
+                otpTemplateLanguage: quickLang,
+                otpTemplateMode: 'UTILITY'
+              };
+      const nextSettings = { ...settings, ...patch };
+      setSettings(nextSettings);
+      await saveWhatsappSettings(db, nextSettings, userEmail).catch(console.warn);
+      handleFetchTemplates();
+    }
+
+    setSubmitTplResult({
+      success: res.success,
+      message: isAlreadyExists
+        ? `Template sudah terdaftar di WABA Official Anda dan langsung dipasang otomatis ke pengaturan sistem.`
+        : res.success
+          ? `${res.message} Template juga langsung dipasang otomatis ke pengaturan sistem.`
+          : res.message,
+      response: res.response
+    });
+    setQuickSubmitting(null);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -299,7 +421,15 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
     setTesting(true);
     setTestResult(null);
     try {
-      if (testMode === 'template') {
+      if (testMode === 'otp') {
+        const cleanCode = (testOtpCode || '123456').trim();
+        const res = await sendOtpWithWabaSettings({
+          settings,
+          phone: testNumber,
+          code: cleanCode
+        });
+        setTestResult({ success: res.success, message: res.message, details: res.response });
+      } else if (testMode === 'template') {
         const parsedParams = testTemplateParams.trim()
           ? testTemplateParams.split('|').map(p => p.trim()).filter(Boolean)
           : [];
@@ -524,7 +654,7 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
 
               <div className="space-y-1.5">
                 <label className="text-[10px] uppercase font-bold tracking-wider text-natural-secondary">
-                  Nama Template Verifikasi OTP (Authentication)
+                  Nama &amp; Tipe Template Verifikasi Kode (OTP)
                 </label>
                 <div className="flex gap-2">
                   <input 
@@ -536,12 +666,21 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
                   />
                   <input 
                     type="text"
-                    className="w-20 p-3 bg-white border border-natural-border rounded-xl font-mono text-xs font-bold text-center outline-none focus:border-natural-primary" 
+                    className="w-16 p-3 bg-white border border-natural-border rounded-xl font-mono text-xs font-bold text-center outline-none focus:border-natural-primary" 
                     placeholder="id"
                     title="Kode Bahasa (misal: id atau en_US)"
                     value={settings.otpTemplateLanguage || 'id'}
                     onChange={e => setSettings({ ...settings, otpTemplateLanguage: e.target.value })}
                   />
+                  <select
+                    className="w-28 p-3 bg-white border border-natural-border rounded-xl text-[11px] font-bold outline-none focus:border-natural-primary"
+                    title="Mode Template Verifikasi Kode"
+                    value={settings.otpTemplateMode || 'AUTHENTICATION'}
+                    onChange={e => setSettings({ ...settings, otpTemplateMode: e.target.value as 'AUTHENTICATION' | 'UTILITY' })}
+                  >
+                    <option value="AUTHENTICATION">OTP Auth</option>
+                    <option value="UTILITY">Teks Utility</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -643,30 +782,188 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
               Ajukan Template WABA Official
             </h3>
             <p className="text-natural-secondary text-xs mt-1">
-              Buat dan ajukan template pesan baru langsung ke akun Meta WhatsApp Business API (WABA ID) untuk persetujuan resmi Meta.
+              Gunakan <strong>Pengajuan Kilat 1-Klik</strong> di bawah untuk langsung mendaftarkan &amp; memasang template tanpa repot mengetik parameter manual.
             </p>
           </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] uppercase font-bold text-natural-secondary">Bahasa:</span>
+            <select
+              className="px-3 py-2 bg-natural-input border border-natural-border rounded-full text-xs font-bold outline-none"
+              value={quickLang}
+              onChange={e => setQuickLang(e.target.value)}
+            >
+              <option value="id">Indonesia (id)</option>
+              <option value="en_US">English US (en_US)</option>
+              <option value="en">English (en)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Pengajuan Kilat 1-Klik */}
+        <div className="p-6 bg-gradient-to-br from-emerald-50/70 via-white to-blue-50/60 border border-emerald-200/80 rounded-3xl space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-800">
+                <Zap className="w-4 h-4 text-emerald-600" />
+                Pengajuan Kilat 1-Klik (Otomatis Diajukan &amp; Dipasang)
+              </div>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                Khusus <strong>Template Verifikasi Kode</strong> tersedia 2 pilihan: <em>OTP Resmi Meta</em> (tanpa edit teks) atau <em>OTP Teks Sederhana</em> (lebih mudah disetujui).
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={!!quickSubmitting || !settings.wabaAccessToken || !settings.wabaAccountId}
+              onClick={() => handleQuickSubmit('bundle')}
+              className="px-5 py-2.5 bg-natural-primary hover:bg-natural-primary/90 disabled:opacity-50 text-white rounded-full text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer shrink-0"
+            >
+              {quickSubmitting === 'bundle' ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Mengajukan Paket...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>1-Klik Ajukan Semua (Status + OTP)</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Card 1: OTP Auth Resmi Meta */}
+            <div className="p-4 bg-white border border-blue-200 rounded-2xl flex flex-col justify-between gap-3 shadow-2xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">
+                    OTP Resmi (Auth)
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400">{DEFAULT_OTP_TEMPLATE_NAME}</span>
+                </div>
+                <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-blue-600" />
+                  Verifikasi Kode + Tombol Salin
+                </p>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Format OTP resmi dari Meta. Tidak perlu menulis isi pesan atau contoh variabel sama sekali.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={!!quickSubmitting || !settings.wabaAccessToken || !settings.wabaAccountId}
+                onClick={() => handleQuickSubmit('otp_auth')}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                {quickSubmitting === 'otp_auth' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                <span>{quickSubmitting === 'otp_auth' ? 'Mengajukan...' : 'Ajukan OTP Resmi'}</span>
+              </button>
+            </div>
+
+            {/* Card 2: OTP Utility Teks Sederhana */}
+            <div className="p-4 bg-white border border-indigo-200 rounded-2xl flex flex-col justify-between gap-3 shadow-2xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-full">
+                    OTP Sederhana (Utility)
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400">{DEFAULT_OTP_UTILITY_TEMPLATE_NAME}</span>
+                </div>
+                <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
+                  Teks 1 Variabel {'{{1}}'} (Cepat ACC)
+                </p>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Alternatif lebih simpel jika template <em>Authentication</em> ditolak/dibatasi. Cukup kirim teks kode 6 digit.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={!!quickSubmitting || !settings.wabaAccessToken || !settings.wabaAccountId}
+                onClick={() => handleQuickSubmit('otp_utility')}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                {quickSubmitting === 'otp_utility' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                <span>{quickSubmitting === 'otp_utility' ? 'Mengajukan...' : 'Ajukan OTP Sederhana'}</span>
+              </button>
+            </div>
+
+            {/* Card 3: Notifikasi Status */}
+            <div className="p-4 bg-white border border-emerald-200 rounded-2xl flex flex-col justify-between gap-3 shadow-2xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">
+                    Status (Utility)
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400">{DEFAULT_STATUS_TEMPLATE_NAME}</span>
+                </div>
+                <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <BellRing className="w-3.5 h-3.5 text-emerald-600" />
+                  Notifikasi Anggaran &amp; LPJ
+                </p>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Mengirim status pengajuan, persetujuan, instruksi LPJ, revisi, dan pengesahan secara otomatis.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={!!quickSubmitting || !settings.wabaAccessToken || !settings.wabaAccountId}
+                onClick={() => handleQuickSubmit('status')}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                {quickSubmitting === 'status' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                <span>{quickSubmitting === 'status' ? 'Mengajukan...' : 'Ajukan Template Status'}</span>
+              </button>
+            </div>
+          </div>
+
+          {(!settings.wabaAccessToken || !settings.wabaAccountId) && (
+            <p className="text-[11px] text-amber-800 font-medium">
+              *Lengkapi <strong>Permanent Access Token</strong> dan <strong>WABA Account ID</strong> terlebih dahulu agar tombol pengajuan kilat aktif.
+            </p>
+          )}
+        </div>
+
+        {/* Toggle Editor Kustom / Lanjutan */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <button
+            type="button"
+            onClick={() => setShowCustomEditor(!showCustomEditor)}
+            className="inline-flex items-center gap-2 text-xs font-bold text-natural-primary hover:text-emerald-700 transition-colors cursor-pointer"
+          >
+            {showCustomEditor ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            <span>{showCustomEditor ? 'Sembunyikan Editor Template Kustom' : 'Buka Editor Template Kustom & Pratinjau (Opsional)'}</span>
+          </button>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={handleApplyStatusPreset}
-              className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              Preset Template Status E-Lapor
+              <Sparkles className="w-3 h-3" />
+              Edit Preset Status
             </button>
             <button
               type="button"
               onClick={handleApplyOtpPreset}
-              className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-full text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-full text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              Preset Template OTP
+              <Sparkles className="w-3 h-3" />
+              Edit OTP Resmi
+            </button>
+            <button
+              type="button"
+              onClick={handleApplyOtpUtilityPreset}
+              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-full text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <Sparkles className="w-3 h-3" />
+              Edit OTP Sederhana
             </button>
           </div>
         </div>
 
-        <form onSubmit={handleSubmitTemplate} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {showCustomEditor && (
+        <form onSubmit={handleSubmitTemplate} className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-2 border-t border-natural-bg">
           <div className="lg:col-span-7 space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-1 space-y-1.5">
@@ -915,6 +1212,7 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
             </div>
           </div>
         </form>
+        )}
 
         {submitTplResult && (
           <div className={`p-5 rounded-2xl border flex items-start gap-3 text-sm ${submitTplResult.success ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`}>
@@ -1047,13 +1345,15 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setSettings(prev => ({
-                                    ...prev,
-                                    statusTemplateName: tpl.name,
-                                    statusTemplateLanguage: tpl.language
-                                  }));
                                   setTestTemplateName(tpl.name);
                                   setTestTemplateLang(tpl.language);
+                                  applyTemplateSelectionAndSave(
+                                    {
+                                      statusTemplateName: tpl.name,
+                                      statusTemplateLanguage: tpl.language
+                                    },
+                                    `Template status "${tpl.name}" (${tpl.language}) dipilih dan otomatis disimpan.`
+                                  );
                                 }}
                                 className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
                                 title="Gunakan template ini untuk notifikasi status"
@@ -1062,23 +1362,26 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
                                 Pakai Status
                               </button>
                             )}
-                            {tpl.category === 'AUTHENTICATION' && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSettings(prev => ({
-                                    ...prev,
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const detectedMode: 'AUTHENTICATION' | 'UTILITY' =
+                                  tpl.category === 'AUTHENTICATION' ? 'AUTHENTICATION' : 'UTILITY';
+                                applyTemplateSelectionAndSave(
+                                  {
                                     otpTemplateName: tpl.name,
-                                    otpTemplateLanguage: tpl.language
-                                  }));
-                                }}
-                                className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 border border-blue-200 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
-                                title="Gunakan template ini untuk OTP"
-                              >
-                                <Check className="w-3 h-3" />
-                                Pakai OTP
-                              </button>
-                            )}
+                                    otpTemplateLanguage: tpl.language,
+                                    otpTemplateMode: detectedMode
+                                  },
+                                  `Template verifikasi OTP "${tpl.name}" (${tpl.language} • ${detectedMode}) dipilih dan otomatis disimpan.`
+                                );
+                              }}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 border border-blue-200 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                              title="Gunakan template ini untuk pengiriman kode verifikasi OTP"
+                            >
+                              <Check className="w-3 h-3" />
+                              Pakai OTP
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteTemplate(tpl.name)}
@@ -1111,7 +1414,7 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
               Kirim pesan uji coba menggunakan Template WABA yang sudah disetujui atau pesan teks dalam jendela 24 jam.
             </p>
           </div>
-          <div className="flex bg-natural-bg p-1 rounded-full border border-natural-border">
+          <div className="flex flex-wrap bg-natural-bg p-1 rounded-full border border-natural-border">
             <button
               type="button"
               onClick={() => setTestMode('template')}
@@ -1119,7 +1422,16 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
                 testMode === 'template' ? 'bg-natural-primary text-white shadow-xs' : 'text-natural-secondary'
               }`}
             >
-              Mode Template
+              Mode Status
+            </button>
+            <button
+              type="button"
+              onClick={() => setTestMode('otp')}
+              className={`px-4 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer ${
+                testMode === 'otp' ? 'bg-blue-600 text-white shadow-xs' : 'text-natural-secondary'
+              }`}
+            >
+              Mode OTP (Kode Verifikasi)
             </button>
             <button
               type="button"
@@ -1150,7 +1462,25 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
             </div>
           </div>
 
-          {testMode === 'template' ? (
+          {testMode === 'otp' ? (
+            <>
+              <div className="space-y-1.5 focus-within:text-natural-primary">
+                <label className="text-[10px] uppercase font-bold tracking-wider text-natural-secondary">
+                  Kode OTP Uji Coba (6 Digit)
+                </label>
+                <input 
+                  type="text"
+                  maxLength={8}
+                  className="w-full p-4 bg-natural-input border-b-2 border-natural-border focus:border-natural-primary outline-none text-sm font-mono font-bold tracking-widest" 
+                  value={testOtpCode}
+                  onChange={e => setTestOtpCode(e.target.value)}
+                />
+              </div>
+              <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl text-[11px] text-blue-900">
+                Memakai template OTP aktif: <strong className="font-mono">{settings.otpTemplateName || DEFAULT_OTP_TEMPLATE_NAME}</strong> ({settings.otpTemplateLanguage || 'id'} • {settings.otpTemplateMode || 'AUTHENTICATION'})
+              </div>
+            </>
+          ) : testMode === 'template' ? (
             <>
               <div className="space-y-1.5 focus-within:text-natural-primary">
                 <label className="text-[10px] uppercase font-bold tracking-wider text-natural-secondary">

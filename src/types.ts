@@ -92,6 +92,7 @@ export interface WhatsappSettings {
   statusTemplateLanguage?: string;
   otpTemplateName?: string;
   otpTemplateLanguage?: string;
+  otpTemplateMode?: 'AUTHENTICATION' | 'UTILITY';
   requireOtpVerification?: boolean;
   fonnteToken?: string;
   senderName?: string;
