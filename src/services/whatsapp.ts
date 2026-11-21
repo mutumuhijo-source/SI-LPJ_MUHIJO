@@ -1,47 +1,91 @@
 import { doc, getDoc, setDoc, Firestore } from 'firebase/firestore';
-import { Report, ReportStatus } from '../types';
+import { Report, ReportStatus, WhatsappSettings } from '../types';
 
-export interface WhatsappSettings {
-  fonnteToken: string;
-  enabled: boolean;
-  senderName?: string;
-  schoolName?: string;
-  updatedAt?: any;
-  updatedBy?: string;
-}
+export type { WhatsappSettings };
 
-// Flag sementara untuk menonaktifkan kewajiban verifikasi & notifikasi WhatsApp saat layanan bermasalah
-export const WHATSAPP_TEMPORARILY_DISABLED = true;
+// Flag global untuk mengaktifkan/menonaktifkan notifikasi WhatsApp secara instan
+export const WHATSAPP_TEMPORARILY_DISABLED = false;
+
+export const DEFAULT_WABA_API_VERSION = 'v21.0';
+export const DEFAULT_STATUS_TEMPLATE_NAME = 'elapor_notifikasi_status';
+export const DEFAULT_OTP_TEMPLATE_NAME = 'elapor_verifikasi_otp';
 
 export const DEFAULT_WHATSAPP_SETTINGS: WhatsappSettings = {
-  fonnteToken: '',
   enabled: true,
+  wabaAccessToken: '',
+  wabaPhoneNumberId: '',
+  wabaAccountId: '',
+  wabaApiVersion: DEFAULT_WABA_API_VERSION,
+  statusTemplateName: DEFAULT_STATUS_TEMPLATE_NAME,
+  statusTemplateLanguage: 'id',
+  otpTemplateName: DEFAULT_OTP_TEMPLATE_NAME,
+  otpTemplateLanguage: 'id',
+  requireOtpVerification: false,
   senderName: 'Bendahara SMK MUH 1 NGADIREJO',
   schoolName: 'SMK MUHAMMADIYAH 1 NGADIREJO'
 };
 
+export interface WabaTemplateRecord {
+  id: string;
+  name: string;
+  status: string;
+  category: string;
+  language: string;
+  rejected_reason?: string;
+  components?: any[];
+}
+
+export interface WabaTemplateSubmission {
+  accessToken: string;
+  wabaAccountId: string;
+  apiVersion?: string;
+  name: string;
+  category: 'UTILITY' | 'AUTHENTICATION' | 'MARKETING';
+  language: string;
+  headerText?: string;
+  headerExample?: string;
+  bodyText?: string;
+  bodyExamples?: string[];
+  footerText?: string;
+  addSecurityRecommendation?: boolean;
+  codeExpirationMinutes?: number;
+  otpButtonText?: string;
+}
+
 /**
- * Format string nomor HP menjadi format standar WhatsApp yang diterima Fonnte
- * Contoh: '0812-3456-7890' -> '081234567890'
+ * Format string nomor HP menjadi format E.164 tanpa '+' untuk Meta WABA Official
+ * Contoh: '0812-3456-7890' -> '6281234567890', '+628123...' -> '628123...'
  */
 export function formatPhoneNumber(phone: string): string {
   if (!phone) return '';
-  // Ambil hanya digit
   let cleaned = phone.replace(/\D/g, '');
-  
-  // Jika diawali +62 atau 62, tetap atau jika diawali 08
+  if (!cleaned) return '';
+
   if (cleaned.startsWith('0')) {
-    // Fonnte bisa menerima format 08 atau 628 dengan countryCode 62
-    return cleaned;
+    return '62' + cleaned.slice(1);
   }
   if (cleaned.startsWith('8')) {
-    return '0' + cleaned;
+    return '62' + cleaned;
   }
   return cleaned;
 }
 
 /**
- * Mengambil konfigurasi WhatsApp dari Firestore
+ * Membersihkan parameter teks untuk Meta WABA Template API.
+ * Meta Cloud API menolak parameter yang kosong ("") atau mengandung newline (\n/\r), tab (\t), atau >4 spasi beruntun.
+ */
+export function sanitizeWabaParam(val?: string | number | null): string {
+  if (val === null || val === undefined) return '-';
+  const cleaned = String(val)
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  if (!cleaned) return '-';
+  return cleaned.length > 900 ? cleaned.slice(0, 897) + '...' : cleaned;
+}
+
+/**
+ * Mengambil konfigurasi WhatsApp WABA Official dari Firestore
  */
 export async function getWhatsappSettings(db: Firestore): Promise<WhatsappSettings> {
   try {
@@ -54,78 +98,473 @@ export async function getWhatsappSettings(db: Firestore): Promise<WhatsappSettin
     console.warn('Failed to fetch whatsapp settings from firestore:', e);
   }
 
-  // Fallback to env variable if available
-  const envToken = (import.meta as any).env?.VITE_FONNTE_TOKEN || '';
+  const envToken = (import.meta as any).env?.VITE_WABA_ACCESS_TOKEN || '';
+  const envPhoneId = (import.meta as any).env?.VITE_WABA_PHONE_NUMBER_ID || '';
+  const envWabaId = (import.meta as any).env?.VITE_WABA_ACCOUNT_ID || '';
   return {
     ...DEFAULT_WHATSAPP_SETTINGS,
-    fonnteToken: envToken
+    wabaAccessToken: envToken,
+    wabaPhoneNumberId: envPhoneId,
+    wabaAccountId: envWabaId
   };
 }
 
 /**
- * Menyimpan konfigurasi WhatsApp ke Firestore
+ * Menyimpan konfigurasi WhatsApp WABA Official ke Firestore
  */
-export async function saveWhatsappSettings(db: Firestore, settings: Partial<WhatsappSettings>, userEmail?: string): Promise<void> {
+export async function saveWhatsappSettings(
+  db: Firestore,
+  settings: Partial<WhatsappSettings>,
+  userEmail?: string
+): Promise<void> {
   const docRef = doc(db, 'settings', 'whatsapp');
-  await setDoc(docRef, {
-    ...settings,
-    updatedAt: new Date().toISOString(),
-    updatedBy: userEmail || 'admin'
-  }, { merge: true });
+  await setDoc(
+    docRef,
+    {
+      ...settings,
+      updatedAt: new Date().toISOString(),
+      updatedBy: userEmail || 'admin'
+    },
+    { merge: true }
+  );
 }
 
 /**
- * Kirim pesan WhatsApp melalui API Fonnte.com
+ * Kirim pesan template resmi melalui Meta WhatsApp Business Cloud API (WABA Official)
  */
-export async function sendFonnteMessage({
-  token,
+export async function sendWabaTemplateMessage({
+  accessToken,
+  phoneNumberId,
+  apiVersion = DEFAULT_WABA_API_VERSION,
   target,
-  message
+  templateName,
+  languageCode = 'id',
+  headerParams,
+  bodyParams,
+  buttonUrlParams
 }: {
-  token: string;
+  accessToken: string;
+  phoneNumberId: string;
+  apiVersion?: string;
   target: string;
-  message: string;
+  templateName: string;
+  languageCode?: string;
+  headerParams?: string[];
+  bodyParams?: string[];
+  buttonUrlParams?: string[];
 }): Promise<{ success: boolean; message: string; response?: any }> {
-  if (!token || !token.trim()) {
-    return { success: false, message: 'Token Fonnte belum dikonfigurasi.' };
+  if (!accessToken || !accessToken.trim()) {
+    return { success: false, message: 'Access Token WABA Official belum dikonfigurasi.' };
+  }
+  if (!phoneNumberId || !phoneNumberId.trim()) {
+    return { success: false, message: 'Phone Number ID WABA Official belum dikonfigurasi.' };
+  }
+  if (!templateName || !templateName.trim()) {
+    return { success: false, message: 'Nama template WABA belum diisi.' };
   }
 
   const cleanTarget = formatPhoneNumber(target);
-  if (!cleanTarget || cleanTarget.length < 8) {
+  if (!cleanTarget || cleanTarget.length < 9) {
+    return { success: false, message: 'Nomor WhatsApp tujuan tidak valid.' };
+  }
+
+  const components: any[] = [];
+  if (headerParams && headerParams.length > 0) {
+    components.push({
+      type: 'header',
+      parameters: headerParams.map(p => ({ type: 'text', text: sanitizeWabaParam(p) }))
+    });
+  }
+  if (bodyParams && bodyParams.length > 0) {
+    components.push({
+      type: 'body',
+      parameters: bodyParams.map(p => ({ type: 'text', text: sanitizeWabaParam(p) }))
+    });
+  }
+  if (buttonUrlParams && buttonUrlParams.length > 0) {
+    components.push({
+      type: 'button',
+      sub_type: 'url',
+      index: '0',
+      parameters: buttonUrlParams.map(p => ({ type: 'text', text: sanitizeWabaParam(p) }))
+    });
+  }
+
+  const payload: any = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: cleanTarget,
+    type: 'template',
+    template: {
+      name: templateName.trim(),
+      language: { code: languageCode.trim() || 'id' }
+    }
+  };
+  if (components.length > 0) {
+    payload.template.components = components;
+  }
+
+  try {
+    const version = (apiVersion || DEFAULT_WABA_API_VERSION).trim();
+    const url = `https://graph.facebook.com/${version}/${phoneNumberId.trim()}/messages`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken.trim()}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (res.ok && data?.messages?.[0]?.id) {
+      return {
+        success: true,
+        message: `Pesan template "${templateName}" berhasil dikirim via WABA Official.`,
+        response: data
+      };
+    } else {
+      const errMsg =
+        data?.error?.error_user_msg ||
+        data?.error?.message ||
+        'Gagal mengirim pesan template melalui Meta WABA Official.';
+      return {
+        success: false,
+        message: errMsg,
+        response: data
+      };
+    }
+  } catch (error: any) {
+    console.error('Error sending WhatsApp template via WABA Official:', error);
+    return {
+      success: false,
+      message: error.message || 'Terjadi kesalahan jaringan saat menghubungi Meta Graph API.'
+    };
+  }
+}
+
+/**
+ * Kirim pesan teks bebas melalui Meta WABA Official (berlaku dalam jendela layanan 24 jam)
+ */
+export async function sendWabaTextMessage({
+  accessToken,
+  phoneNumberId,
+  apiVersion = DEFAULT_WABA_API_VERSION,
+  target,
+  message
+}: {
+  accessToken: string;
+  phoneNumberId: string;
+  apiVersion?: string;
+  target: string;
+  message: string;
+}): Promise<{ success: boolean; message: string; response?: any }> {
+  if (!accessToken || !accessToken.trim()) {
+    return { success: false, message: 'Access Token WABA Official belum dikonfigurasi.' };
+  }
+  if (!phoneNumberId || !phoneNumberId.trim()) {
+    return { success: false, message: 'Phone Number ID WABA Official belum dikonfigurasi.' };
+  }
+
+  const cleanTarget = formatPhoneNumber(target);
+  if (!cleanTarget || cleanTarget.length < 9) {
     return { success: false, message: 'Nomor WhatsApp tujuan tidak valid.' };
   }
 
   try {
-    const formData = new FormData();
-    formData.append('target', cleanTarget);
-    formData.append('message', message);
-    formData.append('countryCode', '62');
-
-    const res = await fetch('https://api.fonnte.com/send', {
+    const version = (apiVersion || DEFAULT_WABA_API_VERSION).trim();
+    const url = `https://graph.facebook.com/${version}/${phoneNumberId.trim()}/messages`;
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': token.trim()
+        'Authorization': `Bearer ${accessToken.trim()}`,
+        'Content-Type': 'application/json'
       },
-      body: formData
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: cleanTarget,
+        type: 'text',
+        text: {
+          preview_url: false,
+          body: message
+        }
+      })
     });
 
     const data = await res.json();
-
-    if (res.ok && (data.status === true || data.status === 'true' || data.detail === 'success')) {
-      return { success: true, message: 'Pesan WhatsApp berhasil terkirim.', response: data };
+    if (res.ok && data?.messages?.[0]?.id) {
+      return {
+        success: true,
+        message: 'Pesan teks berhasil dikirim via WABA Official.',
+        response: data
+      };
     } else {
-      return { 
-        success: false, 
-        message: data.reason || data.message || data.detail || 'Gagal mengirim pesan WhatsApp via Fonnte.', 
-        response: data 
+      const errMsg =
+        data?.error?.error_user_msg ||
+        data?.error?.message ||
+        'Gagal mengirim pesan teks melalui Meta WABA Official.';
+      return {
+        success: false,
+        message: errMsg,
+        response: data
       };
     }
   } catch (error: any) {
-    console.error('Error sending WhatsApp message via Fonnte:', error);
-    return { 
-      success: false, 
-      message: error.message || 'Terjadi kesalahan jaringan saat menghubungi server Fonnte.' 
+    console.error('Error sending WhatsApp text via WABA Official:', error);
+    return {
+      success: false,
+      message: error.message || 'Terjadi kesalahan jaringan saat menghubungi Meta Graph API.'
     };
+  }
+}
+
+/**
+ * Mengajukan pembuatan Template Pesan baru ke Meta WABA Official
+ */
+export async function submitWabaTemplate(
+  input: WabaTemplateSubmission
+): Promise<{ success: boolean; message: string; templateId?: string; status?: string; response?: any }> {
+  const {
+    accessToken,
+    wabaAccountId,
+    apiVersion = DEFAULT_WABA_API_VERSION,
+    name,
+    category,
+    language,
+    headerText,
+    headerExample,
+    bodyText,
+    bodyExamples,
+    footerText,
+    addSecurityRecommendation = true,
+    codeExpirationMinutes = 10,
+    otpButtonText = 'Salin Kode'
+  } = input;
+
+  if (!accessToken?.trim() || !wabaAccountId?.trim()) {
+    return {
+      success: false,
+      message: 'Access Token dan WhatsApp Business Account ID (WABA ID) wajib diisi untuk mengajukan template.'
+    };
+  }
+
+  const sanitizedName = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+
+  if (!sanitizedName) {
+    return { success: false, message: 'Nama template wajib diisi (huruf kecil, angka, dan underscore).' };
+  }
+
+  const components: any[] = [];
+
+  if (category === 'AUTHENTICATION') {
+    components.push({
+      type: 'BODY',
+      add_security_recommendation: Boolean(addSecurityRecommendation)
+    });
+    if (codeExpirationMinutes && codeExpirationMinutes > 0) {
+      components.push({
+        type: 'FOOTER',
+        code_expiration_minutes: Math.min(90, Math.max(1, Number(codeExpirationMinutes)))
+      });
+    }
+    components.push({
+      type: 'BUTTONS',
+      buttons: [
+        {
+          type: 'OTP',
+          otp_type: 'COPY_CODE',
+          text: otpButtonText?.trim() || 'Salin Kode'
+        }
+      ]
+    });
+  } else {
+    if (headerText && headerText.trim()) {
+      const headerComp: any = {
+        type: 'HEADER',
+        format: 'TEXT',
+        text: headerText.trim()
+      };
+      if (/\{\{\d+\}\}/.test(headerText)) {
+        headerComp.example = {
+          header_text: [headerExample?.trim() || 'Informasi E-Lapor']
+        };
+      }
+      components.push(headerComp);
+    }
+
+    if (!bodyText || !bodyText.trim()) {
+      return { success: false, message: 'Isi pesan template (Body) tidak boleh kosong.' };
+    }
+
+    const bodyComp: any = {
+      type: 'BODY',
+      text: bodyText.trim()
+    };
+
+    const matches = bodyText.match(/\{\{\d+\}\}/g);
+    if (matches && matches.length > 0) {
+      const uniqueVars = Array.from(new Set(matches));
+      const examples = uniqueVars.map((_, idx) => bodyExamples?.[idx]?.trim() || `Contoh_${idx + 1}`);
+      bodyComp.example = {
+        body_text: [examples]
+      };
+    }
+    components.push(bodyComp);
+
+    if (footerText && footerText.trim()) {
+      components.push({
+        type: 'FOOTER',
+        text: footerText.trim()
+      });
+    }
+  }
+
+  const payload: any = {
+    name: sanitizedName,
+    language: language || 'id',
+    category,
+    components
+  };
+
+  if (category !== 'AUTHENTICATION') {
+    payload.parameter_format = 'POSITIONAL';
+  }
+
+  try {
+    const version = (apiVersion || DEFAULT_WABA_API_VERSION).trim();
+    const url = `https://graph.facebook.com/${version}/${wabaAccountId.trim()}/message_templates`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken.trim()}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (res.ok && data?.id) {
+      return {
+        success: true,
+        message: `Template "${sanitizedName}" berhasil diajukan ke Meta WABA Official (Status: ${data.status || 'PENDING'}).`,
+        templateId: data.id,
+        status: data.status || 'PENDING',
+        response: data
+      };
+    } else {
+      const errMsg =
+        data?.error?.error_user_msg ||
+        data?.error?.message ||
+        'Gagal mengajukan template ke Meta WABA Official.';
+      return {
+        success: false,
+        message: errMsg,
+        response: data
+      };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.message || 'Terjadi kesalahan jaringan saat mengajukan template ke Meta Graph API.'
+    };
+  }
+}
+
+/**
+ * Mengambil daftar template beserta status persetujuannya dari Meta WABA Official
+ */
+export async function fetchWabaTemplates({
+  accessToken,
+  wabaAccountId,
+  apiVersion = DEFAULT_WABA_API_VERSION
+}: {
+  accessToken: string;
+  wabaAccountId: string;
+  apiVersion?: string;
+}): Promise<{ success: boolean; templates: WabaTemplateRecord[]; message: string }> {
+  if (!accessToken?.trim() || !wabaAccountId?.trim()) {
+    return {
+      success: false,
+      templates: [],
+      message: 'Access Token dan WABA Account ID wajib diisi untuk melihat daftar template.'
+    };
+  }
+
+  try {
+    const version = (apiVersion || DEFAULT_WABA_API_VERSION).trim();
+    const url = `https://graph.facebook.com/${version}/${wabaAccountId.trim()}/message_templates?fields=id,name,status,category,language,components,rejected_reason&limit=50`;
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken.trim()}`
+      }
+    });
+
+    const data = await res.json();
+    if (res.ok && Array.isArray(data?.data)) {
+      return {
+        success: true,
+        templates: data.data as WabaTemplateRecord[],
+        message: `Berhasil memuat ${data.data.length} template dari WABA Official.`
+      };
+    } else {
+      const errMsg =
+        data?.error?.error_user_msg ||
+        data?.error?.message ||
+        'Gagal mengambil daftar template WABA Official.';
+      return { success: false, templates: [], message: errMsg };
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      templates: [],
+      message: error.message || 'Kesalahan jaringan saat mengambil daftar template WABA.'
+    };
+  }
+}
+
+/**
+ * Menghapus template pesan di Meta WABA Official berdasarkan nama template
+ */
+export async function deleteWabaTemplate({
+  accessToken,
+  wabaAccountId,
+  apiVersion = DEFAULT_WABA_API_VERSION,
+  templateName
+}: {
+  accessToken: string;
+  wabaAccountId: string;
+  apiVersion?: string;
+  templateName: string;
+}): Promise<{ success: boolean; message: string }> {
+  if (!accessToken?.trim() || !wabaAccountId?.trim() || !templateName?.trim()) {
+    return { success: false, message: 'Parameter hapus template belum lengkap.' };
+  }
+  try {
+    const version = (apiVersion || DEFAULT_WABA_API_VERSION).trim();
+    const url = `https://graph.facebook.com/${version}/${wabaAccountId.trim()}/message_templates?name=${encodeURIComponent(templateName.trim())}`;
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken.trim()}`
+      }
+    });
+    const data = await res.json();
+    if (res.ok && data?.success) {
+      return { success: true, message: `Template "${templateName}" berhasil dihapus dari WABA.` };
+    }
+    return {
+      success: false,
+      message: data?.error?.error_user_msg || data?.error?.message || 'Gagal menghapus template WABA.'
+    };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Kesalahan jaringan saat menghapus template.' };
   }
 }
 
@@ -150,112 +589,132 @@ function formatIndoDate(dateStr?: string): string {
 }
 
 /**
- * Menghasilkan pesan notifikasi WhatsApp berdasarkan status kegiatan
+ * Menghasilkan 6 parameter terstruktur untuk template WABA Official `elapor_notifikasi_status`
+ * {{1}} Status Judul, {{2}} Unit Kerja, {{3}} Kegiatan, {{4}} Nominal/Realisasi, {{5}} Keterangan, {{6}} Catatan Bendahara
+ */
+export function buildStatusTemplateParams(
+  report: Report,
+  status: ReportStatus,
+  notes?: string
+): string[] {
+  const unit = sanitizeWabaParam(report.unitName || 'Unit Kerja');
+  const activity = sanitizeWabaParam(report.activityName || 'Kegiatan');
+  const amountStr = `Rp ${formatRupiahText(report.amountReceived)}`;
+  const spentStr = `Rp ${formatRupiahText(report.totalSpent)}`;
+  const noteVal = sanitizeWabaParam(notes !== undefined ? notes : report.treasurerNotes);
+
+  const balance = (Number(report.amountReceived) || 0) - (Number(report.totalSpent) || 0);
+  let balanceText = '';
+  if (balance > 0) {
+    balanceText = `Sisa Rp ${formatRupiahText(balance)}`;
+  } else if (balance < 0) {
+    balanceText = `Kekurangan Rp ${formatRupiahText(Math.abs(balance))}`;
+  } else {
+    balanceText = 'Pas/Nol';
+  }
+
+  switch (status) {
+    case ReportStatus.BUDGET_PROPOSAL:
+      return [
+        'Pengajuan Anggaran Diterima',
+        unit,
+        activity,
+        amountStr,
+        'Pengajuan anggaran baru telah diterima dan masuk antrean verifikasi Bendahara.',
+        noteVal
+      ];
+    case ReportStatus.BUDGET_APPROVED:
+      return [
+        'Anggaran Disetujui',
+        unit,
+        activity,
+        amountStr,
+        'Pengajuan anggaran disetujui oleh Bendahara. Silakan koordinasi jadwal pelaksanaan & pencairan.',
+        noteVal
+      ];
+    case ReportStatus.REPORTING:
+      return [
+        'Anggaran Dicairkan / Instruksi LPJ',
+        unit,
+        activity,
+        amountStr,
+        'Dana anggaran sudah dicairkan/diinstruksikan. Silakan input rincian realisasi & nomor bukti di E-Lapor.',
+        noteVal
+      ];
+    case ReportStatus.REVISION:
+      return [
+        'Permintaan Revisi',
+        unit,
+        activity,
+        amountStr,
+        'Pengajuan atau laporan memerlukan perbaikan sesuai catatan Bendahara.',
+        noteVal
+      ];
+    case ReportStatus.INCOMPLETE:
+      return [
+        'Laporan Belum Lengkap',
+        unit,
+        activity,
+        amountStr,
+        'Rincian laporan realisasi belum lengkap (cek nomor bukti atau penerima belanja pegawai).',
+        noteVal
+      ];
+    case ReportStatus.COMPLETED:
+      return [
+        'Laporan Disetujui & Disahkan',
+        unit,
+        activity,
+        `Pagu ${amountStr} | Realisasi ${spentStr} | ${balanceText}`,
+        'LPJ kegiatan telah disetujui dan disahkan oleh Bendahara Sekolah.',
+        noteVal
+      ];
+    case ReportStatus.REJECTED:
+      return [
+        'Pengajuan Ditolak',
+        unit,
+        activity,
+        amountStr,
+        'Mohon maaf pengajuan anggaran tidak disetujui. Hubungi Bendahara untuk informasi lanjut.',
+        noteVal
+      ];
+    default:
+      return [
+        `Update Status (${status})`,
+        unit,
+        activity,
+        amountStr,
+        'Status kegiatan di sistem E-Lapor telah diperbarui.',
+        noteVal
+      ];
+  }
+}
+
+/**
+ * Menghasilkan pratinjau teks notifikasi WhatsApp berdasarkan status kegiatan
  */
 export function buildStatusNotificationMessage(
   report: Report,
   status: ReportStatus,
   notes?: string
 ): string {
-  const unit = report.unitName || 'Unit Kerja';
-  const activity = report.activityName || 'Kegiatan';
-  const amountStr = `Rp ${formatRupiahText(report.amountReceived)}`;
-  const spentStr = `Rp ${formatRupiahText(report.totalSpent)}`;
+  const [title, unit, activity, nominal, desc, noteVal] = buildStatusTemplateParams(report, status, notes);
   const dateStr = formatIndoDate(new Date().toISOString());
+  if (status === ReportStatus.ARCHIVED) return '';
 
-  const balance = (Number(report.amountReceived) || 0) - (Number(report.totalSpent) || 0);
-  let balanceText = '';
-  if (balance > 0) {
-    balanceText = `Sisa Anggaran: Rp ${formatRupiahText(balance)} (Dikembalikan ke Kas)`;
-  } else if (balance < 0) {
-    balanceText = `Kekurangan/Defisit: Rp ${formatRupiahText(Math.abs(balance))} (Ditalangi Kas)`;
-  } else {
-    balanceText = `Sesuai Pagu (Pas/Nol)`;
-  }
-
-  const divider = '────────────────────────';
-  const footer = `\n${divider}\n_Sistem Informasi Keuangan E-Lapor_\n*SMK Muhammadiyah 1 Ngadirejo*`;
-
-  switch (status) {
-    case ReportStatus.BUDGET_PROPOSAL:
-      return `📩 *PENGAJUAN ANGGARAN BARU DITERIMA*\n*E-LAPOR BENDAHARA*\n${divider}\n` +
-        `Pengajuan anggaran kegiatan Anda telah berhasil didaftarkan ke sistem dan sedang dalam antrean verifikasi Bendahara.\n\n` +
-        `🏢 *Unit Kerja*: ${unit}\n` +
-        `📌 *Kegiatan*: ${activity}\n` +
-        `💰 *Nominal Diajukan*: ${amountStr}\n` +
-        `📅 *Tanggal Pengajuan*: ${dateStr}\n\n` +
-        `_Notifikasi status pengajuan selanjutnya akan otomatis dikirimkan ke nomor WhatsApp ini._${footer}`;
-
-    case ReportStatus.BUDGET_APPROVED:
-      return `🎉 *ANGGARAN TELAH DISETUJUI*\n*E-LAPOR BENDAHARA*\n${divider}\n` +
-        `Kabar baik! Pengajuan anggaran kegiatan Anda telah *DISETUJUI* oleh Bendahara Sekolah.\n\n` +
-        `🏢 *Unit Kerja*: ${unit}\n` +
-        `📌 *Kegiatan*: ${activity}\n` +
-        `💰 *Pagu Anggaran*: ${amountStr}\n` +
-        `📅 *Tanggal Disetujui*: ${dateStr}\n` +
-        (notes ? `📝 *Catatan Bendahara*: _"${notes}"_\n\n` : '\n') +
-        `👉 *Langkah Selanjutnya*: Silakan laksanakan kegiatan sesuai RAB. Setelah kegiatan selesai, segera input rincian Laporan Pertanggungjawaban (LPJ) beserta nomor bukti transaksi di sistem E-Lapor.${footer}`;
-
-    case ReportStatus.REPORTING:
-      return `💸 *PEMBERITAHUAN: ANGGARAN SUDAH DICAIRKAN*\n*E-LAPOR BENDAHARA*\n${divider}\n` +
-        `Anggaran sudah dicairkan, silakan untuk melengkapi laporan realisasi anggaran.\n\n` +
-        `🏢 *Unit Kerja*: ${unit}\n` +
-        `📌 *Kegiatan*: ${activity}\n` +
-        `💰 *Pagu Anggaran*: ${amountStr}\n` +
-        (notes ? `📝 *Catatan Bendahara*: _"${notes}"_\n\n` : '\n') +
-        `👉 Silakan login ke sistem E-Lapor untuk melengkapi rincian bukti transaksi realisasi anggaran kegiatan Anda.${footer}`;
-
-    case ReportStatus.REVISION:
-      return `⚠️ *PERINGATAN: PERMINTAAN REVISI LAPORAN*\n*E-LAPOR BENDAHARA*\n${divider}\n` +
-        `Laporan/pengajuan kegiatan Anda membutuhkan *REVISI / PERBAIKAN* oleh Bendahara.\n\n` +
-        `🏢 *Unit Kerja*: ${unit}\n` +
-        `📌 *Kegiatan*: ${activity}\n` +
-        `📝 *Catatan & Alasan Revisi*:\n👉 *"${notes || 'Mohon periksa dan perbaiki rincian anggaran/laporan'}"*\n\n` +
-        `👉 Mohon segera membuka sistem E-Lapor dan lakukan perbaikan sesuai catatan Bendahara di atas.${footer}`;
-
-    case ReportStatus.INCOMPLETE:
-      return `⚠️ *PERINGATAN: LAPORAN BELUM LENGKAP*\n*E-LAPOR BENDAHARA*\n${divider}\n` +
-        `Laporan realisasi kegiatan Anda tercatat *BELUM LENGKAP* (misal: belum ada pegawai pada pos belanja pegawai atau data nota belum lengkap).\n\n` +
-        `🏢 *Unit Kerja*: ${unit}\n` +
-        `📌 *Kegiatan*: ${activity}\n` +
-        `📝 *Catatan Kekurangan*:\n👉 *"${notes || 'Lengkapi seluruh rincian dan bukti belanja kegiatan'}"*\n\n` +
-        `👉 Silakan lengkapi laporan Anda di aplikasi E-Lapor.${footer}`;
-
-    case ReportStatus.COMPLETED:
-      return `✅ *LAPORAN DISETUJUI & DISAHKAN*\n*E-LAPOR BENDAHARA*\n${divider}\n` +
-        `Alhamdulillah! Laporan Pertanggungjawaban (LPJ) kegiatan Anda telah *DISETUJUI & DISAHKAN (SELESAI)* oleh Bendahara Sekolah.\n\n` +
-        `🏢 *Unit Kerja*: ${unit}\n` +
-        `📌 *Kegiatan*: ${activity}\n` +
-        `💰 *Pagu Anggaran*: ${amountStr}\n` +
-        `💳 *Total Realisasi Belanja*: ${spentStr}\n` +
-        `📊 *Posisi Kas Akhir*: ${balanceText}\n` +
-        `📅 *Tanggal Pengesahan*: ${dateStr}\n` +
-        (notes ? `📝 *Catatan Bendahara*: _"${notes}"_\n\n` : '\n') +
-        `Terima kasih atas tertib administrasi dan kerja sama yang baik dalam pelaporan keuangan sekolah.${footer}`;
-
-    case ReportStatus.ARCHIVED:
-      // Notifikasi WhatsApp ditiadakan saat Laporan Resmi Diarsipkan oleh bendahara.
-      // Notifikasi WhatsApp hanya sampai laporan disetujui dan disahkan saja.
-      return '';
-
-    case ReportStatus.REJECTED:
-      return `❌ *PEMBERITAHUAN: PENGAJUAN DITOLAK*\n*E-LAPOR BENDAHARA*\n${divider}\n` +
-        `Mohon maaf, pengajuan anggaran kegiatan Anda *TIDAK DISETUJUI / DITOLAK* oleh Bendahara.\n\n` +
-        `🏢 *Unit Kerja*: ${unit}\n` +
-        `📌 *Kegiatan*: ${activity}\n` +
-        `📝 *Alasan Penolakan*:\n👉 *"${notes || 'Pengajuan tidak dapat disetujui'}"*\n\n` +
-        `Silakan berkoordinasi langsung dengan Bendahara jika memerlukan informasi lebih lanjut.${footer}`;
-
-    default:
-      return `📢 *UPDATE STATUS KEGIATAN*\n*E-LAPOR BENDAHARA*\n${divider}\n` +
-        `Status kegiatan *${activity}* (${unit}) telah diperbarui menjadi *${status}*.\n\n` +
-        (notes ? `📝 *Catatan*: _"${notes}"_\n` : '') +
-        `📅 *Waktu*: ${dateStr}${footer}`;
-  }
+  return (
+    `*E-LAPOR BENDAHARA: ${title}*\n` +
+    `Unit Kerja: ${unit}\n` +
+    `Kegiatan: ${activity}\n` +
+    `Nominal: ${nominal}\n` +
+    `Tanggal: ${dateStr}\n` +
+    `Keterangan: ${desc}\n` +
+    `Catatan Bendahara: ${noteVal}\n\n` +
+    `_Sistem Informasi Keuangan E-Lapor SMK Muhammadiyah 1 Ngadirejo_`
+  );
 }
 
 /**
- * Mengirim notifikasi WhatsApp saat status laporan/kegiatan berubah
+ * Mengirim notifikasi WhatsApp WABA Official saat status laporan/kegiatan berubah
  */
 export async function sendReportStatusNotification(
   report: Report,
@@ -271,11 +730,10 @@ export async function sendReportStatusNotification(
   }
 
   // Notifikasi WhatsApp ditiadakan saat Laporan Resmi Diarsipkan oleh bendahara.
-  // Notifikasi WhatsApp hanya sampai laporan disetujui dan disahkan saja (COMPLETED).
   if (status === ReportStatus.ARCHIVED) {
-    return { 
-      sent: false, 
-      message: 'Notifikasi WhatsApp ditiadakan untuk status Laporan Resmi Diarsipkan (notifikasi hanya sampai disetujui dan disahkan).' 
+    return {
+      sent: false,
+      message: 'Notifikasi WhatsApp ditiadakan untuk status Laporan Resmi Diarsipkan.'
     };
   }
 
@@ -294,15 +752,22 @@ export async function sendReportStatusNotification(
       return { sent: false, message: 'Fitur notifikasi WhatsApp dinonaktifkan di pengaturan.' };
     }
 
-    if (!settings.fonnteToken || !settings.fonnteToken.trim()) {
-      return { sent: false, message: 'Token API Fonnte belum diisi di Pengaturan WhatsApp.' };
+    if (!settings.wabaAccessToken?.trim() || !settings.wabaPhoneNumberId?.trim()) {
+      return {
+        sent: false,
+        message: 'Kredensial WABA Official (Access Token / Phone Number ID) belum diisi di Pengaturan WhatsApp.'
+      };
     }
 
-    const messageText = buildStatusNotificationMessage(report, status, notes);
-    const result = await sendFonnteMessage({
-      token: settings.fonnteToken,
+    const bodyParams = buildStatusTemplateParams(report, status, notes);
+    const result = await sendWabaTemplateMessage({
+      accessToken: settings.wabaAccessToken,
+      phoneNumberId: settings.wabaPhoneNumberId,
+      apiVersion: settings.wabaApiVersion || DEFAULT_WABA_API_VERSION,
       target: phone,
-      message: messageText
+      templateName: settings.statusTemplateName || DEFAULT_STATUS_TEMPLATE_NAME,
+      languageCode: settings.statusTemplateLanguage || 'id',
+      bodyParams
     });
 
     return {
@@ -314,19 +779,17 @@ export async function sendReportStatusNotification(
     console.error('Error during sendReportStatusNotification:', err);
     return {
       sent: false,
-      message: err.message || 'Gagal memproses notifikasi WhatsApp.'
+      message: err.message || 'Gagal memproses notifikasi WhatsApp WABA Official.'
     };
   }
 }
 
 /**
- * Mengirim kode OTP verifikasi ke nomor WhatsApp pengaju untuk memastikan nomor aktif
+ * Mengirim kode OTP verifikasi ke nomor WhatsApp pengaju melalui Template Authentication WABA Official
  */
 export async function sendWhatsappVerificationCode({
   phone,
   code,
-  unitName,
-  activityName,
   db
 }: {
   phone: string;
@@ -341,32 +804,28 @@ export async function sendWhatsappVerificationCode({
       message: 'Verifikasi WhatsApp dinonaktifkan sementara.'
     };
   }
+
   try {
     const settings = await getWhatsappSettings(db);
     if (!settings.enabled) {
       return { success: false, message: 'Fitur notifikasi WhatsApp dinonaktifkan di pengaturan sistem.' };
     }
-    if (!settings.fonnteToken || !settings.fonnteToken.trim()) {
-      return { success: false, message: 'Token API WhatsApp belum dikonfigurasi oleh Bendahara.' };
+    if (!settings.wabaAccessToken?.trim() || !settings.wabaPhoneNumberId?.trim()) {
+      return {
+        success: false,
+        message: 'Kredensial WABA Official belum dikonfigurasi oleh Bendahara.'
+      };
     }
 
-    const divider = '────────────────────────';
-    const message = 
-      `🔐 *VERIFIKASI NOMOR WHATSAPP AKTIF*\n` +
-      `*E-LAPOR BENDAHARA*\n` +
-      `${divider}\n` +
-      `Kode verifikasi nomor WhatsApp Anda untuk pengajuan anggaran:\n\n` +
-      `👉 *${code}*\n\n` +
-      (unitName ? `🏢 *Unit*: ${unitName}\n` : '') +
-      (activityName ? `📌 *Kegiatan*: ${activityName}\n` : '') +
-      `\nMasukkan kode 6 digit ini pada formulir pengajuan anggaran untuk memverifikasi bahwa nomor WhatsApp Anda aktif dan siap menerima notifikasi status pengajuan hingga laporan selesai.\n` +
-      `${divider}\n` +
-      `_Sistem Informasi Keuangan E-Lapor SMK Muhammadiyah 1 Ngadirejo_`;
-
-    const res = await sendFonnteMessage({
-      token: settings.fonnteToken,
+    const res = await sendWabaTemplateMessage({
+      accessToken: settings.wabaAccessToken,
+      phoneNumberId: settings.wabaPhoneNumberId,
+      apiVersion: settings.wabaApiVersion || DEFAULT_WABA_API_VERSION,
       target: phone,
-      message
+      templateName: settings.otpTemplateName || DEFAULT_OTP_TEMPLATE_NAME,
+      languageCode: settings.otpTemplateLanguage || 'id',
+      bodyParams: [code],
+      buttonUrlParams: [code]
     });
 
     return {
@@ -376,8 +835,7 @@ export async function sendWhatsappVerificationCode({
   } catch (err: any) {
     return {
       success: false,
-      message: err.message || 'Gagal mengirim kode verifikasi WhatsApp.'
+      message: err.message || 'Gagal mengirim kode verifikasi WhatsApp WABA Official.'
     };
   }
 }
-

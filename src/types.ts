@@ -83,8 +83,17 @@ export interface Report {
 }
 
 export interface WhatsappSettings {
-  fonnteToken: string;
   enabled: boolean;
+  wabaAccessToken: string;
+  wabaPhoneNumberId: string;
+  wabaAccountId: string;
+  wabaApiVersion?: string;
+  statusTemplateName?: string;
+  statusTemplateLanguage?: string;
+  otpTemplateName?: string;
+  otpTemplateLanguage?: string;
+  requireOtpVerification?: boolean;
+  fonnteToken?: string;
   senderName?: string;
   schoolName?: string;
   updatedAt?: any;

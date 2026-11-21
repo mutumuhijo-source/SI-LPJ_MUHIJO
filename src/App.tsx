@@ -7,7 +7,7 @@ import { useState, useEffect, createContext, useContext, useMemo, useCallback, C
 import { HashRouter, Routes, Route, useNavigate, Navigate, useLocation, useParams } from 'react-router-dom';
 import { db } from './firebase';
 import { collection, query, where, onSnapshot, doc, getDoc, setDoc, serverTimestamp, addDoc, getDocs, deleteDoc, limit, orderBy } from 'firebase/firestore';
-import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail, Employee, SchoolSettings, CashInflow, DirectCashOutflow, BkkSettings } from './types';
+import { Report, ReportStatus, Unit, OperationType, ExpenseType, ExpenseDetail, Employee, SchoolSettings, CashInflow, DirectCashOutflow, BkkSettings, WhatsappSettings as IWhatsappSettings } from './types';
 import { handleFirestoreError } from './lib/error-handler';
 import { 
   LayoutDashboard, 
@@ -58,7 +58,7 @@ import { WhatsAppSettings } from './components/WhatsAppSettings';
 import { SettingsPage } from './components/SettingsPage';
 import { MemoBudgetPage } from './components/MemoBudgetPage';
 import { MemorialKasTunaiPage } from './components/MemorialKasTunaiPage';
-import { sendReportStatusNotification, sendWhatsappVerificationCode, WHATSAPP_TEMPORARILY_DISABLED } from './services/whatsapp';
+import { sendReportStatusNotification, sendWhatsappVerificationCode, getWhatsappSettings, DEFAULT_WHATSAPP_SETTINGS, WHATSAPP_TEMPORARILY_DISABLED } from './services/whatsapp';
 import { formatCurrency, parseAmount, terbilang } from './lib/utils';
 import { calculateFullBkkSummary, CalculatedBkkSummary, getBkkSettingsFromCache, createPendingDisbursementFromReport } from './lib/bkk-calculator';
 
@@ -598,6 +598,16 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
   const [inputOtp, setInputOtp] = useState<string>('');
   const [otpError, setOtpError] = useState<string>('');
   const [otpCountdown, setOtpCountdown] = useState<number>(0);
+  const [waSettings, setWaSettings] = useState<IWhatsappSettings>(DEFAULT_WHATSAPP_SETTINGS);
+
+  useEffect(() => {
+    getWhatsappSettings(db)
+      .then(setWaSettings)
+      .catch(err => console.warn('Failed to load WhatsApp settings:', err));
+  }, []);
+
+  const waNotificationsEnabled = !WHATSAPP_TEMPORARILY_DISABLED && Boolean(waSettings.enabled);
+  const requireWaOtp = waNotificationsEnabled && Boolean(waSettings.requireOtpVerification);
 
   useEffect(() => {
     let timer: any;
@@ -674,7 +684,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
         safeAlert(`Kode verifikasi 6-digit berhasil dikirim ke nomor WhatsApp ${rawNumber}. Silakan periksa pesan WhatsApp Anda dan masukkan kodenya.`);
       } else {
         setOtpError(res.message);
-        safeAlert(`Gagal mengirim verifikasi: ${res.message}\nPastikan nomor terdaftar aktif di WhatsApp dan Token Fonnte telah aktif.`);
+        safeAlert(`Gagal mengirim verifikasi: ${res.message}\nPastikan nomor terdaftar aktif di WhatsApp dan konfigurasi WABA Official serta template OTP telah disetujui.`);
       }
     } catch (e: any) {
       setOtpError(e.message || 'Terjadi kendala saat mengirim verifikasi.');
@@ -716,14 +726,14 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
     e.preventDefault();
     if (!formData.unitId || !formData.activityName) return;
 
-    if (!WHATSAPP_TEMPORARILY_DISABLED) {
+    if (waNotificationsEnabled) {
       if (!formData.whatsappNumber || !formData.whatsappNumber.trim()) {
-        safeAlert('Nomor WhatsApp Pengaju wajib diisi! Anggaran tidak dapat diajukan tanpa nomor WhatsApp untuk notifikasi status.');
+        safeAlert('Nomor WhatsApp Pengaju wajib diisi! Anggaran tidak dapat diajukan tanpa nomor WhatsApp untuk notifikasi status WABA Official.');
         return;
       }
 
-      if (!isWaVerified && !isAdmin) {
-        safeAlert('Nomor WhatsApp wajib diverifikasi aktif terlebih dahulu!\nSilakan klik tombol "Verifikasi Nomor WhatsApp" untuk memastikan nomor aktif menerima notifikasi.');
+      if (requireWaOtp && !isWaVerified && !isAdmin) {
+        safeAlert('Nomor WhatsApp wajib diverifikasi aktif terlebih dahulu!\nSilakan klik tombol "Verifikasi Nomor" untuk memastikan nomor aktif menerima notifikasi.');
         return;
       }
     }
@@ -789,7 +799,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
         bendaharaJabatan: formData.bendaharaJabatan,
         submissionDate: formData.submissionDate,
         whatsappNumber: formData.whatsappNumber || '',
-        whatsappVerified: WHATSAPP_TEMPORARILY_DISABLED ? Boolean(editReport?.whatsappVerified) : (isWaVerified || isAdmin),
+        whatsappVerified: requireWaOtp ? (isWaVerified || isAdmin) : Boolean(editReport?.whatsappVerified || isWaVerified),
         whatsappVerifiedAt: isWaVerified ? new Date().toISOString() : (editReport?.whatsappVerifiedAt || null),
         includeWakaSignature: Boolean(formData.includeWakaSignature),
         wakaName: formData.wakaName || '',
@@ -798,14 +808,14 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
 
       if (editReport?.id) {
         await setDoc(doc(db, 'reports', editReport.id), payload as any, { merge: true });
-        // Jika ada perubahan status dan nomor WhatsApp terisi, kirim notifikasi
-        if (!WHATSAPP_TEMPORARILY_DISABLED && finalStatus !== editReport.status && formData.whatsappNumber) {
+        // Jika ada perubahan status dan nomor WhatsApp terisi, kirim notifikasi WABA Official
+        if (waNotificationsEnabled && finalStatus !== editReport.status && formData.whatsappNumber) {
           sendReportStatusNotification({ id: editReport.id, ...payload } as any, finalStatus, undefined, db).catch(console.error);
         }
       } else {
         const newDocRef = await addDoc(collection(db, 'reports'), payload as any);
-        // Kirim notifikasi pengajuan baru via WhatsApp ke pengaju
-        if (!WHATSAPP_TEMPORARILY_DISABLED && formData.whatsappNumber) {
+        // Kirim notifikasi pengajuan baru via WhatsApp WABA Official ke pengaju
+        if (waNotificationsEnabled && formData.whatsappNumber) {
           sendReportStatusNotification({ id: newDocRef.id, ...payload } as any, ReportStatus.BUDGET_PROPOSAL, undefined, db).catch(console.error);
         }
       }
@@ -910,8 +920,8 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
             </div>
           </div>
 
-          {/* Nomor WhatsApp Pengaju (Opsional saat verifikasi & notifikasi WA dinonaktifkan sementara) */}
-          {WHATSAPP_TEMPORARILY_DISABLED ? (
+          {/* Nomor WhatsApp Pengaju (WABA Official) */}
+          {!waNotificationsEnabled ? (
             <div className="p-6 border border-natural-border rounded-3xl space-y-3 bg-natural-input/30">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <label className="text-xs uppercase tracking-wider font-bold text-natural-primary flex items-center gap-2">
@@ -919,7 +929,7 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                   Nomor WhatsApp Pengaju (Opsional)
                 </label>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
-                  Verifikasi & Notifikasi WA Nonaktif Sementara
+                  Notifikasi WA Nonaktif
                 </span>
               </div>
               <input 
@@ -930,7 +940,32 @@ const ReportForm = ({ onCancel, onSuccess, user, editReport, units, expenseTypes
                 onChange={(e) => setFormData({...formData, whatsappNumber: e.target.value})}
               />
               <p className="text-xs text-natural-secondary italic">
-                *Kewajiban verifikasi dan notifikasi otomatis WhatsApp sedang dinonaktifkan sementara. Pengajuan dapat langsung dikirim tanpa verifikasi WhatsApp.
+                *Notifikasi otomatis WhatsApp saat ini dinonaktifkan pada pengaturan sistem. Pengajuan dapat langsung dikirim.
+              </p>
+            </div>
+          ) : !requireWaOtp ? (
+            <div className="p-6 border border-emerald-200 rounded-3xl space-y-3 bg-emerald-50/50">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-xs uppercase tracking-wider font-bold text-natural-primary flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-emerald-600" />
+                  Nomor WhatsApp Pengaju (Notifikasi WABA Official) <span className="text-red-500 font-bold">*</span>
+                </label>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  WABA Official Aktif
+                </span>
+              </div>
+              <input 
+                type="tel"
+                required
+                className="w-full p-4 bg-white rounded-2xl border border-emerald-300 text-sm font-mono font-bold text-natural-primary focus:ring-2 focus:ring-emerald-400 outline-none placeholder:text-natural-secondary/50 transition-all"
+                placeholder="Contoh: 081234567890"
+                value={formData.whatsappNumber}
+                onChange={(e) => setFormData({...formData, whatsappNumber: e.target.value})}
+              />
+              <p className="text-xs text-emerald-800 font-medium flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                Notifikasi penerimaan pengajuan, persetujuan anggaran, instruksi LPJ, revisi, hingga pengesahan laporan akan dikirim otomatis melalui WhatsApp Business API Official (WABA).
               </p>
             </div>
           ) : (
@@ -2162,7 +2197,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                    Kontak WhatsApp Pengaju
+                    Kontak WhatsApp Pengaju (WABA Official)
                   </span>
                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
                     WHATSAPP_TEMPORARILY_DISABLED
@@ -2170,7 +2205,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                       : report.whatsappVerified
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                         : report.whatsappNumber
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                           : 'bg-amber-100 text-amber-800'
                   }`}>
                     {WHATSAPP_TEMPORARILY_DISABLED
@@ -2178,7 +2213,7 @@ const ReportDetail = ({ report, onBack, isAdmin, onEdit, onPrint, onPrintRAB, on
                       : report.whatsappVerified
                         ? '✅ Terverifikasi Aktif'
                         : report.whatsappNumber
-                          ? 'Nomor Terdaftar'
+                          ? 'Notifikasi WABA Aktif'
                           : 'Belum Ada Nomor'}
                   </span>
                 </div>
@@ -4157,7 +4192,7 @@ const MainDashboard = () => {
       await setDoc(doc(db, 'reports', id), updatePayload, { merge: true });
       await refreshReports();
 
-      // Kirim Notifikasi WhatsApp Otomatis ke Pengaju via Fonnte.com
+      // Kirim Notifikasi WhatsApp Otomatis ke Pengaju via Meta WABA Official
       // Notifikasi hanya sampai laporan disetujui & disahkan (COMPLETED), ditiadakan saat diarsipkan (ARCHIVED)
       if (!WHATSAPP_TEMPORARILY_DISABLED && newStatus !== ReportStatus.ARCHIVED && targetReport) {
         const mergedReport: Report = {
