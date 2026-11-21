@@ -85,6 +85,93 @@ export function sanitizeWabaParam(val?: string | number | null): string {
 }
 
 /**
+ * Membersihkan Access Token Meta WABA dari prefix 'Bearer ', 'access_token=', tanda kutip, spasi, newline, atau karakter tersembunyi.
+ * Mencegah error Meta Graph API: "Invalid OAuth access token - Cannot parse access token".
+ */
+export function sanitizeWabaToken(rawToken?: string | null): string {
+  if (!rawToken) return '';
+  let token = String(rawToken).trim();
+  // Hapus tanda kutip pembungkus jika ikut tersalin
+  token = token.replace(/^["'`]+|["'`]+$/g, '').trim();
+  // Hapus prefix "Bearer " atau "access_token=" jika ikut tersalin dari dokumentasi cURL/URL Meta
+  token = token.replace(/^(bearer\s+)+/i, '').trim();
+  token = token.replace(/^access_token=/i, '').trim();
+  token = token.replace(/^["'`]+|["'`]+$/g, '').trim();
+  // Hapus semua whitespace, newline, tab, dan zero-width chars
+  token = token.replace(/[\s\u200B-\u200D\uFEFF]+/g, '');
+  return token;
+}
+
+/**
+ * Membersihkan ID numerik Meta (Phone Number ID / WABA ID) dari spasi atau karakter non-alfanumerik
+ */
+export function sanitizeWabaId(rawId?: string | null): string {
+  if (!rawId) return '';
+  return String(rawId).replace(/[\s\u200B-\u200D\uFEFF]+/g, '').trim();
+}
+
+/**
+ * Menormalkan versi Meta Graph API agar selalu diawali 'v' (misal '21.0' -> 'v21.0')
+ */
+export function normalizeWabaApiVersion(rawVersion?: string | null): string {
+  const cleaned = (rawVersion || DEFAULT_WABA_API_VERSION).trim();
+  if (!cleaned) return DEFAULT_WABA_API_VERSION;
+  return /^v\d+/i.test(cleaned) ? cleaned.toLowerCase() : `v${cleaned}`;
+}
+
+/**
+ * Memformat pesan error dari Meta Graph API agar mudah dipahami admin,
+ * termasuk penanganan khusus untuk error OAuth token (code 190 / Cannot parse access token).
+ */
+export function formatMetaApiError(data: any, fallbackMessage: string): string {
+  const rawMsg: string =
+    data?.error?.error_user_msg ||
+    data?.error?.message ||
+    fallbackMessage;
+  const code = data?.error?.code;
+
+  if (
+    code === 190 ||
+    /cannot parse access token/i.test(rawMsg) ||
+    /invalid oauth access token/i.test(rawMsg)
+  ) {
+    return (
+      `${rawMsg}. ` +
+      `Pastikan Anda memasukkan Access Token Meta WhatsApp Cloud API yang valid (biasanya diawali "EAA..."), ` +
+      `tanpa kata "Bearer ", tanpa spasi/baris baru/tanda kutip, serta bukan token Fonnte atau App Secret. ` +
+      `Untuk pemakaian permanen, buat token di Meta Business Suite -> Pengaturan Bisnis -> Pengguna Sistem (System Users) dengan izin "whatsapp_business_messaging" & "whatsapp_business_management".`
+    );
+  }
+
+  return rawMsg;
+}
+
+/**
+ * Memvalidasi format dasar token sebelum dikirim ke Meta Graph API
+ */
+function validateTokenBeforeRequest(rawToken?: string | null): { valid: boolean; token: string; message?: string } {
+  const token = sanitizeWabaToken(rawToken);
+  if (!token) {
+    return { valid: false, token: '', message: 'Access Token WABA Official belum diisi.' };
+  }
+  if (/[^\x21-\x7E]/.test(token)) {
+    return {
+      valid: false,
+      token,
+      message: 'Access Token mengandung karakter tidak valid atau karakter tersembunyi. Salin ulang token EAA... dari Meta Developer / Business Manager.'
+    };
+  }
+  if (token.length < 30) {
+    return {
+      valid: false,
+      token,
+      message: 'Format Access Token WABA terlalu pendek / tidak lengkap. Token Meta Cloud API resmi umumnya panjang dan diawali "EAA...".'
+    };
+  }
+  return { valid: true, token };
+}
+
+/**
  * Mengambil konfigurasi WhatsApp WABA Official dari Firestore
  */
 export async function getWhatsappSettings(db: Firestore): Promise<WhatsappSettings> {
@@ -92,15 +179,22 @@ export async function getWhatsappSettings(db: Firestore): Promise<WhatsappSettin
     const docRef = doc(db, 'settings', 'whatsapp');
     const snap = await getDoc(docRef);
     if (snap.exists()) {
-      return { ...DEFAULT_WHATSAPP_SETTINGS, ...snap.data() } as WhatsappSettings;
+      const merged = { ...DEFAULT_WHATSAPP_SETTINGS, ...snap.data() } as WhatsappSettings;
+      return {
+        ...merged,
+        wabaAccessToken: sanitizeWabaToken(merged.wabaAccessToken),
+        wabaPhoneNumberId: sanitizeWabaId(merged.wabaPhoneNumberId),
+        wabaAccountId: sanitizeWabaId(merged.wabaAccountId),
+        wabaApiVersion: normalizeWabaApiVersion(merged.wabaApiVersion)
+      };
     }
   } catch (e) {
     console.warn('Failed to fetch whatsapp settings from firestore:', e);
   }
 
-  const envToken = (import.meta as any).env?.VITE_WABA_ACCESS_TOKEN || '';
-  const envPhoneId = (import.meta as any).env?.VITE_WABA_PHONE_NUMBER_ID || '';
-  const envWabaId = (import.meta as any).env?.VITE_WABA_ACCOUNT_ID || '';
+  const envToken = sanitizeWabaToken((import.meta as any).env?.VITE_WABA_ACCESS_TOKEN || '');
+  const envPhoneId = sanitizeWabaId((import.meta as any).env?.VITE_WABA_PHONE_NUMBER_ID || '');
+  const envWabaId = sanitizeWabaId((import.meta as any).env?.VITE_WABA_ACCOUNT_ID || '');
   return {
     ...DEFAULT_WHATSAPP_SETTINGS,
     wabaAccessToken: envToken,
@@ -118,15 +212,121 @@ export async function saveWhatsappSettings(
   userEmail?: string
 ): Promise<void> {
   const docRef = doc(db, 'settings', 'whatsapp');
+  const sanitizedPayload: Partial<WhatsappSettings> = {
+    ...settings
+  };
+  if (settings.wabaAccessToken !== undefined) {
+    sanitizedPayload.wabaAccessToken = sanitizeWabaToken(settings.wabaAccessToken);
+  }
+  if (settings.wabaPhoneNumberId !== undefined) {
+    sanitizedPayload.wabaPhoneNumberId = sanitizeWabaId(settings.wabaPhoneNumberId);
+  }
+  if (settings.wabaAccountId !== undefined) {
+    sanitizedPayload.wabaAccountId = sanitizeWabaId(settings.wabaAccountId);
+  }
+  if (settings.wabaApiVersion !== undefined) {
+    sanitizedPayload.wabaApiVersion = normalizeWabaApiVersion(settings.wabaApiVersion);
+  }
   await setDoc(
     docRef,
     {
-      ...settings,
+      ...sanitizedPayload,
       updatedAt: new Date().toISOString(),
       updatedBy: userEmail || 'admin'
     },
     { merge: true }
   );
+}
+
+/**
+ * Mengecek validitas Access Token, Phone Number ID, dan WABA Account ID ke Meta Graph API
+ */
+export async function verifyWabaConnection({
+  accessToken,
+  phoneNumberId,
+  wabaAccountId,
+  apiVersion = DEFAULT_WABA_API_VERSION
+}: {
+  accessToken: string;
+  phoneNumberId?: string;
+  wabaAccountId?: string;
+  apiVersion?: string;
+}): Promise<{
+  success: boolean;
+  message: string;
+  phoneInfo?: { id: string; display_phone_number?: string; verified_name?: string; quality_rating?: string };
+  wabaInfo?: { id: string; name?: string; currency?: string };
+}> {
+  const tokenCheck = validateTokenBeforeRequest(accessToken);
+  if (!tokenCheck.valid) {
+    return { success: false, message: tokenCheck.message || 'Access Token tidak valid.' };
+  }
+  const cleanPhoneId = sanitizeWabaId(phoneNumberId);
+  const cleanWabaId = sanitizeWabaId(wabaAccountId);
+  const version = normalizeWabaApiVersion(apiVersion);
+
+  if (!cleanPhoneId && !cleanWabaId) {
+    return {
+      success: false,
+      message: 'Isi Phone Number ID atau WABA Account ID terlebih dahulu untuk menguji koneksi.'
+    };
+  }
+
+  let phoneInfo: any;
+  let wabaInfo: any;
+  const parts: string[] = [];
+
+  try {
+    if (cleanPhoneId) {
+      const phoneRes = await fetch(
+        `https://graph.facebook.com/${version}/${cleanPhoneId}?fields=id,display_phone_number,verified_name,quality_rating`,
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${tokenCheck.token}` }
+        }
+      );
+      const phoneData = await phoneRes.json();
+      if (!phoneRes.ok) {
+        return {
+          success: false,
+          message: formatMetaApiError(phoneData, 'Gagal memverifikasi Token & Phone Number ID.')
+        };
+      }
+      phoneInfo = phoneData;
+      parts.push(`Nomor WA: ${phoneData.display_phone_number || phoneData.id} (${phoneData.verified_name || 'Terhubung'})`);
+    }
+
+    if (cleanWabaId) {
+      const wabaRes = await fetch(
+        `https://graph.facebook.com/${version}/${cleanWabaId}?fields=id,name,currency`,
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${tokenCheck.token}` }
+        }
+      );
+      const wabaData = await wabaRes.json();
+      if (!wabaRes.ok) {
+        return {
+          success: false,
+          message: formatMetaApiError(wabaData, 'Token valid untuk nomor, tetapi gagal mengakses WABA Account ID.')
+        };
+      }
+      wabaInfo = wabaData;
+      parts.push(`Akun WABA: ${wabaData.name || wabaData.id}`);
+    }
+
+    return {
+      success: true,
+      message: `Koneksi WABA Official Valid! ${parts.join(' • ')}`,
+      phoneInfo,
+      wabaInfo
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || 'Kesalahan jaringan saat menghubungi Meta Graph API.'
+    };
+  }
 }
 
 /**
@@ -153,10 +353,12 @@ export async function sendWabaTemplateMessage({
   bodyParams?: string[];
   buttonUrlParams?: string[];
 }): Promise<{ success: boolean; message: string; response?: any }> {
-  if (!accessToken || !accessToken.trim()) {
-    return { success: false, message: 'Access Token WABA Official belum dikonfigurasi.' };
+  const tokenCheck = validateTokenBeforeRequest(accessToken);
+  if (!tokenCheck.valid) {
+    return { success: false, message: tokenCheck.message || 'Access Token WABA Official belum dikonfigurasi.' };
   }
-  if (!phoneNumberId || !phoneNumberId.trim()) {
+  const cleanPhoneId = sanitizeWabaId(phoneNumberId);
+  if (!cleanPhoneId) {
     return { success: false, message: 'Phone Number ID WABA Official belum dikonfigurasi.' };
   }
   if (!templateName || !templateName.trim()) {
@@ -205,12 +407,12 @@ export async function sendWabaTemplateMessage({
   }
 
   try {
-    const version = (apiVersion || DEFAULT_WABA_API_VERSION).trim();
-    const url = `https://graph.facebook.com/${version}/${phoneNumberId.trim()}/messages`;
+    const version = normalizeWabaApiVersion(apiVersion);
+    const url = `https://graph.facebook.com/${version}/${cleanPhoneId}/messages`;
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken.trim()}`,
+        'Authorization': `Bearer ${tokenCheck.token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
@@ -224,13 +426,9 @@ export async function sendWabaTemplateMessage({
         response: data
       };
     } else {
-      const errMsg =
-        data?.error?.error_user_msg ||
-        data?.error?.message ||
-        'Gagal mengirim pesan template melalui Meta WABA Official.';
       return {
         success: false,
-        message: errMsg,
+        message: formatMetaApiError(data, 'Gagal mengirim pesan template melalui Meta WABA Official.'),
         response: data
       };
     }
@@ -259,10 +457,12 @@ export async function sendWabaTextMessage({
   target: string;
   message: string;
 }): Promise<{ success: boolean; message: string; response?: any }> {
-  if (!accessToken || !accessToken.trim()) {
-    return { success: false, message: 'Access Token WABA Official belum dikonfigurasi.' };
+  const tokenCheck = validateTokenBeforeRequest(accessToken);
+  if (!tokenCheck.valid) {
+    return { success: false, message: tokenCheck.message || 'Access Token WABA Official belum dikonfigurasi.' };
   }
-  if (!phoneNumberId || !phoneNumberId.trim()) {
+  const cleanPhoneId = sanitizeWabaId(phoneNumberId);
+  if (!cleanPhoneId) {
     return { success: false, message: 'Phone Number ID WABA Official belum dikonfigurasi.' };
   }
 
@@ -272,12 +472,12 @@ export async function sendWabaTextMessage({
   }
 
   try {
-    const version = (apiVersion || DEFAULT_WABA_API_VERSION).trim();
-    const url = `https://graph.facebook.com/${version}/${phoneNumberId.trim()}/messages`;
+    const version = normalizeWabaApiVersion(apiVersion);
+    const url = `https://graph.facebook.com/${version}/${cleanPhoneId}/messages`;
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken.trim()}`,
+        'Authorization': `Bearer ${tokenCheck.token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -300,13 +500,9 @@ export async function sendWabaTextMessage({
         response: data
       };
     } else {
-      const errMsg =
-        data?.error?.error_user_msg ||
-        data?.error?.message ||
-        'Gagal mengirim pesan teks melalui Meta WABA Official.';
       return {
         success: false,
-        message: errMsg,
+        message: formatMetaApiError(data, 'Gagal mengirim pesan teks melalui Meta WABA Official.'),
         response: data
       };
     }
@@ -342,10 +538,18 @@ export async function submitWabaTemplate(
     otpButtonText = 'Salin Kode'
   } = input;
 
-  if (!accessToken?.trim() || !wabaAccountId?.trim()) {
+  const tokenCheck = validateTokenBeforeRequest(accessToken);
+  if (!tokenCheck.valid) {
     return {
       success: false,
-      message: 'Access Token dan WhatsApp Business Account ID (WABA ID) wajib diisi untuk mengajukan template.'
+      message: tokenCheck.message || 'Access Token WABA Official tidak valid.'
+    };
+  }
+  const cleanWabaId = sanitizeWabaId(wabaAccountId);
+  if (!cleanWabaId) {
+    return {
+      success: false,
+      message: 'WhatsApp Business Account ID (WABA ID) wajib diisi untuk mengajukan template.'
     };
   }
 
@@ -437,12 +641,12 @@ export async function submitWabaTemplate(
   }
 
   try {
-    const version = (apiVersion || DEFAULT_WABA_API_VERSION).trim();
-    const url = `https://graph.facebook.com/${version}/${wabaAccountId.trim()}/message_templates`;
+    const version = normalizeWabaApiVersion(apiVersion);
+    const url = `https://graph.facebook.com/${version}/${cleanWabaId}/message_templates`;
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken.trim()}`,
+        'Authorization': `Bearer ${tokenCheck.token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
@@ -458,13 +662,9 @@ export async function submitWabaTemplate(
         response: data
       };
     } else {
-      const errMsg =
-        data?.error?.error_user_msg ||
-        data?.error?.message ||
-        'Gagal mengajukan template ke Meta WABA Official.';
       return {
         success: false,
-        message: errMsg,
+        message: formatMetaApiError(data, 'Gagal mengajukan template ke Meta WABA Official.'),
         response: data
       };
     }
@@ -488,21 +688,30 @@ export async function fetchWabaTemplates({
   wabaAccountId: string;
   apiVersion?: string;
 }): Promise<{ success: boolean; templates: WabaTemplateRecord[]; message: string }> {
-  if (!accessToken?.trim() || !wabaAccountId?.trim()) {
+  const tokenCheck = validateTokenBeforeRequest(accessToken);
+  if (!tokenCheck.valid) {
     return {
       success: false,
       templates: [],
-      message: 'Access Token dan WABA Account ID wajib diisi untuk melihat daftar template.'
+      message: tokenCheck.message || 'Access Token WABA Official tidak valid.'
+    };
+  }
+  const cleanWabaId = sanitizeWabaId(wabaAccountId);
+  if (!cleanWabaId) {
+    return {
+      success: false,
+      templates: [],
+      message: 'WABA Account ID wajib diisi untuk melihat daftar template.'
     };
   }
 
   try {
-    const version = (apiVersion || DEFAULT_WABA_API_VERSION).trim();
-    const url = `https://graph.facebook.com/${version}/${wabaAccountId.trim()}/message_templates?fields=id,name,status,category,language,components,rejected_reason&limit=50`;
+    const version = normalizeWabaApiVersion(apiVersion);
+    const url = `https://graph.facebook.com/${version}/${cleanWabaId}/message_templates?fields=id,name,status,category,language,components,rejected_reason&limit=50`;
     const res = await fetch(url, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${accessToken.trim()}`
+        'Authorization': `Bearer ${tokenCheck.token}`
       }
     });
 
@@ -514,11 +723,11 @@ export async function fetchWabaTemplates({
         message: `Berhasil memuat ${data.data.length} template dari WABA Official.`
       };
     } else {
-      const errMsg =
-        data?.error?.error_user_msg ||
-        data?.error?.message ||
-        'Gagal mengambil daftar template WABA Official.';
-      return { success: false, templates: [], message: errMsg };
+      return {
+        success: false,
+        templates: [],
+        message: formatMetaApiError(data, 'Gagal mengambil daftar template WABA Official.')
+      };
     }
   } catch (error: any) {
     return {
@@ -543,16 +752,21 @@ export async function deleteWabaTemplate({
   apiVersion?: string;
   templateName: string;
 }): Promise<{ success: boolean; message: string }> {
-  if (!accessToken?.trim() || !wabaAccountId?.trim() || !templateName?.trim()) {
+  const tokenCheck = validateTokenBeforeRequest(accessToken);
+  if (!tokenCheck.valid) {
+    return { success: false, message: tokenCheck.message || 'Access Token tidak valid.' };
+  }
+  const cleanWabaId = sanitizeWabaId(wabaAccountId);
+  if (!cleanWabaId || !templateName?.trim()) {
     return { success: false, message: 'Parameter hapus template belum lengkap.' };
   }
   try {
-    const version = (apiVersion || DEFAULT_WABA_API_VERSION).trim();
-    const url = `https://graph.facebook.com/${version}/${wabaAccountId.trim()}/message_templates?name=${encodeURIComponent(templateName.trim())}`;
+    const version = normalizeWabaApiVersion(apiVersion);
+    const url = `https://graph.facebook.com/${version}/${cleanWabaId}/message_templates?name=${encodeURIComponent(templateName.trim())}`;
     const res = await fetch(url, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${accessToken.trim()}`
+        'Authorization': `Bearer ${tokenCheck.token}`
       }
     });
     const data = await res.json();
@@ -561,7 +775,7 @@ export async function deleteWabaTemplate({
     }
     return {
       success: false,
-      message: data?.error?.error_user_msg || data?.error?.message || 'Gagal menghapus template WABA.'
+      message: formatMetaApiError(data, 'Gagal menghapus template WABA.')
     };
   } catch (error: any) {
     return { success: false, message: error.message || 'Kesalahan jaringan saat menghapus template.' };

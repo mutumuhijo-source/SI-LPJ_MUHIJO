@@ -28,6 +28,10 @@ import {
   submitWabaTemplate,
   fetchWabaTemplates,
   deleteWabaTemplate,
+  verifyWabaConnection,
+  sanitizeWabaToken,
+  sanitizeWabaId,
+  normalizeWabaApiVersion,
   WhatsappSettings as IWhatsappSettings, 
   DEFAULT_WHATSAPP_SETTINGS,
   DEFAULT_WABA_API_VERSION,
@@ -61,6 +65,8 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showToken, setShowToken] = useState(false);
+  const [checkingConn, setCheckingConn] = useState(false);
+  const [connResult, setConnResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Template Submission State (Ajukan Template WABA Official)
   const [tplName, setTplName] = useState(DEFAULT_STATUS_TEMPLATE_NAME);
@@ -157,8 +163,16 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
     setSaving(true);
     setSaveSuccess(false);
     setError(null);
+    const cleanedSettings: IWhatsappSettings = {
+      ...settings,
+      wabaAccessToken: sanitizeWabaToken(settings.wabaAccessToken),
+      wabaPhoneNumberId: sanitizeWabaId(settings.wabaPhoneNumberId),
+      wabaAccountId: sanitizeWabaId(settings.wabaAccountId),
+      wabaApiVersion: normalizeWabaApiVersion(settings.wabaApiVersion)
+    };
+    setSettings(cleanedSettings);
     try {
-      await saveWhatsappSettings(db, settings, userEmail);
+      await saveWhatsappSettings(db, cleanedSettings, userEmail);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 4000);
     } catch (err: any) {
@@ -166,6 +180,30 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCheckConnection = async () => {
+    setCheckingConn(true);
+    setConnResult(null);
+    const cleanedToken = sanitizeWabaToken(settings.wabaAccessToken);
+    const cleanedPhone = sanitizeWabaId(settings.wabaPhoneNumberId);
+    const cleanedWaba = sanitizeWabaId(settings.wabaAccountId);
+    const cleanedVersion = normalizeWabaApiVersion(settings.wabaApiVersion);
+    setSettings(prev => ({
+      ...prev,
+      wabaAccessToken: cleanedToken,
+      wabaPhoneNumberId: cleanedPhone,
+      wabaAccountId: cleanedWaba,
+      wabaApiVersion: cleanedVersion
+    }));
+    const res = await verifyWabaConnection({
+      accessToken: cleanedToken,
+      phoneNumberId: cleanedPhone,
+      wabaAccountId: cleanedWaba,
+      apiVersion: cleanedVersion
+    });
+    setConnResult({ success: res.success, message: res.message });
+    setCheckingConn(false);
   };
 
   const handleFetchTemplates = async () => {
@@ -372,9 +410,13 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
                 type={showToken ? 'text' : 'password'}
                 required={settings.enabled}
                 className="w-full p-4 pl-11 pr-12 bg-natural-input border-b-2 border-natural-border focus:border-natural-primary outline-none font-mono text-sm tracking-wider" 
-                placeholder="EAA..."
+                placeholder="EAA... (tempel token tanpa kata Bearer atau spasi)"
                 value={settings.wabaAccessToken || ''}
-                onChange={e => setSettings({ ...settings, wabaAccessToken: e.target.value })}
+                onChange={e => {
+                  const cleaned = sanitizeWabaToken(e.target.value);
+                  setSettings({ ...settings, wabaAccessToken: cleaned });
+                  setConnResult(null);
+                }}
               />
               <Key className="w-4 h-4 text-natural-secondary absolute left-4 top-1/2 -translate-y-1/2" />
               <button
@@ -386,6 +428,11 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
                 {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            {settings.wabaAccessToken && !settings.wabaAccessToken.startsWith('EAA') && (
+              <p className="text-[11px] text-amber-700 font-medium">
+                Catatan: Token Meta Cloud API resmi umumnya diawali huruf <span className="font-mono font-bold">EAA...</span>. Jika muncul error <em>&quot;Cannot parse access token&quot;</em>, pastikan Anda tidak menempel token Fonnte atau App Secret.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -399,7 +446,7 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
                 className="w-full p-4 bg-natural-input border-b-2 border-natural-border focus:border-natural-primary outline-none font-mono text-sm font-bold" 
                 placeholder="Contoh: 412345678901234"
                 value={settings.wabaPhoneNumberId || ''}
-                onChange={e => setSettings({ ...settings, wabaPhoneNumberId: e.target.value })}
+                onChange={e => setSettings({ ...settings, wabaPhoneNumberId: sanitizeWabaId(e.target.value) })}
               />
             </div>
 
@@ -412,7 +459,7 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
                 className="w-full p-4 bg-natural-input border-b-2 border-natural-border focus:border-natural-primary outline-none font-mono text-sm font-bold" 
                 placeholder="Contoh: 512345678901234"
                 value={settings.wabaAccountId || ''}
-                onChange={e => setSettings({ ...settings, wabaAccountId: e.target.value })}
+                onChange={e => setSettings({ ...settings, wabaAccountId: sanitizeWabaId(e.target.value) })}
               />
             </div>
 
@@ -425,7 +472,7 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
                 className="w-full p-4 bg-natural-input border-b-2 border-natural-border focus:border-natural-primary outline-none font-mono text-sm font-bold" 
                 placeholder="v21.0"
                 value={settings.wabaApiVersion || DEFAULT_WABA_API_VERSION}
-                onChange={e => setSettings({ ...settings, wabaApiVersion: e.target.value })}
+                onChange={e => setSettings({ ...settings, wabaApiVersion: e.target.value.trim() })}
               />
             </div>
           </div>
@@ -529,7 +576,28 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
           </div>
         </div>
 
-        <div className="flex justify-end pt-4">
+        {connResult && (
+          <div className={`p-4 rounded-2xl border flex items-start gap-3 text-xs ${connResult.success ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`}>
+            {connResult.success ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+            )}
+            <span className="leading-relaxed">{connResult.message}</span>
+          </div>
+        )}
+
+        <div className="flex flex-wrap justify-end items-center gap-3 pt-4">
+          <button
+            type="button"
+            disabled={checkingConn || !settings.wabaAccessToken}
+            onClick={handleCheckConnection}
+            className="px-6 py-4 rounded-full border border-natural-border bg-natural-bg hover:bg-natural-primary hover:text-white text-natural-primary font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${checkingConn ? 'animate-spin' : ''}`} />
+            <span>{checkingConn ? 'Mengecek Token...' : 'Cek Koneksi & Validasi Token'}</span>
+          </button>
+
           <button 
             type="submit" 
             disabled={saving}
