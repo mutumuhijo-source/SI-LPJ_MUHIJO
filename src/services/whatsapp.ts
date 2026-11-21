@@ -129,6 +129,7 @@ export function formatMetaApiError(data: any, fallbackMessage: string): string {
     data?.error?.message ||
     fallbackMessage;
   const code = data?.error?.code;
+  const subcode = data?.error?.error_subcode;
 
   if (
     code === 190 ||
@@ -140,6 +141,20 @@ export function formatMetaApiError(data: any, fallbackMessage: string): string {
       `Pastikan Anda memasukkan Access Token Meta WhatsApp Cloud API yang valid (biasanya diawali "EAA..."), ` +
       `tanpa kata "Bearer ", tanpa spasi/baris baru/tanda kutip, serta bukan token Fonnte atau App Secret. ` +
       `Untuk pemakaian permanen, buat token di Meta Business Suite -> Pengaturan Bisnis -> Pengguna Sistem (System Users) dengan izin "whatsapp_business_messaging" & "whatsapp_business_management".`
+    );
+  }
+
+  if (
+    code === 10 ||
+    subcode === 2388185 ||
+    /does not have permission to create message template/i.test(rawMsg) ||
+    /application does not have permission for this action/i.test(rawMsg)
+  ) {
+    return (
+      `${rawMsg} (Kode: ${code ?? '-'} / Subkode: ${subcode ?? '-'}). ` +
+      `Penyebab umum: (1) Anda memakai Akun/Nomor Uji Coba Sandbox Meta (Test WhatsApp Business Account) yang dibatasi membuat template lewat API, ` +
+      `atau (2) System User / Token belum diberi akses Kontrol Penuh (Manage) atas Akun WhatsApp (WABA) dan scope "whatsapp_business_management" di Meta Business Suite. ` +
+      `Anda juga bisa membuat template langsung di Meta WhatsApp Manager lalu klik "Muat / Segarkan Status Template" di aplikasi ini.`
     );
   }
 

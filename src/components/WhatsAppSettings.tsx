@@ -16,7 +16,8 @@ import {
   EyeOff,
   Trash2,
   Sparkles,
-  Check
+  Check,
+  Copy
 } from 'lucide-react';
 import { Firestore } from 'firebase/firestore';
 import { safeConfirm } from '../lib/utils';
@@ -82,6 +83,21 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
   const [tplAuthBtnText, setTplAuthBtnText] = useState('Salin Kode');
   const [submittingTpl, setSubmittingTpl] = useState(false);
   const [submitTplResult, setSubmitTplResult] = useState<{ success: boolean; message: string; response?: any } | null>(null);
+  const [copiedTpl, setCopiedTpl] = useState(false);
+
+  const handleCopyTemplateDraft = async () => {
+    const content =
+      tplCategory === 'AUTHENTICATION'
+        ? `Nama: ${tplName}\nKategori: AUTHENTICATION\nBahasa: ${tplLanguage}\nMasa Berlaku: ${tplAuthExpMin} menit\nTeks Tombol OTP: ${tplAuthBtnText}`
+        : `Nama: ${tplName}\nKategori: ${tplCategory}\nBahasa: ${tplLanguage}${tplHeaderText ? `\nHeader: ${tplHeaderText}` : ''}\n\nBody:\n${tplBodyText}${tplFooterText ? `\n\nFooter: ${tplFooterText}` : ''}`;
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedTpl(true);
+      setTimeout(() => setCopiedTpl(false), 3000);
+    } catch {
+      // Fallback ignored if clipboard permission denied
+    }
+  };
 
   // Registered Templates List State
   const [wabaTemplates, setWabaTemplates] = useState<WabaTemplateRecord[]>([]);
@@ -828,7 +844,7 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
               </>
             )}
 
-            <div className="pt-2">
+            <div className="pt-2 flex flex-wrap items-center gap-3">
               <button
                 type="submit"
                 disabled={submittingTpl || !settings.wabaAccessToken || !settings.wabaAccountId}
@@ -846,12 +862,21 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
                   </>
                 )}
               </button>
-              {(!settings.wabaAccessToken || !settings.wabaAccountId) && (
-                <p className="text-[11px] text-amber-700 italic mt-2">
-                  *Isi &amp; simpan Permanent Access Token dan WABA Account ID terlebih dahulu untuk mengajukan template ke Meta.
-                </p>
-              )}
+              <button
+                type="button"
+                onClick={handleCopyTemplateDraft}
+                className="w-full sm:w-auto px-5 py-3.5 bg-natural-bg hover:bg-natural-primary hover:text-white text-natural-primary border border-natural-border rounded-full text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                title="Salin format template untuk dibuat secara manual di Meta WhatsApp Manager"
+              >
+                {copiedTpl ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedTpl ? 'Draft Template Tersalin!' : 'Salin Draft Template (Input Manual Meta)'}</span>
+              </button>
             </div>
+            {(!settings.wabaAccessToken || !settings.wabaAccountId) && (
+              <p className="text-[11px] text-amber-700 italic mt-2">
+                *Isi &amp; simpan Permanent Access Token dan WABA Account ID terlebih dahulu untuk mengajukan template ke Meta.
+              </p>
+            )}
           </div>
 
           {/* Live WhatsApp Bubble Preview */}
@@ -898,11 +923,53 @@ export const WhatsAppSettings = ({ db, userEmail }: { db: Firestore; userEmail?:
             ) : (
               <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
             )}
-            <div className="space-y-1 overflow-hidden w-full">
+            <div className="space-y-2 overflow-hidden w-full">
               <p className="font-bold">
                 {submitTplResult.success ? 'Pengajuan Template Berhasil!' : 'Pengajuan Template Gagal'}
               </p>
-              <p className="text-xs">{submitTplResult.message}</p>
+              <p className="text-xs leading-relaxed">{submitTplResult.message}</p>
+
+              {!submitTplResult.success &&
+                (submitTplResult.response?.error?.code === 10 ||
+                  submitTplResult.response?.error?.error_subcode === 2388185) && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-950 space-y-2 text-xs">
+                    <p className="font-bold text-amber-900">
+                      Cara Mengatasi Error Izin Pembuatan Template (Code 10 / Subcode 2388185):
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1 text-[11px] leading-relaxed">
+                      <li>
+                        <strong>Pastikan bukan Akun Sandbox/Test WABA:</strong> Nomor uji coba bawaan Meta (<em>Test Number</em>) sering dibatasi tidak bisa membuat template baru via API. Gunakan Akun WhatsApp Business asli sekolah.
+                      </li>
+                      <li>
+                        <strong>Berikan Akses Kontrol Penuh ke System User:</strong> Buka <em>Meta Business Suite → Pengaturan Bisnis → Pengguna Sistem</em> → klik System User → <strong>Tetapkan Aset → Akun WhatsApp</strong> → aktifkan <strong>Kontrol Penuh (Kelola)</strong>, lalu buat token baru dengan izin <code className="font-mono bg-amber-100 px-1 rounded">whatsapp_business_management</code> &amp; <code className="font-mono bg-amber-100 px-1 rounded">whatsapp_business_messaging</code>.
+                      </li>
+                      <li>
+                        <strong>Alternatif Buat Manual (Langsung Berhasil):</strong> Klik tombol <strong>&quot;Salin Draft Template&quot;</strong> di atas, buat template langsung melalui <strong>Meta WhatsApp Manager</strong>, lalu klik <strong>&quot;Muat / Segarkan Status Template&quot;</strong> di bawah untuk menyinkronkannya ke sistem ini.
+                      </li>
+                    </ol>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <a
+                        href="https://business.facebook.com/settings/system-users"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-[11px] font-bold text-amber-900 hover:bg-amber-100"
+                      >
+                        <span>Buka System Users Meta</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                      <a
+                        href="https://business.facebook.com/wa/manage/message-templates/"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[11px] font-bold hover:bg-emerald-700"
+                      >
+                        <span>Buat Langsung di WhatsApp Manager</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+                )}
+
               {submitTplResult.response && (
                 <pre className="text-[10px] font-mono bg-black/5 p-2 rounded mt-2 overflow-x-auto">
                   {JSON.stringify(submitTplResult.response, null, 2)}
